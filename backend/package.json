@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "cron:predictions": "node jobs/generateDailyPredictions.js"
+    "cron:predictions": "node scripts/run-daily-predictions.js"
   },
   "dependencies": {
     "@upstash/redis": "^1.34.9",
+    "dotenv": "^16.5.0",
     "next": "^15.4.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

@@ -163,22 +163,4 @@ export async function generateDailyPredictions() {
   return payload;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Standalone runner  —  node jobs/generateDailyPredictions.js
-// (same pattern as TriggerMap local-worker)
-// ─────────────────────────────────────────────────────────────
-if (import.meta.url === `file://${process.argv[1]}`) {
-  // Load .env when running directly (not via Next.js)
-  const { config } = await import('dotenv');
-  config({ path: new URL('../.env', import.meta.url).pathname });
-
-  generateDailyPredictions()
-    .then((result) => {
-      console.log('[LLM] Done:', JSON.stringify(result, null, 2));
-      process.exit(0);
-    })
-    .catch((err) => {
-      console.error('[LLM] Fatal:', err);
-      process.exit(1);
-    });
-}
+export { generateDailyPredictions };
