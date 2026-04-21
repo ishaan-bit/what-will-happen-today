@@ -162,5 +162,3 @@ export async function generateDailyPredictions() {
   console.log(`[LLM] Stored predictions for ${dateKey}. Categories: ${Object.keys(results).join(', ')}`);
   return payload;
 }
-
-export { generateDailyPredictions };
