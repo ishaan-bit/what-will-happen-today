@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "What Will Happen Today",
+    "slug": "wwht",
+    "scheme": "wwht",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#07080f"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#07080f",
+          "image": "./assets/splash.png",
+          "imageWidth": 200
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "useLegacyPackaging": false,
+            "newArchEnabled": false
+          }
+        }
+      ],
+      "./plugins/withReactNativeIapPlayStore",
+      "expo-font"
+    ],
+    "android": {
+      "package": "com.wwht.app",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_NETWORK_STATE"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#07080f"
+      }
+    },
+    "newArchEnabled": false,
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "acbf45c1-6fab-4ea6-ad5d-7540aca9a1a5"
+      }
+    },
+    "owner": "qdenxp"
+  }
+}

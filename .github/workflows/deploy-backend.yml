@@ -1,0 +1,41 @@
+name: Deploy Backend to Vercel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel (Production)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BACKEND }}
+        # GitHub Secrets to add in repo settings:
+        #   VERCEL_TOKEN  = vca_6RcL5aUZjSTpaTRsXNpC8C2geMp5vlMGNFK8RkvZeZRT23k8uH3vetEy
+        #   VERCEL_ORG_ID = team_nkUMuU8uMmlsspbZHcrOdBqC
+        #   VERCEL_PROJECT_ID_BACKEND = prj_Jtu0EAeUvinUaCnw2Uc76DVTAjZu
+        #   EXPO_TOKEN = (from expo.dev account settings)
+        run: |
+          cd backend
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          vercel build --prod --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN

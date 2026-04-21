@@ -1,0 +1,25 @@
+{
+  "name": "wwht-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "cron:predictions": "node jobs/generateDailyPredictions.js"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.34.9",
+    "next": "^15.4.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^9",
+    "eslint-config-next": "^15.4.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

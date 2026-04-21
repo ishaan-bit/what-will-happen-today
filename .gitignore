@@ -1,0 +1,30 @@
+node_modules/
+.expo/
+dist/
+build/
+android/
+ios/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.env
+.env.local
+*.env*.local
+google-services.json
+
+# Build artifacts
+*.aab
+*.apk
+build-preview.aab
+
+# Backend
+backend/node_modules/
+backend/.next/
+backend/.vercel/
+
+# Vercel
+.vercel/
