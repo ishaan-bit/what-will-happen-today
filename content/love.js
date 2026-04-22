@@ -299,7 +299,6 @@ export const love = [
     timing: 'You will feel this most before you sleep.',
     shareSnippet: 'Someone close to you will need something from you unexpectedly today.',
   },
-  },
   {
     id: 'L038',
     teaser: 'You\'ll encounter someone today who reminds you of what you\'ve been missing.',
