@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { getPredictions } from '@/services/predictionEngine';
-import { isUnlocked } from '@/services/storageService';
-import { setLastOpened, isFirstOpenToday } from '@/services/storageService';
+import { isUnlocked, setLastOpened, isFirstOpenToday } from '@/services/storageService';
+import { getDailyFreeCategory } from '@/utils/freeCategory';
 import { track, Events } from '@/services/analyticsService';
 
 const PredictionsContext = createContext(null);
@@ -10,6 +10,9 @@ export function PredictionsProvider({ children }) {
   const [predictions, setPredictions] = useState(null);
   const [unlocked, setUnlocked] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Deterministic from today's date — no async needed
+  const freeCategory = getDailyFreeCategory();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -25,14 +28,16 @@ export function PredictionsProvider({ children }) {
 
       if (firstOpen) {
         await setLastOpened();
-        track(Events.APP_OPEN);
+        track(Events.APP_OPEN, { free_category: freeCategory });
       }
+
+      track(Events.DAILY_SCREEN_VIEW, { free_category: freeCategory });
     } catch (err) {
       console.warn('[usePredictions] load error:', err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [freeCategory]);
 
   useEffect(() => {
     load();
@@ -45,7 +50,9 @@ export function PredictionsProvider({ children }) {
   }, []);
 
   return (
-    <PredictionsContext.Provider value={{ predictions, unlocked, loading, refreshUnlock }}>
+    <PredictionsContext.Provider
+      value={{ predictions, unlocked, loading, refreshUnlock, freeCategory }}
+    >
       {children}
     </PredictionsContext.Provider>
   );

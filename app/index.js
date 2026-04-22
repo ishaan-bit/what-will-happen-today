@@ -1,8 +1,8 @@
 /**
- * Home Screen – the entire app experience in one screen.
+ * Home Screen – free category rotation + conversion-ready paywall flow.
  *
- * Renders immediately with local predictions (no network dependency).
- * Four expandable category cards + paywall modal.
+ * One category is free each day (rotates daily). The other three are locked
+ * behind the paywall. Unlocked users see all four cards fully expanded.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -18,17 +18,17 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { ScreenShell } from '@/components/ScreenShell';
 import { DayHeader } from '@/components/DayHeader';
-import { PredictionCard } from '@/components/PredictionCard';
-import { UnlockModal } from '@/components/UnlockModal';
+import { SignalCard } from '@/components/SignalCard';
+import { PaywallSheet } from '@/components/PaywallSheet';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { usePredictions } from '@/hooks/usePredictions';
-import { palette, spacing } from '@/utils/theme';
-
-const CATEGORY_ORDER = ['love', 'career', 'money', 'mood'];
+import { getCategoryOrder } from '@/utils/freeCategory';
+import { palette, spacing, type } from '@/utils/theme';
+import { track, Events } from '@/services/analyticsService';
 
 export default function HomeScreen() {
-  const { predictions, unlocked, loading, refreshUnlock } = usePredictions();
-  const [paywallVisible, setPaywallVisible] = useState(false);
+  const { predictions, unlocked, loading, refreshUnlock, freeCategory } = usePredictions();
+  const [paywallCategory, setPaywallCategory] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   // Hide splash screen once initial prediction load completes
@@ -39,17 +39,24 @@ export default function HomeScreen() {
   }, [loading]);
 
   // Auto-close paywall when unlock state transitions to true
-  // (triggered by BillingBridge → refreshUnlock after purchase listener fires)
   const prevUnlocked = useRef(unlocked);
   useEffect(() => {
-    if (!prevUnlocked.current && unlocked && paywallVisible) {
-      setPaywallVisible(false);
+    if (!prevUnlocked.current && unlocked && paywallCategory !== null) {
+      setPaywallCategory(null);
     }
     prevUnlocked.current = unlocked;
-  }, [unlocked, paywallVisible]);
+  }, [unlocked, paywallCategory]);
 
-  const handleUnlockPress = useCallback(() => {
-    setPaywallVisible(true);
+  // Track free card impression once predictions + freeCategory are ready
+  useEffect(() => {
+    if (predictions && freeCategory) {
+      track(Events.FREE_CARD_IMPRESSION, { category: freeCategory });
+    }
+  }, [predictions, freeCategory]);
+
+  const handleUnlockPress = useCallback((category) => {
+    setPaywallCategory(category);
+    track(Events.PAYWALL_VIEW, { category, entry_point: 'home_locked_card' });
   }, []);
 
   const handleRefresh = useCallback(async () => {
@@ -58,16 +65,15 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [refreshUnlock]);
 
+  const categoryOrder = getCategoryOrder(freeCategory);
+
   return (
     <ScreenShell>
       <StatusBar style="light" translucent backgroundColor="transparent" />
 
       {/* Atmospheric top glow */}
       <LinearGradient
-        colors={[
-          'rgba(201,169,110,0.06)',
-          'rgba(7,8,15,0)',
-        ]}
+        colors={['rgba(201,169,110,0.06)', 'rgba(7,8,15,0)']}
         style={styles.topGlow}
         pointerEvents="none"
       />
@@ -85,38 +91,52 @@ export default function HomeScreen() {
           />
         }
       >
-        <DayHeader />
+        <DayHeader unlocked={unlocked} />
 
-        {/* Category teaser line below the header */}
-        <View style={styles.subtitleRow}>
-          <Text style={styles.subtitleText}>Your patterns for today.</Text>
-          {unlocked && (
-            <Text style={styles.unlockedBadge}>✦ Unlocked</Text>
-          )}
-        </View>
+        {loading && !predictions ? (
+          [0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)
+        ) : (
+          <>
+            {/* --- FREE SIGNAL --- */}
+            <Text style={styles.sectionLabel}>THIS SHOWED UP FOR YOU TODAY</Text>
+            <SignalCard
+              category={categoryOrder[0]}
+              prediction={predictions?.[categoryOrder[0]]}
+              isFree={!unlocked}
+              isUnlocked={unlocked}
+              onUnlockPress={() => handleUnlockPress(categoryOrder[0])}
+            />
 
-        {/* Prediction cards */}
-        {loading && !predictions
-          ? CATEGORY_ORDER.map((cat) => <SkeletonCard key={cat} />)
-          : CATEGORY_ORDER.map((cat) => (
-              <PredictionCard
-                key={cat}
-                category={cat}
-                prediction={predictions?.[cat]}
-                unlocked={unlocked}
-                onUnlockPress={handleUnlockPress}
+            {/* --- MORE FOR TODAY --- */}
+            {!unlocked && (
+              <Text style={styles.sectionLabelDim}>MORE FOR TODAY</Text>
+            )}
+            {[1, 2, 3].map((i) => (
+              <SignalCard
+                key={categoryOrder[i]}
+                category={categoryOrder[i]}
+                prediction={predictions?.[categoryOrder[i]]}
+                isFree={false}
+                isUnlocked={unlocked}
+                onUnlockPress={() => handleUnlockPress(categoryOrder[i])}
               />
             ))}
 
-        {/* Bottom breathing room */}
+            {!unlocked && (
+              <Text style={styles.footerNote}>
+                One free signal every day. Unlock the rest for ₹29.
+              </Text>
+            )}
+          </>
+        )}
+
         <View style={styles.bottomSpace} />
       </ScrollView>
 
-      {/* Paywall */}
-      <UnlockModal
-        visible={paywallVisible}
-        onDismiss={() => setPaywallVisible(false)}
-
+      <PaywallSheet
+        visible={paywallCategory !== null}
+        onDismiss={() => setPaywallCategory(null)}
+        entryCategory={paywallCategory}
       />
     </ScreenShell>
   );
@@ -137,25 +157,27 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   scrollContent: {
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
   },
-  subtitleRow: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  subtitleText: {
-    fontSize: 13,
+  sectionLabel: {
+    ...type.kicker,
     color: palette.textMuted,
-    letterSpacing: 0.3,
+    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
   },
-  unlockedBadge: {
-    fontSize: 11,
-    color: palette.accent,
-    letterSpacing: 0.5,
-    fontWeight: '600',
+  sectionLabelDim: {
+    ...type.kicker,
+    color: palette.textDim,
+    marginBottom: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  footerNote: {
+    ...type.caption,
+    color: palette.textDim,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
   },
   bottomSpace: {
     height: spacing.xxl,
