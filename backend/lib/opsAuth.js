@@ -6,13 +6,13 @@
 import { timingSafeEqual } from 'node:crypto';
 
 export function requireOpsAuth(req, res) {
-  const expected = process.env.OPS_KEY;
+  const expected = (process.env.OPS_KEY || '').trim();
   if (!expected) {
     res.status(503).json({ error: 'ops_disabled', message: 'OPS_KEY not configured on server' });
     return false;
   }
-  const provided = req.headers['x-ops-key'] || '';
-  if (typeof provided !== 'string' || provided.length !== expected.length) {
+  const provided = (req.headers['x-ops-key'] || '').toString().trim();
+  if (provided.length !== expected.length) {
     res.status(401).json({ error: 'unauthorized' });
     return false;
   }

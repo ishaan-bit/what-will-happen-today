@@ -28,3 +28,11 @@ backend/.vercel/
 
 # Vercel
 .vercel/
+
+# Local ops infrastructure
+backend/.ops-key.local.txt
+local-worker/node_modules/
+local-worker/.env
+ops-console/node_modules/
+ops-console/.next/
+ops-console/.env*.local
