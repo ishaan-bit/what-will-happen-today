@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { Alert } from 'react-native';
 import {
   initBilling,
   teardownBilling,
@@ -16,16 +17,25 @@ export function BillingProvider({ children, onPurchaseComplete }) {
   const [products, setProducts] = useState([]);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [initStatus, setInitStatus] = useState({ ready: false, reason: null });
 
   useEffect(() => {
-    initBilling(async ({ productId }) => {
-      track(Events.PURCHASE_SUCCESS, { productId });
-      if (onPurchaseComplete) onPurchaseComplete({ productId });
-    });
-
-    fetchProducts().then(setProducts).catch(() => null);
-
-    return () => teardownBilling();
+    let mounted = true;
+    (async () => {
+      const result = await initBilling(async ({ productId }) => {
+        track(Events.PURCHASE_SUCCESS, { productId });
+        if (onPurchaseComplete) onPurchaseComplete({ productId });
+      });
+      if (!mounted) return;
+      setInitStatus({ ready: result.ok, reason: result.reason || null });
+      if (result.ok) {
+        fetchProducts().then((p) => mounted && setProducts(p)).catch(() => null);
+      }
+    })();
+    return () => {
+      mounted = false;
+      teardownBilling();
+    };
   }, [onPurchaseComplete]);
 
   const getPrice = useCallback(
@@ -36,8 +46,21 @@ export function BillingProvider({ children, onPurchaseComplete }) {
     [products]
   );
 
+  const ensureReady = useCallback(() => {
+    if (!initStatus.ready) {
+      Alert.alert(
+        'Payments unavailable',
+        'In-app purchases are not active in this build. Please install the latest version from Google Play (internal testing track).',
+        [{ text: 'OK' }]
+      );
+      return false;
+    }
+    return true;
+  }, [initStatus.ready]);
+
   const buyDaily = useCallback(async () => {
     if (purchasing) return;
+    if (!ensureReady()) return;
     track(Events.PURCHASE_START, { productId: PRODUCT_DAILY });
     setPurchasing(true);
     try {
@@ -45,15 +68,16 @@ export function BillingProvider({ children, onPurchaseComplete }) {
     } catch (err) {
       if (err.message !== 'Purchase cancelled') {
         track(Events.PURCHASE_FAIL, { productId: PRODUCT_DAILY, reason: err.message });
+        Alert.alert('Purchase failed', err.message, [{ text: 'OK' }]);
       }
-      throw err;
     } finally {
       setPurchasing(false);
     }
-  }, [purchasing]);
+  }, [purchasing, ensureReady]);
 
   const buyFull = useCallback(async () => {
     if (purchasing) return;
+    if (!ensureReady()) return;
     track(Events.PURCHASE_START, { productId: PRODUCT_FULL });
     setPurchasing(true);
     try {
@@ -61,27 +85,41 @@ export function BillingProvider({ children, onPurchaseComplete }) {
     } catch (err) {
       if (err.message !== 'Purchase cancelled') {
         track(Events.PURCHASE_FAIL, { productId: PRODUCT_FULL, reason: err.message });
+        Alert.alert('Purchase failed', err.message, [{ text: 'OK' }]);
       }
-      throw err;
     } finally {
       setPurchasing(false);
     }
-  }, [purchasing]);
+  }, [purchasing, ensureReady]);
 
   const restore = useCallback(async () => {
     if (restoring) return false;
+    if (!ensureReady()) return false;
     track(Events.RESTORE_ATTEMPT);
     setRestoring(true);
     try {
-      return await restorePurchases();
+      const ok = await restorePurchases();
+      if (!ok) {
+        Alert.alert('Nothing to restore', 'No previous purchases found on this Google account.', [{ text: 'OK' }]);
+      }
+      return ok;
     } finally {
       setRestoring(false);
     }
-  }, [restoring]);
+  }, [restoring, ensureReady]);
 
   return (
     <BillingContext.Provider
-      value={{ products, purchasing, restoring, getPrice, buyDaily, buyFull, restore }}
+      value={{
+        products,
+        purchasing,
+        restoring,
+        billingReady: initStatus.ready,
+        getPrice,
+        buyDaily,
+        buyFull,
+        restore,
+      }}
     >
       {children}
     </BillingContext.Provider>

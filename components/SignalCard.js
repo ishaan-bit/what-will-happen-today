@@ -28,7 +28,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { palette, spacing, radius, type, CATEGORY_META } from '@/utils/theme';
-import { CATEGORY_SIGILS } from '@/utils/cosmic';
+import { CATEGORY_SIGILS, getContinuityHint } from '@/utils/cosmic';
 import { tap, expand as expandHaptic, unlock as unlockHaptic } from '@/utils/haptics';
 import { track, Events } from '@/services/analyticsService';
 
@@ -43,6 +43,7 @@ export function SignalCard({ category, prediction, isFree, isUnlocked, onUnlockP
   const [revealing, setRevealing] = useState(false);
   const meta = CATEGORY_META[category] || CATEGORY_META.mood;
   const sigil = CATEGORY_SIGILS[category] || CATEGORY_SIGILS.mood;
+  const continuity = getContinuityHint(category);
   const revealAnim = useRef(new Animated.Value(0)).current;
 
   // ── Fallback shell — no prediction loaded yet (don't render an empty box) ──
@@ -111,13 +112,16 @@ export function SignalCard({ category, prediction, isFree, isUnlocked, onUnlockP
     triggerReveal();
   }, [canRead, expanded, category, isFree, onUnlockPress, triggerReveal, revealAnim]);
 
-  const handleShare = useCallback(async () => {
+  const handleShare = useCallback(async (variant) => {
     if (!canRead) return;
-    track(Events.SHARE_CARD_TAP, { category });
+    track(Events.SHARE_CARD_TAP, { category, variant: variant || 'default' });
     unlockHaptic();
+    const snippet = prediction.shareSnippet || prediction.teaser;
+    let prefix = '';
+    if (variant === 'accurate') prefix = 'This is so accurate it\'s annoying.\n\n';
+    else if (variant === 'reminder') prefix = 'This reminded me of you.\n\n';
+    const text = `${prefix}${snippet}\n\n— What Will Happen Today`;
     try {
-      const text = (prediction.shareSnippet || prediction.teaser) +
-        '\n\n— What Will Happen Today\nYour daily reading: https://wwht.app';
       await Share.share({ message: text });
     } catch (_) {}
   }, [canRead, category, prediction]);
@@ -177,6 +181,13 @@ export function SignalCard({ category, prediction, isFree, isUnlocked, onUnlockP
         <Animated.View style={[styles.body, { opacity: revealAnim }]}>
           <View style={[styles.divider, { backgroundColor: `${meta.color}33` }]} />
 
+          {continuity ? (
+            <View style={styles.continuityRow}>
+              <Text style={styles.continuityIcon}>◌</Text>
+              <Text style={styles.continuityText}>{continuity}</Text>
+            </View>
+          ) : null}
+
           <Text style={styles.fullText}>{prediction.full}</Text>
 
           {prediction.timing ? (
@@ -200,9 +211,32 @@ export function SignalCard({ category, prediction, isFree, isUnlocked, onUnlockP
             </TouchableOpacity>
           ) : null}
 
-          <TouchableOpacity activeOpacity={0.7} onPress={handleShare} style={styles.shareRow}>
-            <Text style={[styles.shareText, { color: meta.color }]}>↗ Send this to someone</Text>
-          </TouchableOpacity>
+          <View style={styles.shareGroup}>
+            <Text style={styles.shareLabel}>SEND THIS TO SOMEONE</Text>
+            <View style={styles.shareRowMulti}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => handleShare('default')}
+                style={[styles.shareChip, { borderColor: `${meta.color}55` }]}
+              >
+                <Text style={[styles.shareChipText, { color: meta.color }]}>↗ Share</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => handleShare('accurate')}
+                style={[styles.shareChip, { borderColor: `${meta.color}33` }]}
+              >
+                <Text style={[styles.shareChipTextDim]}>So accurate it's annoying</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => handleShare('reminder')}
+                style={[styles.shareChip, { borderColor: `${meta.color}33` }]}
+              >
+                <Text style={[styles.shareChipTextDim]}>Reminded me of you</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </Animated.View>
       )}
 
@@ -351,6 +385,24 @@ const styles = StyleSheet.create({
     height: 1,
     marginBottom: spacing.md,
   },
+  continuityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm + 2,
+    paddingHorizontal: spacing.xs,
+  },
+  continuityIcon: {
+    fontSize: 11,
+    color: palette.textDim,
+  },
+  continuityText: {
+    ...type.caption,
+    color: palette.textMuted,
+    fontStyle: 'italic',
+    fontSize: 12,
+    flex: 1,
+  },
   fullText: {
     ...type.body,
     color: palette.textSub,
@@ -403,6 +455,37 @@ const styles = StyleSheet.create({
     ...type.caption,
     fontWeight: '600',
     letterSpacing: 0.3,
+  },
+  shareGroup: {
+    marginTop: spacing.xs,
+  },
+  shareLabel: {
+    ...type.kicker,
+    fontSize: 9,
+    color: palette.textDim,
+    marginBottom: spacing.xs,
+    letterSpacing: 1.5,
+  },
+  shareRowMulti: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  shareChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 6,
+  },
+  shareChipText: {
+    ...type.caption,
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  shareChipTextDim: {
+    ...type.caption,
+    color: palette.textSub,
+    fontSize: 12,
   },
   lockedFooter: {
     borderTopWidth: 1,

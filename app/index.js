@@ -34,7 +34,7 @@ import {
   getDailyWatchFor,
 } from '@/utils/freeCategory';
 import { palette, spacing, type, radius } from '@/utils/theme';
-import { VibeBar } from '@/components/VibeBar';
+import { TodaysSky } from '@/components/TodaysSky';
 import { track, Events } from '@/services/analyticsService';
 import { tap, unlock as unlockHaptic } from '@/utils/haptics';
 
@@ -126,7 +126,7 @@ export default function HomeScreen() {
         }
       >
         <DayHeader unlocked={unlocked} streak={streak} />
-        <VibeBar vibe={vibe} moment={moment} watchFor={watchFor} />
+        <TodaysSky vibe={vibe} moment={moment} watchFor={watchFor} />
 
         {loading && !predictions ? (
           <>
@@ -138,10 +138,10 @@ export default function HomeScreen() {
           <>
             <View style={styles.firstTimeBanner}>
               <Text style={styles.firstTimeKicker}>✦ YOUR FIRST READING ✦</Text>
-              <Text style={styles.firstTimeTitle}>All four cards drawn for you.</Text>
+              <Text style={styles.firstTimeTitle}>Four events. Drawn for today.</Text>
               <Text style={styles.firstTimeBody}>
-                Today only, every signal is open. Tomorrow one stays free —
-                the rest become a reading you choose to unlock.
+                Today only, every event is open. Tomorrow one stays free —
+                the rest must be revealed.
               </Text>
             </View>
 
@@ -175,7 +175,7 @@ export default function HomeScreen() {
         ) : (
           // ────── DAILY FLOW (returning users) ──────
           <>
-            <Text style={styles.sectionLabel}>YOUR CARD FOR TODAY</Text>
+            <Text style={styles.sectionLabel}>THE FIRST EVENT</Text>
             <SignalCard
               category={categoryOrder[0]}
               prediction={predictions?.[categoryOrder[0]]}
@@ -185,7 +185,7 @@ export default function HomeScreen() {
             />
 
             {!unlocked && (
-              <Text style={styles.sectionLabelDim}>THE REST OF THE READING</Text>
+              <Text style={styles.sectionLabelDim}>THREE MORE WAITING TO UNFOLD</Text>
             )}
             {[1, 2, 3].map((i) => (
               <SignalCard
@@ -201,7 +201,7 @@ export default function HomeScreen() {
             {!unlocked && (
               <View style={styles.footerBlock}>
                 <Text style={styles.footerNote}>
-                  One free card every day · ₹29 reveals today, ₹49 the whole month
+                  One event revealed daily · ₹29 reveals today · ₹49 reveals the month
                 </Text>
               </View>
             )}

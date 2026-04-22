@@ -38,6 +38,7 @@ let purchaseErrorSub = null;
  * Initialise IAP connection and attach purchase listeners.
  * Call once at app startup (inside provider).
  * @param {Function} onPurchaseComplete – called with { productId } on success
+ * @returns {Promise<{ok: boolean, reason?: string}>}
  */
 export async function initBilling(onPurchaseComplete) {
   try {
@@ -66,11 +67,14 @@ export async function initBilling(onPurchaseComplete) {
 
     purchaseErrorSub = purchaseErrorListener((error) => {
       if (error.code !== 'E_USER_CANCELLED') {
-        console.warn('[Billing] purchaseError:', error.message);
+        console.warn('[Billing] purchaseError:', error.code, error.message);
       }
     });
+    return { ok: true };
   } catch (err) {
-    console.warn('[Billing] initConnection error:', err.message);
+    const reason = err?.message || 'unknown';
+    console.warn('[Billing] initConnection error:', reason);
+    return { ok: false, reason };
   }
 }
 
@@ -118,8 +122,17 @@ export async function purchaseProduct(productId) {
     if (err.code === 'E_USER_CANCELLED') {
       throw new Error('Purchase cancelled');
     }
+    if (err.code === 'E_ITEM_UNAVAILABLE' || err.code === 'E_SKU_NOT_FOUND') {
+      throw new Error('This unlock is not yet available on Google Play. We are turning it on shortly.');
+    }
+    if (err.code === 'E_NOT_PREPARED' || err.code === 'E_IAP_NOT_AVAILABLE') {
+      throw new Error('In-app purchases are not available in this build. Please install from Google Play.');
+    }
+    if (err.code === 'E_NETWORK_ERROR') {
+      throw new Error('Network issue — check your connection and try again.');
+    }
     console.warn('[Billing] requestPurchase error:', err.code, err.message);
-    throw new Error('Purchase failed. Please try again.');
+    throw new Error(err?.message || 'Purchase failed. Please try again.');
   }
 }
 

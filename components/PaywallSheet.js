@@ -133,9 +133,9 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
         ) : null}
 
         {/* Heading */}
-        <Text style={styles.heading}>One card was free.{'\n'}The reading isn't.</Text>
+        <Text style={styles.heading}>One moment was revealed.{'\n'}The rest is still waiting.</Text>
         <Text style={styles.subheading}>
-          Three signals are still face-down. Turn them over.
+          Three events haven't happened yet today. See them before they do.
         </Text>
 
         {/* Categories row */}
@@ -169,7 +169,7 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
             <View style={styles.optionContent}>
               <View style={styles.optionLeft}>
                 <Text style={styles.optionTitle}>30 days of full readings</Text>
-                <Text style={styles.optionDesc}>All 4 cards, every day · just ₹1.6/day</Text>
+                <Text style={styles.optionDesc}>Every event, every day · just ₹1.6/day</Text>
               </View>
               {purchasing ? (
                 <ActivityIndicator size="small" color={palette.accent} />
@@ -189,8 +189,8 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
         >
           <View style={styles.optionContent}>
             <View style={styles.optionLeft}>
-              <Text style={styles.secondaryTitle}>Just today's reading</Text>
-              <Text style={styles.optionDesc}>All 4 cards, for today only</Text>
+              <Text style={styles.secondaryTitle}>See today's other 3 events</Text>
+              <Text style={styles.optionDesc}>Reveals the rest of today's reading</Text>
             </View>
             {purchasing ? (
               <ActivityIndicator size="small" color={palette.textSub} />
