@@ -7,10 +7,20 @@
 
 import { View, Text, StyleSheet } from 'react-native';
 import { palette, spacing, radius, type } from '@/utils/theme';
+import { getDailyEnergy } from '@/utils/cosmic';
 
 export function VibeBar({ vibe, moment, watchFor }) {
+  const energy = getDailyEnergy();
   return (
     <View style={styles.container}>
+      {/* Cosmic energy banner */}
+      <View style={styles.energyRow}>
+        <Text style={styles.energyGlyph}>{energy.glyph}</Text>
+        <Text style={styles.energyText}>{energy.text}</Text>
+      </View>
+
+      <View style={styles.separator} />
+
       {/* Row 1: vibe */}
       <View style={styles.row}>
         <Text style={styles.label}>Today's vibe</Text>
@@ -89,5 +99,22 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     flex: 1,
     textAlign: 'right',
+  },
+  energyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: spacing.sm,
+  },
+  energyGlyph: {
+    fontSize: 16,
+    color: palette.accent,
+  },
+  energyText: {
+    ...type.caption,
+    color: palette.accent,
+    fontStyle: 'italic',
+    flex: 1,
+    letterSpacing: 0.3,
   },
 });

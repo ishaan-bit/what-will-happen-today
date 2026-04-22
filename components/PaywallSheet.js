@@ -133,9 +133,9 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
         ) : null}
 
         {/* Heading */}
-        <Text style={styles.heading}>You've seen 1 of 4 signals.</Text>
+        <Text style={styles.heading}>One card was free.{'\n'}The reading isn't.</Text>
         <Text style={styles.subheading}>
-          The rest completes the picture.
+          Three signals are still face-down. Turn them over.
         </Text>
 
         {/* Categories row */}
@@ -168,8 +168,8 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
 
             <View style={styles.optionContent}>
               <View style={styles.optionLeft}>
-                <Text style={styles.optionTitle}>All 4 signals, every day</Text>
-                <Text style={styles.optionDesc}>Unlimited access, one payment</Text>
+                <Text style={styles.optionTitle}>30 days of full readings</Text>
+                <Text style={styles.optionDesc}>All 4 cards, every day · just ₹1.6/day</Text>
               </View>
               {purchasing ? (
                 <ActivityIndicator size="small" color={palette.accent} />
@@ -189,8 +189,8 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
         >
           <View style={styles.optionContent}>
             <View style={styles.optionLeft}>
-              <Text style={styles.secondaryTitle}>Complete today</Text>
-              <Text style={styles.optionDesc}>All 4 signals for today only</Text>
+              <Text style={styles.secondaryTitle}>Just today's reading</Text>
+              <Text style={styles.optionDesc}>All 4 cards, for today only</Text>
             </View>
             {purchasing ? (
               <ActivityIndicator size="small" color={palette.textSub} />
@@ -208,7 +208,7 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
             </Text>
           </TouchableOpacity>
           <Text style={styles.legalText}>
-            One-time payment · No subscription · Read them today, let’s see if they land
+            One-time payment via Google Play · No auto-renewal · Cancel anytime{'\n'}Razor-sharp daily readings, drawn fresh at midnight
           </Text>
         </View>
       </Animated.View>

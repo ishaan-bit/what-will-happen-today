@@ -55,4 +55,7 @@ export const Events = {
   // Legacy aliases kept for billing service compatibility
   CATEGORY_TAP: 'category_tap',
   RESTORE_ATTEMPT: 'restore_attempt',
+
+  // First-time onboarding
+  FIRST_TIME_PREVIEW_DISMISS: 'first_time_preview_dismiss',
 };

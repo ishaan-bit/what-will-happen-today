@@ -3,7 +3,7 @@ import { palette, spacing, type } from '@/utils/theme';
 import { getTodayLabel } from '@/utils/dateUtils';
 import { getDailyHookLine } from '@/utils/freeCategory';
 
-export function DayHeader({ unlocked = false }) {
+export function DayHeader({ unlocked = false, streak = 0 }) {
   const label = getTodayLabel();
   const hookLine = getDailyHookLine();
 
@@ -11,9 +11,14 @@ export function DayHeader({ unlocked = false }) {
     <View style={styles.container}>
       <View style={styles.row}>
         <Text style={styles.today}>Today</Text>
-        {unlocked && (
+        {unlocked ? (
           <Text style={styles.unlockedBadge}>✦ All signals unlocked</Text>
-        )}
+        ) : streak > 1 ? (
+          <View style={styles.streakBadge}>
+            <Text style={styles.streakIcon}>✦</Text>
+            <Text style={styles.streakText}>Day {streak}</Text>
+          </View>
+        ) : null}
       </View>
       <Text style={styles.date}>{label}</Text>
       <Text style={styles.hookLine}>{hookLine}</Text>
@@ -52,5 +57,25 @@ const styles = StyleSheet.create({
     color: palette.textSub,
     marginTop: spacing.xs,
     fontStyle: 'italic',
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,110,0.35)',
+    backgroundColor: 'rgba(201,169,110,0.08)',
+  },
+  streakIcon: {
+    color: palette.accent,
+    fontSize: 12,
+  },
+  streakText: {
+    ...type.kicker,
+    color: palette.accent,
+    fontSize: 10,
   },
 });
