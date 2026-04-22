@@ -1,20 +1,29 @@
 # WWHT Local Worker
 
-Lightweight HTTP server that runs on your machine and executes the daily
-Ollama-based prediction generation. The wwht ops console talks to this
-directly because Vercel cannot reach a local LLM.
+Lightweight HTTP server that runs the daily Ollama-based prediction generation.
+The wwht ops console talks to this directly because Vercel cannot reach a local LLM.
 
-## Setup
+## Quick start
 
 ```powershell
 cd local-worker
 npm install
-copy .env.example .env
-# Edit .env — set LOCAL_WORKER_KEY, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
-npm start
+npm run dev
 ```
 
-Default port: **8788** (trigger-map's worker uses 8787 — no conflict).
+That's it. Bootstrap will:
+
+1. Auto-load env from this chain (first hit wins):
+   - `local-worker/.env`
+   - `../backend/.env.local`
+   - `../backend/.env`
+   - `../../trigger-map/backend/.env`
+2. Auto-generate `LOCAL_WORKER_KEY` and persist it to `local-worker/.env`
+   if not already set.
+3. Inherit `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` from
+   the wwht backend (which mirrors trigger-map's Upstash).
+
+Default port: **8788** (trigger-map uses 8787 — no conflict).
 
 ## Endpoints
 
@@ -29,8 +38,6 @@ Default port: **8788** (trigger-map's worker uses 8787 — no conflict).
 Auth: `Authorization: Bearer <LOCAL_WORKER_KEY>`
 
 ## CLI
-
-Skip the server, run the job once:
 
 ```powershell
 node generate.js          # skip if already cached

@@ -5,7 +5,7 @@ import {
   DEFAULT_BACKEND_URL, DEFAULT_WORKER_URL,
 } from '../lib/api.js';
 
-function Login({ onSubmit }) {
+function Login({ onSubmit, bootstrapErr }) {
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
   const [opsKey, setOpsKey] = useState('');
   const [workerUrl, setWorkerUrl] = useState(DEFAULT_WORKER_URL);
@@ -35,6 +35,11 @@ function Login({ onSubmit }) {
       <p style={{ color: '#888', marginTop: 0, marginBottom: 24 }}>
         Connect to backend + local worker.
       </p>
+      {bootstrapErr && (
+        <div style={{ color: '#ffaa8a', fontSize: 12, marginBottom: 16 }}>
+          Auto-bootstrap failed: {bootstrapErr}. Enter creds manually.
+        </div>
+      )}
       <form onSubmit={submit} style={{ display: 'grid', gap: 14 }}>
         <label>
           <div style={{ marginBottom: 6, color: '#aaa' }}>Backend URL</div>
@@ -350,13 +355,47 @@ function Dashboard({ creds, onLogout }) {
 export default function HomePage() {
   const [creds, setCreds] = useState(null);
   const [hydrated, setHydrated] = useState(false);
+  const [bootstrapErr, setBootstrapErr] = useState(null);
 
   useEffect(() => {
-    setCreds(loadCreds());
-    setHydrated(true);
+    let cancelled = false;
+    (async () => {
+      // 1. Try in-browser saved creds first
+      const saved = loadCreds();
+      if (saved && saved.opsKey) {
+        if (!cancelled) { setCreds(saved); setHydrated(true); }
+        return;
+      }
+      // 2. Auto-bootstrap from disk via API route
+      try {
+        const r = await fetch('/api/bootstrap');
+        const data = await r.json();
+        if (data.autoLogin && data.opsKey) {
+          const auto = {
+            backendUrl: data.backendUrl,
+            opsKey: data.opsKey,
+            workerUrl: data.workerUrl,
+            workerKey: data.workerKey || '',
+          };
+          saveCreds(auto);
+          if (!cancelled) { setCreds(auto); setHydrated(true); }
+          return;
+        }
+      } catch (err) {
+        if (!cancelled) setBootstrapErr(err.message);
+      }
+      if (!cancelled) setHydrated(true);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
-  if (!hydrated) return null;
-  if (!creds) return <Login onSubmit={setCreds} />;
+  if (!hydrated) {
+    return (
+      <div style={{ padding: 80, textAlign: 'center', color: '#888' }}>
+        Loading creds…
+      </div>
+    );
+  }
+  if (!creds) return <Login onSubmit={setCreds} bootstrapErr={bootstrapErr} />;
   return <Dashboard creds={creds} onLogout={() => setCreds(null)} />;
 }

@@ -8,7 +8,7 @@
  * Run standalone:  node generate.js [--force]
  */
 
-import 'dotenv/config';
+import 'dotenv/config'; // harmless if env already populated by bootstrap
 import { Redis } from '@upstash/redis';
 
 const OLLAMA_API_URL = process.env.OLLAMA_API_URL || 'http://localhost:11434/v1';

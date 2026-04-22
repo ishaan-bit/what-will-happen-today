@@ -15,7 +15,9 @@
  * Auth: Bearer LOCAL_WORKER_KEY
  */
 
-import 'dotenv/config';
+import { bootstrapEnv } from './bootstrap.js';
+const bootInfo = bootstrapEnv();
+
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { generateAll, JOB_STATE } from './generate.js';
@@ -24,9 +26,13 @@ const PORT = parseInt(process.env.LOCAL_WORKER_PORT || '8788', 10);
 const WORKER_KEY = (process.env.LOCAL_WORKER_KEY || '').trim();
 const OLLAMA_API_URL = process.env.OLLAMA_API_URL || 'http://localhost:11434/v1';
 
-if (!WORKER_KEY || WORKER_KEY === 'change-me-to-a-strong-secret') {
-  console.error('ERROR: Set LOCAL_WORKER_KEY in .env to a strong random secret.');
+if (!WORKER_KEY) {
+  console.error('ERROR: LOCAL_WORKER_KEY missing after bootstrap. Aborting.');
   process.exit(1);
+}
+if (!bootInfo.upstashConfigured) {
+  console.warn('[boot] WARNING: UPSTASH_REDIS_REST_URL/TOKEN not found in any env file.');
+  console.warn('[boot] Tried: ' + bootInfo.sources.map((p) => p.replace(/.*[\\/]/, '')).join(', '));
 }
 
 // ── Active job tracking ──
