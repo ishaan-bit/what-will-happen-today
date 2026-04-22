@@ -190,6 +190,12 @@ export function SignalCard({ category, prediction, isFree, isUnlocked, onUnlockP
 
           <Text style={styles.fullText}>{prediction.full}</Text>
 
+          {prediction.punch ? (
+            <View style={[styles.punchBlock, { borderLeftColor: meta.color }]}>
+              <Text style={styles.punchText}>"{prediction.punch}"</Text>
+            </View>
+          ) : null}
+
           {prediction.timing ? (
             <View style={styles.timingRow}>
               <Text style={[styles.timingIcon, { color: meta.color }]}>◈</Text>
@@ -206,7 +212,7 @@ export function SignalCard({ category, prediction, isFree, isUnlocked, onUnlockP
               }}
               style={[styles.actionBlock, { borderLeftColor: meta.color }]}
             >
-              <Text style={styles.actionLabel}>NOTICE TODAY</Text>
+              <Text style={styles.actionLabel}>WHAT TO DO WHEN IT HAPPENS</Text>
               <Text style={styles.actionText}>{prediction.action}</Text>
             </TouchableOpacity>
           ) : null}
@@ -408,6 +414,18 @@ const styles = StyleSheet.create({
     color: palette.textSub,
     marginBottom: spacing.md,
     lineHeight: 24,
+  },
+  punchBlock: {
+    borderLeftWidth: 3,
+    paddingLeft: spacing.sm + 2,
+    paddingVertical: spacing.xs + 2,
+    marginBottom: spacing.md,
+  },
+  punchText: {
+    ...type.bodyMed,
+    color: palette.text,
+    fontStyle: 'italic',
+    lineHeight: 22,
   },
   timingRow: {
     flexDirection: 'row',

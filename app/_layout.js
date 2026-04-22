@@ -48,6 +48,9 @@ function AppInner() {
   return (
     <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="legal/privacy" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="legal/terms" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );

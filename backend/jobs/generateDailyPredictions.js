@@ -32,11 +32,11 @@ function getRedis() {
 const CATEGORIES = ['love', 'career', 'money', 'mood'];
 const CONCURRENCY = 1; // sequential — Ollama is single-threaded on local GPU
 
-const SYSTEM_PROMPT = `You generate daily prediction content for an astrology-style mobile app.
-Tone: sharp, grounded, slightly mysterious. NOT mystical or spiritual. NOT generic motivation.
-Framing: behavioral and psychological patterns, not astrology mechanics.
-Output must feel personal and slightly uncanny — like a smart friend who knows you well.
-Never mention stars, planets, Mercury, or zodiac mechanics.`;
+const SYSTEM_PROMPT = `You generate daily prediction content for a tarot/astrology-style mobile app called "What Will Happen Today".
+Tone: sharp, predictive, slightly uncomfortable, screenshot-worthy. NOT generic motivation.
+Framing: events that WILL happen today. Use "you will…", "someone will…", "you'll notice…".
+Never say "may", "might", "could", "tends to". Predictions are stated, not suggested.
+Never mention stars, planets, Mercury, or zodiac mechanics directly in the prediction body.`;
 
 const CATEGORY_CONTEXT = {
   love: 'relationships, attraction, communication, emotional dynamics, connection',
@@ -81,15 +81,18 @@ async function ollamaChat({ messages, temperature = 0.85, maxTokens = 300 }) {
 }
 
 async function generateForCategory(category, dateKey) {
-  const prompt = `Generate a daily prediction for the "${category}" category (${CATEGORY_CONTEXT[category]}).
+  const prompt = `Generate today's prediction for the "${category}" category (${CATEGORY_CONTEXT[category]}).
 Date context: ${dateKey}
 
 Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
 {
   "id": "${category.charAt(0).toUpperCase()}_llm_${dateKey}",
-  "teaser": "<one sharp hook sentence, max 15 words, present tense>",
-  "full": "<2-3 sentences of depth. Behavioral and specific. Not vague.>",
-  "action": "<one concrete actionable instruction for today, max 20 words>"
+  "teaser": "<predictive headline. Start with 'You will' or 'Someone will' or 'You'll notice'. Max 16 words. Present/future tense.>",
+  "full": "<2-3 short thought-like lines (use \\n between lines). Internal, real, specific. NOT essay tone.>",
+  "punch": "<one emotionally sharp screenshot-worthy line. Slightly uncomfortable truth. Max 14 words.>",
+  "action": "<sharp instruction for when it happens. Direct, not advisory. Max 18 words.>",
+  "timing": "<experiential time anchor. e.g. 'You'll feel this shift later tonight.' Max 12 words.>",
+  "shareSnippet": "<one-line shareable version of the teaser, no app name. Max 18 words.>"
 }`;
 
   const content = await ollamaChat({

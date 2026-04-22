@@ -12,7 +12,13 @@ const KEYS = {
   FIRST_OPEN_DONE: 'wwht:firstOpenDone',
   STREAK_DAYS: 'wwht:streakDays',
   STREAK_LAST_DATE: 'wwht:streakLastDate',
+  // Lifecycle — 3-day free window then daily-free model
+  FIRST_OPEN_DATE: 'wwht:firstOpenDate',     // YYYY-MM-DD of very first open
+  DAY4_BANNER_SEEN: 'wwht:day4BannerSeen',   // user has dismissed the day-4 transition banner
 };
+
+// First 3 calendar days are full-reveal for every user
+const FREE_WINDOW_DAYS = 3;
 
 const MAX_RECENT = 14; // Don't repeat predictions within 14 days
 
@@ -237,5 +243,63 @@ export async function getStreak() {
     return raw ? parseInt(raw, 10) : 0;
   } catch {
     return 0;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Lifecycle — 3-day free window then daily-free model
+// Day 1, 2, 3 = all 4 cards readable. Day 4+ = 1 free per day.
+// ─────────────────────────────────────────────────────────────
+
+function dayDiff(fromYmd, toYmd) {
+  // Both are YYYY-MM-DD. Difference in calendar days.
+  const a = new Date(fromYmd);
+  const b = new Date(toYmd);
+  return Math.round((b - a) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Returns the user's day number (1-based) since first open.
+ * Records first-open date on the first call ever.
+ */
+export async function getDayNumber() {
+  try {
+    const today = getTodayKey();
+    let firstDate = await AsyncStorage.getItem(KEYS.FIRST_OPEN_DATE);
+    if (!firstDate) {
+      await AsyncStorage.setItem(KEYS.FIRST_OPEN_DATE, today);
+      firstDate = today;
+    }
+    return Math.max(1, dayDiff(firstDate, today) + 1);
+  } catch {
+    return 1;
+  }
+}
+
+/** True if user is still inside the 3-day free reveal window. */
+export async function isInFreeWindow() {
+  const day = await getDayNumber();
+  return day <= FREE_WINDOW_DAYS;
+}
+
+export const FREE_WINDOW = FREE_WINDOW_DAYS;
+
+/** Day-4 transition banner — show once when free window expires. */
+export async function shouldShowDay4Banner() {
+  try {
+    const day = await getDayNumber();
+    if (day < FREE_WINDOW_DAYS + 1) return false;
+    const seen = await AsyncStorage.getItem(KEYS.DAY4_BANNER_SEEN);
+    return seen !== 'true';
+  } catch {
+    return false;
+  }
+}
+
+export async function markDay4BannerSeen() {
+  try {
+    await AsyncStorage.setItem(KEYS.DAY4_BANNER_SEEN, 'true');
+  } catch {
+    // Non-critical
   }
 }

@@ -1,11 +1,11 @@
 /**
  * Home Screen — daily reading of 4 tarot-style signal cards.
  *
- * Behaviour:
- *   - First-ever open: ALL 4 cards readable + a one-time intro banner.
- *     User taps "Begin daily readings" → flips into the standard daily flow.
- *   - Daily flow (returning, not unlocked): 1 free card + 3 locked teasers.
- *   - Unlocked (₹29 today / ₹49 forever): all 4 readable.
+ * Lifecycle:
+ *   - Days 1-3 (free window): all 4 cards open + "Day X of 3" badge.
+ *   - Day 4 (one-time):       transition banner explains the shift.
+ *   - Day 4+ (daily flow):    1 free signal + 3 locked teasers (₹29 / ₹49).
+ *   - Unlocked:               all 4 readable.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -20,6 +20,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import { router } from 'expo-router';
 import { ScreenShell } from '@/components/ScreenShell';
 import { DayHeader } from '@/components/DayHeader';
 import { SignalCard } from '@/components/SignalCard';
@@ -45,19 +46,20 @@ export default function HomeScreen() {
     loading,
     refreshUnlock,
     freeCategory,
-    isFirstEver,
-    dismissFirstEver,
     streak,
+    dayNumber,
+    inFreeWindow,
+    freeWindowSize,
+    showDay4,
+    dismissDay4,
   } = usePredictions();
   const [paywallCategory, setPaywallCategory] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Hide splash once initial load completes
   useEffect(() => {
     if (!loading) SplashScreen.hideAsync().catch(() => null);
   }, [loading]);
 
-  // Auto-close paywall when unlock state flips true
   const prevUnlocked = useRef(unlocked);
   useEffect(() => {
     if (!prevUnlocked.current && unlocked && paywallCategory !== null) {
@@ -66,7 +68,6 @@ export default function HomeScreen() {
     prevUnlocked.current = unlocked;
   }, [unlocked, paywallCategory]);
 
-  // Track free card impression
   useEffect(() => {
     if (predictions && freeCategory) {
       track(Events.FREE_CARD_IMPRESSION, { category: freeCategory });
@@ -84,33 +85,46 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [refreshUnlock]);
 
-  const handleBeginDaily = useCallback(() => {
+  const handleDismissDay4 = useCallback(() => {
     unlockHaptic();
-    track(Events.FIRST_TIME_PREVIEW_DISMISS);
-    dismissFirstEver();
-  }, [dismissFirstEver]);
+    track(Events.FIRST_TIME_PREVIEW_DISMISS, { context: 'day4_transition' });
+    dismissDay4();
+  }, [dismissDay4]);
+
+  const handleSettings = useCallback(() => {
+    tap();
+    router.push('/settings');
+  }, []);
 
   const categoryOrder = getCategoryOrder(freeCategory);
   const vibe = getDailyVibe();
   const moment = getDailyMoment();
   const watchFor = getDailyWatchFor();
 
-  // Effective unlock state: first-time users see all cards too
-  const showAll = unlocked || isFirstEver;
+  // Effective open state: unlocked OR still inside the 3-day free window
+  const showAll = unlocked || inFreeWindow;
 
   return (
     <ScreenShell>
       <StatusBar style="light" translucent backgroundColor="transparent" />
 
-      {/* Star field — subtle backdrop */}
       <StarsBackground />
 
-      {/* Atmospheric top glow */}
       <LinearGradient
         colors={['rgba(201,169,110,0.07)', 'rgba(7,8,15,0)']}
         style={styles.topGlow}
         pointerEvents="none"
       />
+
+      {/* Settings gear (top right) */}
+      <TouchableOpacity
+        onPress={handleSettings}
+        style={styles.settingsBtn}
+        hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.settingsIcon}>⚙</Text>
+      </TouchableOpacity>
 
       <ScrollView
         style={styles.scroll}
@@ -126,6 +140,38 @@ export default function HomeScreen() {
         }
       >
         <DayHeader unlocked={unlocked} streak={streak} />
+
+        {/* Free-window day badge — Day 1/2/3 of 3 */}
+        {!unlocked && inFreeWindow && (
+          <View style={styles.freeBadge}>
+            <Text style={styles.freeBadgeText}>
+              {dayNumber === freeWindowSize
+                ? 'FINAL FREE DAY · ALL SIGNALS UNLOCKED'
+                : `DAY ${dayNumber} OF ${freeWindowSize} · ALL SIGNALS UNLOCKED`}
+            </Text>
+          </View>
+        )}
+
+        {/* Day-4 transition banner — one-time */}
+        {showDay4 && !unlocked && (
+          <View style={styles.day4Banner}>
+            <Text style={styles.day4Kicker}>✦ THE FREE WINDOW IS DONE ✦</Text>
+            <Text style={styles.day4Title}>Your first 3 days are complete.</Text>
+            <Text style={styles.day4Body}>
+              From today, one signal stays free.{'\n'}
+              The rest wait to be revealed.
+            </Text>
+            <TouchableOpacity activeOpacity={0.85} onPress={handleDismissDay4} style={styles.day4Btn}>
+              <LinearGradient
+                colors={['rgba(201,169,110,0.22)', 'rgba(201,169,110,0.10)']}
+                style={styles.day4BtnGradient}
+              >
+                <Text style={styles.day4BtnText}>See today's reading →</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <TodaysSky vibe={vibe} moment={moment} watchFor={watchFor} />
 
         {loading && !predictions ? (
@@ -133,18 +179,12 @@ export default function HomeScreen() {
             <Text style={styles.loadingLabel}>DRAWING YOUR CARDS…</Text>
             {[0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)}
           </>
-        ) : isFirstEver ? (
-          // ────── FIRST-TIME USER: full reveal of all 4 cards ──────
+        ) : showAll ? (
+          // ────── Full reveal: free window OR unlocked ──────
           <>
-            <View style={styles.firstTimeBanner}>
-              <Text style={styles.firstTimeKicker}>✦ YOUR FIRST READING ✦</Text>
-              <Text style={styles.firstTimeTitle}>Four events. Drawn for today.</Text>
-              <Text style={styles.firstTimeBody}>
-                Today only, every event is open. Tomorrow one stays free —
-                the rest must be revealed.
-              </Text>
-            </View>
-
+            <Text style={styles.sectionLabel}>
+              {inFreeWindow ? "TODAY'S FOUR SIGNALS" : 'ALL FOUR SIGNALS UNLOCKED'}
+            </Text>
             {categoryOrder.map((cat) => (
               <SignalCard
                 key={cat}
@@ -155,27 +195,17 @@ export default function HomeScreen() {
                 onUnlockPress={() => handleUnlockPress(cat)}
               />
             ))}
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={handleBeginDaily}
-              style={styles.beginDailyBtn}
-            >
-              <LinearGradient
-                colors={['rgba(201,169,110,0.22)', 'rgba(201,169,110,0.10)']}
-                style={styles.beginDailyGradient}
-              >
-                <Text style={styles.beginDailyText}>Begin daily readings →</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <Text style={styles.firstTimeFooter}>
-              From tomorrow: ₹29 unlocks today · ₹49 unlocks the month
-            </Text>
+            {inFreeWindow && (
+              <Text style={styles.freeWindowFooter}>
+                After day {freeWindowSize}: ₹29 reveals today · ₹49 reveals 30 days
+              </Text>
+            )}
           </>
         ) : (
-          // ────── DAILY FLOW (returning users) ──────
+          // ────── Daily flow (returning users, day 4+) ──────
           <>
-            <Text style={styles.sectionLabel}>THE FIRST EVENT</Text>
+            <Text style={styles.sectionLabel}>TODAY'S REVEALED SIGNAL</Text>
+            <Text style={styles.sectionSub}>This one found you first.</Text>
             <SignalCard
               category={categoryOrder[0]}
               prediction={predictions?.[categoryOrder[0]]}
@@ -184,9 +214,7 @@ export default function HomeScreen() {
               onUnlockPress={() => handleUnlockPress(categoryOrder[0])}
             />
 
-            {!unlocked && (
-              <Text style={styles.sectionLabelDim}>THREE MORE WAITING TO UNFOLD</Text>
-            )}
+            <Text style={styles.sectionLabelDim}>THREE MORE WAITING TO UNFOLD</Text>
             {[1, 2, 3].map((i) => (
               <SignalCard
                 key={categoryOrder[i]}
@@ -198,13 +226,11 @@ export default function HomeScreen() {
               />
             ))}
 
-            {!unlocked && (
-              <View style={styles.footerBlock}>
-                <Text style={styles.footerNote}>
-                  One event revealed daily · ₹29 reveals today · ₹49 reveals the month
-                </Text>
-              </View>
-            )}
+            <View style={styles.footerBlock}>
+              <Text style={styles.footerNote}>
+                One signal revealed daily · ₹29 reveals today · ₹49 reveals 30 days
+              </Text>
+            </View>
           </>
         )}
 
@@ -230,10 +256,26 @@ const styles = StyleSheet.create({
     zIndex: 0,
     pointerEvents: 'none',
   },
-  scroll: {
-    flex: 1,
-    zIndex: 1,
+  settingsBtn: {
+    position: 'absolute',
+    top: 48,
+    right: spacing.lg,
+    zIndex: 50,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: palette.glassBorder,
   },
+  settingsIcon: {
+    color: palette.textSub,
+    fontSize: 18,
+    lineHeight: 20,
+  },
+  scroll: { flex: 1, zIndex: 1 },
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
@@ -249,8 +291,14 @@ const styles = StyleSheet.create({
     ...type.kicker,
     color: palette.accent,
     marginBottom: spacing.sm,
-    marginTop: spacing.xs,
+    marginTop: spacing.md,
     letterSpacing: 2.5,
+  },
+  sectionSub: {
+    ...type.caption,
+    color: palette.textMuted,
+    fontStyle: 'italic',
+    marginBottom: spacing.sm,
   },
   sectionLabelDim: {
     ...type.kicker,
@@ -259,10 +307,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     letterSpacing: 2.5,
   },
-  footerBlock: {
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
+  footerBlock: { alignItems: 'center', marginTop: spacing.md },
   footerNote: {
     ...type.caption,
     color: palette.textDim,
@@ -271,60 +316,75 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     paddingHorizontal: spacing.md,
   },
-  bottomSpace: {
-    height: spacing.xxl,
-  },
-  // ── First-time user banner ─────────────────────────────────
-  firstTimeBanner: {
+  bottomSpace: { height: spacing.xxl },
+  freeBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 6,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(201,169,110,0.28)',
-    backgroundColor: 'rgba(201,169,110,0.05)',
+    borderColor: 'rgba(201,169,110,0.45)',
+    backgroundColor: 'rgba(201,169,110,0.10)',
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    marginLeft: spacing.xs,
+  },
+  freeBadgeText: {
+    ...type.kicker,
+    color: palette.accent,
+    fontSize: 10,
+    letterSpacing: 1.6,
+  },
+  freeWindowFooter: {
+    ...type.caption,
+    color: palette.textDim,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  day4Banner: {
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,110,0.40)',
+    backgroundColor: 'rgba(201,169,110,0.06)',
     borderRadius: radius.md,
     padding: spacing.md,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
     marginBottom: spacing.md,
     alignItems: 'center',
   },
-  firstTimeKicker: {
+  day4Kicker: {
     ...type.kicker,
     color: palette.accent,
     letterSpacing: 3,
     marginBottom: spacing.xs,
   },
-  firstTimeTitle: {
+  day4Title: {
     ...type.heading,
     color: palette.text,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
-  firstTimeBody: {
+  day4Body: {
     ...type.caption,
     color: palette.textSub,
     textAlign: 'center',
     lineHeight: 19,
-    paddingHorizontal: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  beginDailyBtn: {
+  day4Btn: {
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: 'rgba(201,169,110,0.45)',
     overflow: 'hidden',
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
+    alignSelf: 'stretch',
   },
-  beginDailyGradient: {
-    paddingVertical: spacing.md,
+  day4BtnGradient: {
+    paddingVertical: spacing.sm + 2,
     alignItems: 'center',
   },
-  beginDailyText: {
+  day4BtnText: {
     ...type.bodyMed,
     color: palette.accent,
     letterSpacing: 0.5,
-  },
-  firstTimeFooter: {
-    ...type.caption,
-    color: palette.textDim,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
   },
 });

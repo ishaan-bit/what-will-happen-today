@@ -3,7 +3,7 @@
     "name": "What Will Happen Today",
     "slug": "wwht",
     "scheme": "wwht",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -42,7 +42,7 @@
     ],
     "android": {
       "package": "com.wwht.app",
-      "versionCode": 7,
+      "versionCode": 10,
       "permissions": [
         "ACCESS_NETWORK_STATE",
         "com.android.vending.BILLING"
