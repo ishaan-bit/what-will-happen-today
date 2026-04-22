@@ -22,8 +22,9 @@ import { SignalCard } from '@/components/SignalCard';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { usePredictions } from '@/hooks/usePredictions';
-import { getCategoryOrder } from '@/utils/freeCategory';
+import { getCategoryOrder, getDailyVibe, getDailyMoment, getDailyWatchFor } from '@/utils/freeCategory';
 import { palette, spacing, type } from '@/utils/theme';
+import { VibeBar } from '@/components/VibeBar';
 import { track, Events } from '@/services/analyticsService';
 
 export default function HomeScreen() {
@@ -66,6 +67,9 @@ export default function HomeScreen() {
   }, [refreshUnlock]);
 
   const categoryOrder = getCategoryOrder(freeCategory);
+  const vibe = getDailyVibe();
+  const moment = getDailyMoment();
+  const watchFor = getDailyWatchFor();
 
   return (
     <ScreenShell>
@@ -92,6 +96,7 @@ export default function HomeScreen() {
         }
       >
         <DayHeader unlocked={unlocked} />
+        <VibeBar vibe={vibe} moment={moment} watchFor={watchFor} />
 
         {loading && !predictions ? (
           [0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)

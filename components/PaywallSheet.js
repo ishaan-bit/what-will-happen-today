@@ -127,15 +127,15 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
               {entryCategoryMeta.icon}
             </Text>
             <Text style={[styles.categoryHintText, { color: entryCategoryMeta.color }]}>
-              {entryCategoryMeta.label} · today's signal is waiting
+              {entryCategoryMeta.label} signal · waiting for you
             </Text>
           </View>
         ) : null}
 
         {/* Heading */}
-        <Text style={styles.heading}>Unlock today's signals</Text>
+        <Text style={styles.heading}>You've seen 1 of 4 signals.</Text>
         <Text style={styles.subheading}>
-          One reading, delivered fresh each day.
+          The rest completes the picture.
         </Text>
 
         {/* Categories row */}
@@ -168,8 +168,8 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
 
             <View style={styles.optionContent}>
               <View style={styles.optionLeft}>
-                <Text style={styles.optionTitle}>Unlimited Access</Text>
-                <Text style={styles.optionDesc}>All 4 signals every day, forever</Text>
+                <Text style={styles.optionTitle}>All 4 signals, every day</Text>
+                <Text style={styles.optionDesc}>Unlimited access, one payment</Text>
               </View>
               {purchasing ? (
                 <ActivityIndicator size="small" color={palette.accent} />
@@ -189,8 +189,8 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
         >
           <View style={styles.optionContent}>
             <View style={styles.optionLeft}>
-              <Text style={styles.secondaryTitle}>Today only</Text>
-              <Text style={styles.optionDesc}>Unlock all 4 signals for today</Text>
+              <Text style={styles.secondaryTitle}>Complete today</Text>
+              <Text style={styles.optionDesc}>All 4 signals for today only</Text>
             </View>
             {purchasing ? (
               <ActivityIndicator size="small" color={palette.textSub} />
@@ -208,7 +208,7 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
             </Text>
           </TouchableOpacity>
           <Text style={styles.legalText}>
-            One-time payment · No subscription · Prices may vary by region
+            One-time payment · No subscription · Read them today, let’s see if they land
           </Text>
         </View>
       </Animated.View>

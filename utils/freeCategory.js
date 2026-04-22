@@ -47,3 +47,59 @@ export function getCategoryOrder(freeCategory) {
   const locked = CATEGORIES.filter((c) => c !== freeCategory);
   return [freeCategory, ...locked];
 }
+
+// ─── Today's Vibe, Moment, Watch For ────────────────────────────────────────
+
+const VIBE_POOL = [
+  'Unexpected interactions',
+  'Things don\'t go as planned',
+  'Emotional clarity',
+  'Something resurfaces',
+  'People say what they mean',
+  'A small thing grows into something bigger',
+  'Quiet tension, then release',
+  'You notice things you\'ve been ignoring',
+];
+
+const MOMENT_POOL = [
+  'Late afternoon',
+  'Between 6–9 PM',
+  'When you least expect it',
+  'Early evening',
+  'Before lunch',
+  'Mid-morning',
+  'After 3 PM',
+  'Just before you wind down',
+];
+
+const WATCH_FOR_POOL = [
+  'a message you weren\'t expecting',
+  'a delay that changes your plans',
+  'a conversation that opens up unexpectedly',
+  'a decision that feels bigger than it is',
+  'a moment of unexpected clarity',
+  'someone acting out of character',
+  'a pattern you\'ve seen before',
+  'something you\'ve been avoiding',
+];
+
+/** Returns today's vibe label. Deterministic per day. */
+export function getDailyVibe() {
+  const seed = getDailySeed();
+  const idx = Math.floor(seededRandom(seed * 19 + 66661) * VIBE_POOL.length);
+  return VIBE_POOL[idx];
+}
+
+/** Returns today's "most likely moment" string. Deterministic per day. */
+export function getDailyMoment() {
+  const seed = getDailySeed();
+  const idx = Math.floor(seededRandom(seed * 23 + 55551) * MOMENT_POOL.length);
+  return MOMENT_POOL[idx];
+}
+
+/** Returns today's "watch for" string. Deterministic per day. */
+export function getDailyWatchFor() {
+  const seed = getDailySeed();
+  const idx = Math.floor(seededRandom(seed * 29 + 44441) * WATCH_FOR_POOL.length);
+  return WATCH_FOR_POOL[idx];
+}
