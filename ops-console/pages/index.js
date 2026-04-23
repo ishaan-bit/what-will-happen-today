@@ -146,6 +146,7 @@ function Dashboard({ creds, onLogout }) {
   const [toast, setToast] = useState(null);
   const [runs, setRuns] = useState(null);
   const [ruleBucket, setRuleBucket] = useState(null);
+  const [variantCount, setVariantCount] = useState(3);
   const [hero, setHero] = useState(null);
   const [heroDraft, setHeroDraft] = useState({ url: '' });
   const [heroUploading, setHeroUploading] = useState(false);
@@ -214,10 +215,11 @@ function Dashboard({ creds, onLogout }) {
 
   async function generate(force) {
     if (!creds.workerKey) { showToast('Worker key required', 'error'); return; }
+    const v = Math.max(1, Math.min(8, parseInt(variantCount, 10) || 1));
     setBusyAction('generate');
     try {
-      await worker.generate({ ...creds, force, model: selectedModel || undefined });
-      showToast('Generation started.');
+      await worker.generate({ ...creds, force, model: selectedModel || undefined, variantCount: v });
+      showToast(`Generation started (${v} variant${v === 1 ? '' : 's'} per category).`);
       refreshWorker();
     } catch (err) {
       showToast(`Generate failed: ${err.message}`, 'error');
@@ -428,6 +430,15 @@ function Dashboard({ creds, onLogout }) {
               {models.models.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           )}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#aaa' }}>
+            Variants per category
+            <input
+              type="number" min={1} max={8} step={1}
+              value={variantCount}
+              onChange={(e) => setVariantCount(e.target.value)}
+              style={{ width: 56, background: '#0f0f17', color: '#e8e8f0', border: '1px solid #2a2a35', borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}
+            />
+          </label>
           <button
             className="primary"
             disabled={busyAction === 'generate' || isJobRunning || !creds.workerKey}
@@ -449,8 +460,13 @@ function Dashboard({ creds, onLogout }) {
             Clear backend cache
           </button>
         </div>
+        <div style={{ color: '#888', fontSize: 12, marginTop: 10, lineHeight: 1.5 }}>
+          With variants &gt; 1, the worker generates that many distinct LLM predictions per category and stores them as an array.
+          Each install is deterministically assigned one variant by hashing (installSalt | ruleBucket | date | category),
+          so different users see different versions on the same day. Bumping the rule bucket rotates everyone to a new variant instantly.
+        </div>
         {!creds.workerKey && (
-          <div style={{ color: '#888', fontSize: 12, marginTop: 10 }}>
+          <div style={{ color: '#888', fontSize: 12, marginTop: 6 }}>
             Generate buttons disabled — no LOCAL_WORKER_KEY in this session.
           </div>
         )}
@@ -465,34 +481,47 @@ function Dashboard({ creds, onLogout }) {
         )}
         {today && today.predictions && (
           <div style={{ display: 'grid', gap: 12 }}>
-            {Object.entries(today.predictions).map(([cat, p]) => (
-              <div key={cat} style={{
-                background: '#0f0f17', border: '1px solid #1f1f2a',
-                borderRadius: 8, padding: 14,
-              }}>
-                <div style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  marginBottom: 6,
+            {Object.entries(today.predictions).map(([cat, raw]) => {
+              const list = Array.isArray(raw) ? raw : [raw];
+              return (
+                <div key={cat} style={{
+                  background: '#0f0f17', border: '1px solid #1f1f2a',
+                  borderRadius: 8, padding: 14,
                 }}>
                   <div style={{
-                    fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1,
-                  }}>{cat}</div>
-                  <span style={{
-                    fontSize: 10, padding: '2px 8px', borderRadius: 10,
-                    background: '#1a3322', color: '#8aff9f', border: '1px solid #2a5535',
-                  }}>LLM</span>
-                </div>
-                <div style={{ fontSize: 15, marginBottom: 8 }}>{p.teaser}</div>
-                <div style={{ fontSize: 13, color: '#ccc', whiteSpace: 'pre-wrap', marginBottom: 8 }}>{p.full}</div>
-                {p.punch && (
-                  <div style={{ fontSize: 13, color: '#ffaa8a', fontStyle: 'italic', marginBottom: 8 }}>
-                    "{p.punch}"
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    marginBottom: 6,
+                  }}>
+                    <div style={{
+                      fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1,
+                    }}>{cat}{list.length > 1 ? ` · ${list.length} variants` : ''}</div>
+                    <span style={{
+                      fontSize: 10, padding: '2px 8px', borderRadius: 10,
+                      background: '#1a3322', color: '#8aff9f', border: '1px solid #2a5535',
+                    }}>LLM</span>
                   </div>
-                )}
-                <div style={{ fontSize: 12, color: '#888' }}>{p.action}</div>
-                <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>{p.timing}</div>
-              </div>
-            ))}
+                  {list.map((p, vi) => (
+                    <div key={vi} style={{
+                      borderTop: vi === 0 ? 'none' : '1px dashed #1f1f2a',
+                      paddingTop: vi === 0 ? 0 : 10, marginTop: vi === 0 ? 0 : 10,
+                    }}>
+                      {list.length > 1 && (
+                        <div style={{ fontSize: 10, color: '#666', marginBottom: 4 }}>variant {vi + 1}</div>
+                      )}
+                      <div style={{ fontSize: 15, marginBottom: 8 }}>{p.teaser}</div>
+                      <div style={{ fontSize: 13, color: '#ccc', whiteSpace: 'pre-wrap', marginBottom: 8 }}>{p.full}</div>
+                      {p.punch && (
+                        <div style={{ fontSize: 13, color: '#ffaa8a', fontStyle: 'italic', marginBottom: 8 }}>
+                          "{p.punch}"
+                        </div>
+                      )}
+                      <div style={{ fontSize: 12, color: '#888' }}>{p.action}</div>
+                      <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>{p.timing}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
             {today.errors && (
               <div style={{
                 background: '#3a1a22', border: '1px solid #5a2a35', borderRadius: 8,
@@ -555,17 +584,21 @@ function Dashboard({ creds, onLogout }) {
         title="Rule-Based Engine"
         action={<span style={{ fontSize: 11, color: '#888' }}>bucket: <strong style={{ color: '#ccc' }}>{ruleBucket || '0'}</strong></span>}
       >
-        <div style={{ fontSize: 13, color: '#ccc', marginBottom: 10 }}>
-          Bumping the rule bucket forces every install to re-pick its rule-based
-          prediction on next app open. Different users see different picks because
-          each install has its own random salt.
+        <div style={{ fontSize: 13, color: '#ccc', marginBottom: 10, lineHeight: 1.5 }}>
+          Each install already sees a different rule-based pick because of its private install salt.
+          Bumping the rule bucket rotates every install to its <em>next</em> deterministic pick on next app open
+          — and also rotates which LLM variant they see (when variants &gt; 1).
+        </div>
+        <div style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
+          Number of distinct rule-based variations available per category: <strong style={{ color: '#ccc' }}>68</strong>
+          {' '}(love / career / money / mood). Bump cycles all installs through these.
         </div>
         <button
           className="primary"
           disabled={busyAction === 'bumpRule'}
           onClick={bumpRule}
         >
-          {busyAction === 'bumpRule' ? 'Bumping…' : 'Bump rule bucket (refresh UI)'}
+          {busyAction === 'bumpRule' ? 'Bumping…' : 'Bump rule bucket (refresh UI for everyone)'}
         </button>
       </Card>
 

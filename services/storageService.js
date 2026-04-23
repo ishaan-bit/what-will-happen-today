@@ -19,7 +19,15 @@ const KEYS = {
   INSTALL_SALT: 'wwht:installSalt',
   // Last-seen server-side rule bucket (bumped from ops console to force re-pick)
   LAST_RULE_BUCKET: 'wwht:lastRuleBucket',
+  // 30-day full unlock — purchasedAt timestamp (ms)
+  UNLOCK_ALL_AT: 'wwht:unlockAllAt',
+  // Push notification user preference (default true)
+  PUSH_ENABLED: 'wwht:pushEnabled',
 };
+
+// 30-day full-unlock window (₹49)
+const UNLOCK_ALL_DAYS = 30;
+const UNLOCK_ALL_MS = UNLOCK_ALL_DAYS * 24 * 60 * 60 * 1000;
 
 // First 3 calendar days are full-reveal for every user
 const FREE_WINDOW_DAYS = 3;
@@ -107,20 +115,70 @@ export async function setUnlockToday() {
 }
 
 /**
- * Full unlock (₹49): permanent until uninstall.
+ * Full unlock (₹49): 30 days from purchase. Stored as purchasedAt ms.
+ * Backwards-compat: if legacy `wwht:unlockAll === 'true'` exists, we
+ * migrate it to a fresh 30-day window from now (one-time, on first read).
  */
 export async function getUnlockAll() {
+  const info = await getUnlockAllInfo();
+  return info.active;
+}
+
+/** Returns { active, purchasedAt, expiresAt, daysRemaining } */
+export async function getUnlockAllInfo() {
   try {
-    const raw = await AsyncStorage.getItem(KEYS.UNLOCK_ALL);
-    return raw === 'true';
+    const [atRaw, legacy] = await Promise.all([
+      AsyncStorage.getItem(KEYS.UNLOCK_ALL_AT),
+      AsyncStorage.getItem(KEYS.UNLOCK_ALL),
+    ]);
+    let purchasedAt = atRaw ? parseInt(atRaw, 10) : 0;
+    if (!purchasedAt && legacy === 'true') {
+      // One-time migration of pre-1.6 installs.
+      purchasedAt = Date.now();
+      await AsyncStorage.setItem(KEYS.UNLOCK_ALL_AT, String(purchasedAt));
+    }
+    if (!purchasedAt) {
+      return { active: false, purchasedAt: 0, expiresAt: 0, daysRemaining: 0 };
+    }
+    const expiresAt = purchasedAt + UNLOCK_ALL_MS;
+    const remainingMs = expiresAt - Date.now();
+    const active = remainingMs > 0;
+    const daysRemaining = active ? Math.max(1, Math.ceil(remainingMs / (24 * 60 * 60 * 1000))) : 0;
+    return { active, purchasedAt, expiresAt, daysRemaining };
   } catch {
-    return false;
+    return { active: false, purchasedAt: 0, expiresAt: 0, daysRemaining: 0 };
   }
 }
 
 export async function setUnlockAll() {
   try {
+    await AsyncStorage.setItem(KEYS.UNLOCK_ALL_AT, String(Date.now()));
+    // Keep legacy flag for older builds reading the same store.
     await AsyncStorage.setItem(KEYS.UNLOCK_ALL, 'true');
+  } catch {
+    // Non-critical
+  }
+}
+
+export const UNLOCK_ALL_WINDOW_DAYS = UNLOCK_ALL_DAYS;
+
+// ─────────────────────────────────────────────────────────────
+// Push notification preference
+// ─────────────────────────────────────────────────────────────
+
+export async function getPushEnabled() {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.PUSH_ENABLED);
+    // Default = true. Only 'false' string disables.
+    return raw !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+export async function setPushEnabled(enabled) {
+  try {
+    await AsyncStorage.setItem(KEYS.PUSH_ENABLED, enabled ? 'true' : 'false');
   } catch {
     // Non-critical
   }

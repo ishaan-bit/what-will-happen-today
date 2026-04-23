@@ -81,9 +81,10 @@ async function ollamaChat({ messages, model, temperature = 0.85, maxTokens = 800
   }
 }
 
-async function generateForCategory(category, dateKey, model) {
+async function generateForCategory(category, dateKey, model, variantIndex = 0) {
+  const variantNonce = variantIndex > 0 ? `\nVariant token: v${variantIndex + 1}-${Math.random().toString(36).slice(2, 8)}. Make this prediction substantively different from any prior variants for this category and date.` : '';
   const prompt = `Generate today's prediction for the "${category}" category (${CATEGORY_CONTEXT[category]}).
-Date context: ${dateKey}
+Date context: ${dateKey}${variantNonce}
 
 Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
 {
@@ -102,6 +103,7 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
       { role: 'user', content: prompt },
     ],
     model,
+    temperature: variantIndex > 0 ? 0.95 : 0.85,
   });
   if (!content) throw new Error(`Empty response for ${category}`);
   const parsed = extractJsonObject(content);
@@ -184,23 +186,24 @@ function stripDashes(s) {
 
 /**
  * Generate predictions for all four categories and store in Redis.
- * @param {{force?: boolean, model?: string}} opts
+ * @param {{force?: boolean, model?: string, variantCount?: number}} opts
  */
-export async function generateAll({ force = false, model } = {}) {
+export async function generateAll({ force = false, model, variantCount = 1 } = {}) {
   JOB_STATE.cancelRequested = false;
   const redis = getRedis();
   const dateKey = getTodayKey();
   const cacheKey = `wwht:predictions:${dateKey}`;
+  const variants = Math.max(1, Math.min(8, parseInt(variantCount, 10) || 1));
 
   if (!force) {
     const existing = await redis.get(cacheKey);
     if (existing) {
-      console.log(`[gen] ${dateKey} already cached. Pass --force to overwrite.`);
+      console.log(`[gen] ${dateKey} already cached. Pass force to overwrite.`);
       return { dateKey, skipped: true, reason: 'already_cached' };
     }
   }
 
-  console.log(`[gen] generating predictions for ${dateKey} via Ollama (${model || OLLAMA_MODEL_DEFAULT})…`);
+  console.log(`[gen] generating predictions for ${dateKey} via Ollama (${model || OLLAMA_MODEL_DEFAULT}), variants per category=${variants}…`);
 
   const results = {};
   const errors = {};
@@ -212,15 +215,29 @@ export async function generateAll({ force = false, model } = {}) {
       console.log('[gen] cancel requested — stopping.');
       break;
     }
-    const t0 = Date.now();
-    try {
-      results[cat] = await generateForCategory(cat, dateKey, model);
-      attempts[cat] = { ok: true, ms: Date.now() - t0, teaser: results[cat].teaser };
-      console.log(`[gen] ✓ ${cat} (${Date.now() - t0}ms): "${results[cat].teaser}"`);
-    } catch (err) {
-      attempts[cat] = { ok: false, ms: Date.now() - t0, error: err.message };
-      errors[cat] = err.message;
-      console.error(`[gen] ✗ ${cat}: ${err.message}`);
+    const variantList = [];
+    const variantAttempts = [];
+    for (let v = 0; v < variants; v++) {
+      if (JOB_STATE.cancelRequested) break;
+      const t0 = Date.now();
+      try {
+        const out = await generateForCategory(cat, dateKey, model, v);
+        // Force per-variant id uniqueness so the app can distinguish them.
+        if (variants > 1) out.id = `${out.id || cat}_v${v + 1}`;
+        variantList.push(out);
+        variantAttempts.push({ ok: true, ms: Date.now() - t0, teaser: out.teaser });
+        console.log(`[gen] ✓ ${cat} v${v + 1} (${Date.now() - t0}ms): "${out.teaser}"`);
+      } catch (err) {
+        variantAttempts.push({ ok: false, ms: Date.now() - t0, error: err.message });
+        console.error(`[gen] ✗ ${cat} v${v + 1}: ${err.message}`);
+      }
+    }
+    if (variantList.length > 0) {
+      results[cat] = variants === 1 ? variantList[0] : variantList;
+      attempts[cat] = { ok: true, variants: variantList.length, requested: variants, perVariant: variantAttempts };
+    } else {
+      errors[cat] = variantAttempts[variantAttempts.length - 1]?.error || 'all_variants_failed';
+      attempts[cat] = { ok: false, variants: 0, requested: variants, perVariant: variantAttempts, error: errors[cat] };
     }
   }
 
@@ -230,6 +247,7 @@ export async function generateAll({ force = false, model } = {}) {
     startedAt,
     finishedAt: new Date().toISOString(),
     model: model || OLLAMA_MODEL_DEFAULT,
+    variantCount: variants,
     attempts,
     errors: Object.keys(errors).length > 0 ? errors : undefined,
     successCount: Object.keys(results).length,
@@ -263,11 +281,12 @@ export async function generateAll({ force = false, model } = {}) {
     predictions: mergedPredictions,
     errors: Object.keys(errors).length > 0 ? errors : undefined,
     model: model || OLLAMA_MODEL_DEFAULT,
+    variantCount: variants,
     source: 'llm',
   };
 
   await redis.set(cacheKey, JSON.stringify(payload), { ex: 36 * 60 * 60 });
-  console.log(`[gen] stored ${Object.keys(results).length}/4 categories for ${dateKey}`);
+  console.log(`[gen] stored ${Object.keys(results).length}/4 categories for ${dateKey} (variants=${variants})`);
   return payload;
 }
 

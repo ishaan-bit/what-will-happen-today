@@ -135,11 +135,12 @@ async function handleRequest(req, res) {
     const body = await readBody(req);
     const force = !!body.force;
     const model = body.model;
+    const variantCount = body.variantCount;
 
     activeJob = { startedAt: Date.now(), status: 'running', result: null, error: null };
 
     // Run async — return immediately
-    generateAll({ force, model })
+    generateAll({ force, model, variantCount })
       .then((result) => {
         activeJob.status = 'done';
         activeJob.result = result;

@@ -108,14 +108,14 @@ export const worker = {
       headers: { Authorization: `Bearer ${workerKey}` },
     });
   },
-  async generate({ workerUrl, workerKey, force, model }) {
+  async generate({ workerUrl, workerKey, force, model, variantCount }) {
     return request(`${workerUrl}/generate`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${workerKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ force: !!force, model }),
+      body: JSON.stringify({ force: !!force, model, variantCount }),
     });
   },
   async cancel({ workerUrl, workerKey }) {

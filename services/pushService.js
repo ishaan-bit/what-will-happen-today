@@ -8,8 +8,10 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
+import { getPushEnabled } from '@/services/storageService';
 
 let _registered = false;
+let _lastToken = null;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -35,8 +37,15 @@ async function ensureAndroidChannel() {
 }
 
 export async function registerForPushNotificationsAsync() {
-  if (_registered) return null;
+  if (_registered) return _lastToken;
   _registered = true;
+
+  // Honor user preference: if disabled in Settings, do not register at all.
+  const allowed = await getPushEnabled();
+  if (!allowed) {
+    _registered = false;
+    return null;
+  }
 
   try {
     await ensureAndroidChannel();
@@ -59,12 +68,32 @@ export async function registerForPushNotificationsAsync() {
     const token = tokenResult?.data;
     if (!token) return null;
 
+    _lastToken = token;
     await sendTokenToBackend(token);
     return token;
   } catch (err) {
     if (__DEV__) console.warn('[push] register failed:', err.message);
     _registered = false; // allow retry next launch
     return null;
+  }
+}
+
+/** Tell backend to forget this device's token. Best-effort. */
+export async function unregisterPushToken() {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (!apiUrl || !_lastToken) return;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    await fetch(`${apiUrl}/api/push/unregister`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: _lastToken }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+  } catch {
+    // Non-critical
   }
 }
 

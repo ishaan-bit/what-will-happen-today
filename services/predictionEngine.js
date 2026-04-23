@@ -2,7 +2,7 @@ import { love } from '@/content/love';
 import { career } from '@/content/career';
 import { money } from '@/content/money';
 import { mood } from '@/content/mood';
-import { getDailySeed, seededRandom } from '@/utils/dateUtils';
+import { getDailySeed, getTodayKey, seededRandom } from '@/utils/dateUtils';
 import {
   getRecentIds,
   recordShownId,
@@ -102,11 +102,24 @@ export async function getPredictions() {
   const ruleBucket = remote?.ruleBucket ?? null;
   const local = await getTodaysPredictions(ruleBucket);
 
+  const [installSalt, lastBucket] = await Promise.all([
+    getInstallSalt(),
+    getLastRuleBucket(),
+  ]);
+  const bucket = ruleBucket != null ? String(ruleBucket) : lastBucket;
+  const dateKey = remote?.dateKey || getTodayKey();
+
   const remoteData = remote?.data || null;
   const merged = {};
   for (const cat of CATEGORIES) {
     if (remoteData && remoteData[cat]) {
-      merged[cat] = { ...remoteData[cat], source: 'llm' };
+      // LLM payload may be a single object OR an array of variants.
+      // Pick a deterministic variant per (install, bucket, date, category).
+      const list = Array.isArray(remoteData[cat]) ? remoteData[cat] : [remoteData[cat]];
+      const variant = list.length > 1
+        ? list[hashString(`${installSalt}|${bucket}|${dateKey}|${cat}`) % list.length]
+        : list[0];
+      merged[cat] = { ...variant, source: 'llm', variantIndex: list.length > 1 ? list.indexOf(variant) : 0, variantCount: list.length };
     } else {
       merged[cat] = local[cat];
     }
