@@ -46,10 +46,14 @@ jobs:
           fi
           printf '%s' "$GOOGLE_SERVICES_JSON" > google-services.json
           node -e "JSON.parse(require('fs').readFileSync('google-services.json','utf8')); console.log('google-services.json valid JSON')"
-          # Force-stage the file so EAS local build includes it in the tarball
-          # (EAS uses `git ls-files --cached` which respects --force-added files
-          # but excludes gitignored ones unless staged)
+          # EAS local build creates the source tarball from the git index, so
+          # gitignored files are excluded. Force-add and create an ephemeral
+          # local commit so the file is included in the tarball. This commit
+          # is never pushed (the runner is ephemeral).
+          git config user.email "ci@github-actions"
+          git config user.name "GitHub Actions"
           git add --force google-services.json
+          git commit -m "ci: temp google-services.json for EAS build" --no-verify
 
       - name: Build AAB (production)
         env:
