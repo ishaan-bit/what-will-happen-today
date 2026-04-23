@@ -114,12 +114,32 @@ export async function registerForPushNotificationsAsync(force = false) {
     await debugLog('project_id', true, projectId);
 
     let tokenResult;
-    try {
-      tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
-    } catch (err) {
+    let lastErr;
+    // FCM's getToken frequently returns SERVICE_NOT_AVAILABLE on first call
+    // (cold registration, transient backend issue). Google's docs say to
+    // retry with exponential backoff. Try up to 4 times: 0s, 1s, 3s, 7s.
+    const delays = [0, 1000, 3000, 7000];
+    for (let i = 0; i < delays.length; i++) {
+      if (delays[i] > 0) {
+        await new Promise(r => setTimeout(r, delays[i]));
+        await debugLog('get_token_retry', true, `attempt ${i + 1}`);
+      }
+      try {
+        tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
+        lastErr = null;
+        break;
+      } catch (err) {
+        lastErr = err;
+        const msg = err?.message || String(err);
+        const transient = /SERVICE_NOT_AVAILABLE|TIMEOUT|NETWORK|AUTHENTICATION_FAILED/i.test(msg);
+        await debugLog('get_token_err', false, `attempt ${i + 1}: ${msg.slice(0, 160)}`);
+        if (!transient) break; // permanent error, don't bother retrying
+      }
+    }
+    if (lastErr) {
       _registered = false;
-      await debugLog('get_token', false, err?.message || String(err));
-      return { ok: false, token: null, reason: 'get_token_failed', error: err?.message };
+      await debugLog('get_token', false, lastErr?.message || String(lastErr));
+      return { ok: false, token: null, reason: 'get_token_failed', error: lastErr?.message };
     }
     const token = tokenResult?.data;
     if (!token) {
