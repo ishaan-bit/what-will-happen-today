@@ -1,10 +1,9 @@
 name: Deploy Backend to Vercel
 
+# Disabled auto-trigger: backend is deployed manually via `vercel --prod` from
+# the workspace because the GH secret VERCEL_TOKEN is expired. Keep
+# workflow_dispatch so it can be run on demand if the token is renewed.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
   workflow_dispatch:
 
 jobs:
