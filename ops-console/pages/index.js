@@ -17,8 +17,8 @@ function Login({ onSubmit, bootstrapErr }) {
     e.preventDefault();
     setError(null); setBusy(true);
     try {
-      // Verify backend creds — worker is optional (might not be running)
-      await backend.status({ backendUrl, opsKey });
+      // Verify via the server-side proxy (no CORS, no key in browser request)
+      await backend.status();
       const creds = { backendUrl, opsKey, workerUrl, workerKey };
       saveCreds(creds);
       onSubmit(creds);
@@ -121,15 +121,15 @@ function Dashboard({ creds, onLogout }) {
   const refreshBackend = useCallback(async () => {
     try {
       const [s, t] = await Promise.all([
-        backend.status(creds),
-        backend.getToday(creds).catch(() => null),
+        backend.status(),
+        backend.getToday().catch(() => null),
       ]);
       setBackendStatus({ ok: true, data: s });
       setToday(t);
     } catch (err) {
       setBackendStatus({ ok: false, error: err.message });
     }
-  }, [creds]);
+  }, []);
 
   const refreshWorker = useCallback(async () => {
     if (!creds.workerUrl) return;
@@ -152,7 +152,7 @@ function Dashboard({ creds, onLogout }) {
       refreshWorker();
     }, 8000);
     return () => clearInterval(interval);
-  }, [refreshBackend, refreshWorker]);
+  }, [refreshBackend, refreshWorker]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function generate(force) {
     if (!creds.workerKey) { showToast('Worker key required', 'error'); return; }
@@ -172,7 +172,7 @@ function Dashboard({ creds, onLogout }) {
     if (!confirm("Clear today's cached predictions on backend?")) return;
     setBusyAction('clear');
     try {
-      await backend.clearToday(creds);
+      await backend.clearToday();
       showToast("Cleared today's cache.");
       refreshBackend();
     } catch (err) {

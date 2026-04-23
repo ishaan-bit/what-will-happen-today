@@ -37,27 +37,21 @@ async function request(url, opts = {}) {
 }
 
 export const backend = {
-  async status({ backendUrl, opsKey }) {
-    return request(`${backendUrl}/api/ops/status`, {
-      headers: { 'X-Ops-Key': opsKey },
-    });
+  // All backend calls go through /api/backend/ops/* proxy (server-side, no CORS)
+  async status() {
+    return request('/api/backend/ops/status');
   },
-  async getToday({ backendUrl, opsKey }) {
+  async getToday() {
     try {
-      const r = await request(`${backendUrl}/api/ops/predictions/today`, {
-        headers: { 'X-Ops-Key': opsKey },
-      });
+      const r = await request('/api/backend/ops/predictions/today');
       return r.data || r;
     } catch (err) {
       if (err.status === 404) return { empty: true, dateKey: err.body?.dateKey };
       throw err;
     }
   },
-  async clearToday({ backendUrl, opsKey }) {
-    return request(`${backendUrl}/api/ops/predictions/regenerate`, {
-      method: 'POST',
-      headers: { 'X-Ops-Key': opsKey },
-    });
+  async clearToday() {
+    return request('/api/backend/ops/predictions/regenerate', { method: 'POST' });
   },
 };
 
