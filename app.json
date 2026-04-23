@@ -3,7 +3,7 @@
     "name": "What Will Happen Today",
     "slug": "wwht",
     "scheme": "wwht",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -38,14 +38,22 @@
         }
       ],
       "./plugins/withReactNativeIapPlayStore",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "color": "#c9a96e"
+        }
+      ]
     ],
     "android": {
       "package": "com.wwht.app",
-      "versionCode": 10,
+      "versionCode": 11,
       "permissions": [
         "ACCESS_NETWORK_STATE",
-        "com.android.vending.BILLING"
+        "com.android.vending.BILLING",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",

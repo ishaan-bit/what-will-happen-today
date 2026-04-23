@@ -15,6 +15,10 @@ const KEYS = {
   // Lifecycle — 3-day free window then daily-free model
   FIRST_OPEN_DATE: 'wwht:firstOpenDate',     // YYYY-MM-DD of very first open
   DAY4_BANNER_SEEN: 'wwht:day4BannerSeen',   // user has dismissed the day-4 transition banner
+  // Per-install salt for varying rule-based picks across users
+  INSTALL_SALT: 'wwht:installSalt',
+  // Last-seen server-side rule bucket (bumped from ops console to force re-pick)
+  LAST_RULE_BUCKET: 'wwht:lastRuleBucket',
 };
 
 // First 3 calendar days are full-reveal for every user
@@ -299,6 +303,51 @@ export async function shouldShowDay4Banner() {
 export async function markDay4BannerSeen() {
   try {
     await AsyncStorage.setItem(KEYS.DAY4_BANNER_SEEN, 'true');
+  } catch {
+    // Non-critical
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Per-install salt + server rule bucket
+// Used by the rule-based engine so different users see different
+// picks for the same date and so ops can force a re-pick.
+// ─────────────────────────────────────────────────────────────
+
+export async function getInstallSalt() {
+  try {
+    let salt = await AsyncStorage.getItem(KEYS.INSTALL_SALT);
+    if (!salt) {
+      // 32-bit unsigned integer as base36, plenty of variation
+      salt = (Math.floor(Math.random() * 0xffffffff) >>> 0).toString(36);
+      await AsyncStorage.setItem(KEYS.INSTALL_SALT, salt);
+    }
+    return salt;
+  } catch {
+    return '0';
+  }
+}
+
+export async function getLastRuleBucket() {
+  try {
+    return (await AsyncStorage.getItem(KEYS.LAST_RULE_BUCKET)) || '0';
+  } catch {
+    return '0';
+  }
+}
+
+export async function setLastRuleBucket(bucket) {
+  try {
+    await AsyncStorage.setItem(KEYS.LAST_RULE_BUCKET, String(bucket || '0'));
+  } catch {
+    // Non-critical
+  }
+}
+
+/** Clear the local cached predictions so the engine repicks. */
+export async function clearCachedPredictions() {
+  try {
+    await AsyncStorage.removeItem(KEYS.TODAY_PREDICTIONS);
   } catch {
     // Non-critical
   }

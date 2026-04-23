@@ -1,4 +1,4 @@
-// Love predictions – 52 entries
+// Love predictions, 52 entries
 // Tone: sharp, grounded, slightly mysterious. Not astrology-cringe.
 // Each has: teaser (hook), full (depth), action (concrete step), timing (hint), shareSnippet (share text).
 
@@ -6,7 +6,7 @@ export const love = [
  {
  id: 'L001',
  teaser: 'You will hear from someone you weren\'t expecting today.',
- full: 'A name you\'ve been thinking about — or trying not to — will surface. When it does, you\'ll act more neutral than you feel. That gap between your reaction and the performance is worth noticing.',
+ full: 'A name you\'ve been thinking about, or trying not to, will surface. When it does, you\'ll act more neutral than you feel. That gap between your reaction and the performance is worth noticing.',
  action: 'Don\'t plan your response in advance. Let the moment be what it actually is.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'You will hear from someone you weren\'t expecting today. Watch the gap between how you react and how you feel.',
@@ -21,8 +21,8 @@ export const love = [
  },
  {
  id: 'L003',
- teaser: 'An old name will surface today — in a message, a memory, or a feed.',
- full: 'Something from the past will press lightly on the present. Whether it\'s contact, a mention, or a stray thought with unusual clarity — the boundary between before and now will feel thin for a moment.',
+ teaser: 'An old name will surface today, in a message, a memory, or a feed.',
+ full: 'Something from the past will press lightly on the present. Whether it\'s contact, a mention, or a stray thought with unusual clarity, the boundary between before and now will feel thin for a moment.',
  action: 'Notice what it brings up. You don\'t have to act on it.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'An old name will surface today. The past isn\'t quite done with this one.',
@@ -30,14 +30,14 @@ export const love = [
  {
  id: 'L004',
  teaser: 'You\'ll feel something for someone today and immediately try to explain it away.',
- full: 'The feeling will arrive before the analysis. Then the mind will start working — finding logic, building cases, measuring risk. But the feeling was first. That usually means something.',
+ full: 'The feeling will arrive before the analysis. Then the mind will start working, finding logic, building cases, measuring risk. But the feeling was first. That usually means something.',
  action: 'Notice the feeling before the analysis. Just that.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'You\'ll feel something today and immediately try to explain it away. The feeling was first.',
  },
  {
  id: 'L005',
- teaser: 'Someone is about to test how much you care — without asking directly.',
+ teaser: 'Someone is about to test how much you care, without asking directly.',
  full: 'It won\'t be a confrontation. It\'ll be a tone, a response time, a small ask, or an act of low-key withdrawal. Whether you pass the test matters less than whether you even notice it\'s happening.',
  action: 'Pay attention to small behaviors from people who matter to you today.',
  timing: 'You will feel this most before you sleep.',
@@ -70,7 +70,7 @@ export const love = [
  {
  id: 'L009',
  teaser: 'A small gesture from someone will mean more to you than it should.',
- full: 'Something ordinary — a remembered detail, a mention of your name, someone including you when they didn\'t have to — will hit differently today. You\'ll try to play it off. Something in it will stay.',
+ full: 'Something ordinary, a remembered detail, a mention of your name, someone including you when they didn\'t have to, will hit differently today. You\'ll try to play it off. Something in it will stay.',
  action: 'Let yourself appreciate it instead of minimizing it.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'A small gesture from someone will mean more to you than it should. Let yourself appreciate it.',
@@ -78,7 +78,7 @@ export const love = [
  {
  id: 'L010',
  teaser: 'You\'ll want to reach out to someone but find a hundred reasons not to.',
- full: 'The urge will be real. The excuses will also be real, but mostly borrowed — wrong timing, too busy, they don\'t want to hear from you right now. Most of that will be protective, not accurate.',
+ full: 'The urge will be real. The excuses will also be real, but mostly borrowed, wrong timing, too busy, they don\'t want to hear from you right now. Most of that will be protective, not accurate.',
  action: 'Send the message. Keep it short. The reaching out matters more than the message.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'You\'ll want to reach out to someone but find reasons not to. Most of those reasons will be protective, not accurate.',
@@ -86,14 +86,14 @@ export const love = [
  {
  id: 'L011',
  teaser: 'An awkward silence today will carry more information than everything said around it.',
- full: 'Two people who know each other communicate in the space between words. The silence won\'t be empty — it will be specific. What it\'s answering will be worth paying attention to.',
+ full: 'Two people who know each other communicate in the space between words. The silence won\'t be empty, it will be specific. What it\'s answering will be worth paying attention to.',
  action: 'Don\'t rush to fill the silence. Stay with it long enough to understand it.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'An awkward silence today will carry more information than everything said around it.',
  },
  {
  id: 'L012',
- teaser: 'Something from last week will come back up today — and not in the version you remember.',
+ teaser: 'Something from last week will come back up today, and not in the version you remember.',
  full: 'A conversation, a moment, something you said or did will be revisited. The other person\'s interpretation of it will surprise you. What seemed clear to you wasn\'t read that way.',
  action: 'Be open to the possibility that your version and theirs are both partially right.',
  timing: 'Watch how this plays out after noon.',
@@ -102,7 +102,7 @@ export const love = [
  {
  id: 'L013',
  teaser: 'You\'ll feel pulled in two directions about someone today.',
- full: 'Someone will trigger both closeness and retreat at the same time — something about them will appeal and resist in the same moment. You\'ll oscillate without landing somewhere.',
+ full: 'Someone will trigger both closeness and retreat at the same time, something about them will appeal and resist in the same moment. You\'ll oscillate without landing somewhere.',
  action: 'You don\'t have to resolve the tension today. Just notice you\'re in it.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'You\'ll feel pulled in two directions about someone today. Both the pull and the resistance will be real.',
@@ -118,7 +118,7 @@ export const love = [
  {
  id: 'L015',
  teaser: 'A message will arrive today at the exact wrong or right moment. You\'ll know which.',
- full: 'The timing will feel pointed — it\'ll land either when you finally had a moment of peace or when you needed something to shift a difficult stretch. The message itself will be completely ordinary.',
+ full: 'The timing will feel pointed, it\'ll land either when you finally had a moment of peace or when you needed something to shift a difficult stretch. The message itself will be completely ordinary.',
  action: 'Pay attention to the moment the message arrives, not just its content.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'A message will arrive today at the exact wrong or right moment. You\'ll know which immediately.',
@@ -126,7 +126,7 @@ export const love = [
  {
  id: 'L016',
  teaser: 'You\'ll notice yourself being unusually guarded around someone you normally trust.',
- full: 'Something has shifted without being named. You\'ll be more careful with your words, more aware of your reactions, less willing to be open. You will not know exactly why — but the shift is real.',
+ full: 'Something has shifted without being named. You\'ll be more careful with your words, more aware of your reactions, less willing to be open. You will not know exactly why, but the shift is real.',
  action: 'Ask yourself what happened that you haven\'t fully processed yet.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'You\'ll be unusually guarded around someone you trust today. Something shifted without being named.',
@@ -134,7 +134,7 @@ export const love = [
  {
  id: 'L017',
  teaser: 'A small moment of honesty will open something neither of you expected.',
- full: 'Someone will let their guard down briefly — maybe you, maybe them. That single honest beat will create more connection than every careful, composed exchange before it.',
+ full: 'Someone will let their guard down briefly, maybe you, maybe them. That single honest beat will create more connection than every careful, composed exchange before it.',
  action: 'If someone is honest with you today, match it.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'A small moment of honesty today will open something neither of you expected.',
@@ -142,7 +142,7 @@ export const love = [
  {
  id: 'L018',
  teaser: 'Someone will ask how you are today and actually mean it.',
- full: 'Most versions of that question are social maintenance. This one won\'t be. You\'ll notice the difference in real time — there\'ll be space after the question instead of the answer already being expected.',
+ full: 'Most versions of that question are social maintenance. This one won\'t be. You\'ll notice the difference in real time, there\'ll be space after the question instead of the answer already being expected.',
  action: 'Give a real answer. They\'re actually asking.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'Someone will ask how you are today and actually mean it. Give a real answer.',
@@ -158,7 +158,7 @@ export const love = [
  {
  id: 'L020',
  teaser: 'The dynamic with someone specific will shift slightly today. Notice it before you normalize it.',
- full: 'Something in the rhythm of this relationship will be different from how it usually runs. A changed tone, a new directness, or a subtle withdrawal. Small shifts compound — notice this one.',
+ full: 'Something in the rhythm of this relationship will be different from how it usually runs. A changed tone, a new directness, or a subtle withdrawal. Small shifts compound, notice this one.',
  action: 'Don\'t immediately absorb it as the new normal. Note what changed.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'A dynamic with someone will shift today. Notice it before you normalize it.',
@@ -166,7 +166,7 @@ export const love = [
  {
  id: 'L021',
  teaser: 'You\'ll feel more vulnerable in a conversation today than you planned.',
- full: 'Something will be said — completely casually — that touches something you weren\'t anticipating. You\'ll hold it together externally. The internal reaction will be louder than the situation warrants.',
+ full: 'Something will be said, completely casually, that touches something you weren\'t anticipating. You\'ll hold it together externally. The internal reaction will be louder than the situation warrants.',
  action: 'Give yourself space after this conversation to actually feel it.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'You\'ll feel more vulnerable in a conversation today than you planned for.',
@@ -174,7 +174,7 @@ export const love = [
  {
  id: 'L022',
  teaser: 'Something you assumed was settled is actually still in question.',
- full: 'You mentally filed something away as resolved. But the other person hasn\'t fully closed it out — or the circumstances have changed enough that it needs revisiting. You will find this out the hard way today.',
+ full: 'You mentally filed something away as resolved. But the other person hasn\'t fully closed it out, or the circumstances have changed enough that it needs revisiting. You will find this out the hard way today.',
  action: 'Check in before assuming things are where you left them.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'Something you assumed was settled is actually still in question.',
@@ -182,7 +182,7 @@ export const love = [
  {
  id: 'L023',
  teaser: 'You\'ll want connection today but won\'t quite know how to ask for it.',
- full: 'There\'ll be a specific quiet that lands around midday or evening. Not loneliness exactly — more like an awareness of distance from the people who matter. The desire will be there. The words for it won\'t.',
+ full: 'There\'ll be a specific quiet that lands around midday or evening. Not loneliness exactly, more like an awareness of distance from the people who matter. The desire will be there. The words for it won\'t.',
  action: 'Don\'t wait until you know what to say. Reach out anyway.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'You\'ll want connection today and won\'t quite know how to ask for it.',
@@ -190,7 +190,7 @@ export const love = [
  {
  id: 'L024',
  teaser: 'A person from your past will surface today in some form.',
- full: 'An account, a photo, a mention, or direct contact. Whatever form it takes, it will carry a specific emotional weight — not just nostalgia, but something that hasn\'t fully finished processing.',
+ full: 'An account, a photo, a mention, or direct contact. Whatever form it takes, it will carry a specific emotional weight, not just nostalgia, but something that hasn\'t fully finished processing.',
  action: 'Let it land without making a decision in the same moment it arrives.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'A person from your past will surface today. It will carry more weight than it should.',
@@ -206,7 +206,7 @@ export const love = [
  {
  id: 'L026',
  teaser: 'A moment will arrive today where you can close the distance or keep it.',
- full: 'There will be a clear opening — a lull in a conversation, a look, a moment that invites honesty. You\'ll feel it. Using it is a choice. So is not using it.',
+ full: 'There will be a clear opening, a lull in a conversation, a look, a moment that invites honesty. You\'ll feel it. Using it is a choice. So is not using it.',
  action: 'If the opening appears, use it.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'A moment will arrive today where you can close the distance or keep it. You\'ll feel the opening.',
@@ -222,7 +222,7 @@ export const love = [
  {
  id: 'L028',
  teaser: 'A conversation today will reveal how someone actually sees you.',
- full: 'It won\'t be a formal moment. Something casual — the way they reference you, an offhand comment with a lot packed into it, what they assume without checking. Their perception will briefly be visible.',
+ full: 'It won\'t be a formal moment. Something casual, the way they reference you, an offhand comment with a lot packed into it, what they assume without checking. Their perception will briefly be visible.',
  action: 'Listen to what the framing reveals, not just the content.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'A conversation today will briefly reveal how someone actually sees you.',
@@ -230,7 +230,7 @@ export const love = [
  {
  id: 'L029',
  teaser: 'You\'ll be more honest than you planned to be today.',
- full: 'It\'ll slip out slightly — more candid than usual, more direct, saying something that you\'ve been sitting on without meaning to release it. The other person will notice the shift.',
+ full: 'It\'ll slip out slightly, more candid than usual, more direct, saying something that you\'ve been sitting on without meaning to release it. The other person will notice the shift.',
  action: 'Don\'t walk it back. The honesty was right.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'You\'ll be more honest than you planned to be today. Don\'t walk it back.',
@@ -254,7 +254,7 @@ export const love = [
  {
  id: 'L032',
  teaser: 'A relationship that has been quiet will say something today.',
- full: 'Something you haven\'t heard from — a connection that was on standby, a silence that felt like it will be permanent — will break. However small the signal, it means the line is still open.',
+ full: 'Something you haven\'t heard from, a connection that was on standby, a silence that felt like it will be permanent, will break. However small the signal, it means the line is still open.',
  action: 'Respond to it.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'A relationship that has been quiet will say something today. However small, the line is still open.',
@@ -262,7 +262,7 @@ export const love = [
  {
  id: 'L033',
  teaser: 'You\'ll see a side of someone today that you didn\'t know was there.',
- full: 'Not a reveal of bad character — just a dimension that wasn\'t visible before. It will be vulnerability, sharpness, warmth, or something completely unexpected. How you respond to it matters.',
+ full: 'Not a reveal of bad character, just a dimension that wasn\'t visible before. It will be vulnerability, sharpness, warmth, or something completely unexpected. How you respond to it matters.',
  action: 'Let them be more than what you already knew of them.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'You\'ll see a side of someone today that you didn\'t know was there.',
@@ -278,15 +278,15 @@ export const love = [
  {
  id: 'L035',
  teaser: 'A moment of ease will appear inside a difficult dynamic today.',
- full: 'In the middle of something strained or complicated, there will be a pocket of genuine lightness — a laugh, a shared moment, something that works when it wasn\'t supposed to. Don\'t dismiss it.',
+ full: 'In the middle of something strained or complicated, there will be a pocket of genuine lightness, a laugh, a shared moment, something that works when it wasn\'t supposed to. Don\'t dismiss it.',
  action: 'Stay in that pocket as long as it holds.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'A moment of ease will appear inside a difficult dynamic today. Don\'t dismiss it.',
  },
  {
  id: 'L036',
- teaser: 'You\'ll feel more than you show today — and someone will notice the gap.',
- full: 'There\'ll be a visible suppression — you maintaining composure while something underneath moves differently. Someone who knows you will catch it. You will or will not talk about it.',
+ teaser: 'You\'ll feel more than you show today, and someone will notice the gap.',
+ full: 'There\'ll be a visible suppression, you maintaining composure while something underneath moves differently. Someone who knows you will catch it. You will or will not talk about it.',
  action: 'Don\'t perform okayness too hard. The performance is visible.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'You\'ll feel more than you show today. Someone will notice the gap.',
@@ -294,7 +294,7 @@ export const love = [
  {
  id: 'L037',
  teaser: 'Someone close to you will need something from you unexpectedly today.',
- full: 'A reach-out, a request, a moment where someone who usually manages fine will show up needing more than usual. The ask will not come in obvious language — but it will be there.',
+ full: 'A reach-out, a request, a moment where someone who usually manages fine will show up needing more than usual. The ask will not come in obvious language, but it will be there.',
  action: 'Be available to the specific person who usually doesn\'t ask.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'Someone close to you will need something from you unexpectedly today.',
@@ -302,7 +302,7 @@ export const love = [
  {
  id: 'L038',
  teaser: 'You\'ll encounter someone today who reminds you of what you\'ve been missing.',
- full: 'A quality in someone — ease, directness, warmth, genuine interest — will briefly illuminate something that\'s been absent. It won\'t be about that person specifically. It\'ll be about the absence.',
+ full: 'A quality in someone, ease, directness, warmth, genuine interest, will briefly illuminate something that\'s been absent. It won\'t be about that person specifically. It\'ll be about the absence.',
  action: 'Let the reminder point you toward what you actually want.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'You\'ll encounter someone today who reminds you of what you\'ve been missing.',
@@ -310,7 +310,7 @@ export const love = [
  {
  id: 'L039',
  teaser: 'A small act from someone today will carry more weight than they know.',
- full: 'They\'ll do something ordinary — check in, remember something, take a small extra step. They won\'t realize how much it registers. This quiet care will land disproportionately.',
+ full: 'They\'ll do something ordinary, check in, remember something, take a small extra step. They won\'t realize how much it registers. This quiet care will land disproportionately.',
  action: 'Tell them it meant something, even just briefly.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'A small act from someone today will carry more weight than they know.',
@@ -318,7 +318,7 @@ export const love = [
  {
  id: 'L040',
  teaser: 'Something you thought was resolved between you and someone will resurface.',
- full: 'It was closed in the sense that you both moved on. It wasn\'t closed in the sense that it was finished. Today it comes up again — through a direct conversation, a repeated pattern, or something that echoes the original.',
+ full: 'It was closed in the sense that you both moved on. It wasn\'t closed in the sense that it was finished. Today it comes up again, through a direct conversation, a repeated pattern, or something that echoes the original.',
  action: 'This time, go further into it instead of past it.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'Something you thought was resolved between you and someone will resurface today.',
@@ -326,7 +326,7 @@ export const love = [
  {
  id: 'L041',
  teaser: 'You\'ll feel seen by someone you didn\'t expect it from today.',
- full: 'Not a grand moment — more like being understood in an offhand way, or having something noticed that you assumed was invisible. It\'ll land unexpectedly and stick.',
+ full: 'Not a grand moment, more like being understood in an offhand way, or having something noticed that you assumed was invisible. It\'ll land unexpectedly and stick.',
  action: 'Acknowledge it when it happens. Receiving is a skill too.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'You\'ll feel seen by someone you didn\'t expect it from today.',
@@ -334,7 +334,7 @@ export const love = [
  {
  id: 'L042',
  teaser: 'An interaction today will stay in your head much longer than you expect.',
- full: 'A brief exchange — maybe two minutes, maybe less — will land somewhere specific and keep surfacing. You won\'t understand why right away. That\'s the point. Something in it was pointing at something.',
+ full: 'A brief exchange, maybe two minutes, maybe less, will land somewhere specific and keep surfacing. You won\'t understand why right away. That\'s the point. Something in it was pointing at something.',
  action: 'Pay attention to what keeps recurring when it does.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'An interaction today will stay in your head much longer than you expect it to.',
@@ -342,7 +342,7 @@ export const love = [
  {
  id: 'L043',
  teaser: 'Someone will push a limit today that they haven\'t pushed before.',
- full: 'A line you hadn\'t thought to draw will be approached. It will be a request, a comment, a behavior — something that clarifies where your actual boundary is by almost crossing it.',
+ full: 'A line you hadn\'t thought to draw will be approached. It will be a request, a comment, a behavior, something that clarifies where your actual boundary is by almost crossing it.',
  action: 'Name the boundary clearly, even if only for yourself first.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'Someone will push a limit today that they haven\'t pushed before. You\'ll know where your boundary actually is.',
@@ -350,7 +350,7 @@ export const love = [
  {
  id: 'L044',
  teaser: 'A plan involving someone else will shift unexpectedly today.',
- full: 'Something that was agreed on — a time, a thing you were doing together, a shared expectation — will change. How the change is handled will tell you something about where this is.',
+ full: 'Something that was agreed on, a time, a thing you were doing together, a shared expectation, will change. How the change is handled will tell you something about where this is.',
  action: 'Pay attention to how they communicate the shift, not just the shift itself.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'A plan involving someone else will shift today. How they handle it tells you where things are.',
@@ -358,7 +358,7 @@ export const love = [
  {
  id: 'L045',
  teaser: 'You\'ll notice today how differently you feel around different people.',
- full: 'The contrast will be unusually clear — the difference in energy between who expands you and who contracts you, who you can be yourself with and who you perform for. Hard to unsee once noticed.',
+ full: 'The contrast will be unusually clear, the difference in energy between who expands you and who contracts you, who you can be yourself with and who you perform for. Hard to unsee once noticed.',
  action: 'Use this awareness when making plans for the coming days.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'You\'ll notice today how differently you feel around different people. The contrast will be clear.',
@@ -366,7 +366,7 @@ export const love = [
  {
  id: 'L046',
  teaser: 'Something will feel like an ending and a beginning at the same time today.',
- full: 'A phase closing and something else opening in the same beat. This is a real thing — not dramatic, not symbolic, just the actual texture of a transition. Both the ending and the beginning will be unmistakable.',
+ full: 'A phase closing and something else opening in the same beat. This is a real thing, not dramatic, not symbolic, just the actual texture of a transition. Both the ending and the beginning will be unmistakable.',
  action: 'Don\'t rush past the ending to get to the beginning.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'Something will feel like an ending and a beginning at the same time today.',
@@ -374,14 +374,14 @@ export const love = [
  {
  id: 'L047',
  teaser: 'A conversation that has been delayed too long will finally happen today.',
- full: 'The conditions will align — time, context, the other person\'s willingness. Whether you use the opening is up to you. Missing it today would mean another delay measured in weeks, not days.',
+ full: 'The conditions will align, time, context, the other person\'s willingness. Whether you use the opening is up to you. Missing it today would mean another delay measured in weeks, not days.',
  action: 'If the opening appears, take it. Don\'t let it close again.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'A conversation that has been delayed too long will finally have room today.',
  },
  {
  id: 'L048',
- teaser: 'You\'ll want to be around someone specific today — and won\'t let yourself admit it.',
+ teaser: 'You\'ll want to be around someone specific today, and won\'t let yourself admit it.',
  full: 'The desire will be clear. The reasons you\'ll give yourself for not acting on it will be logical-sounding but mostly protective. The wanting won\'t go anywhere just because you manage it.',
  action: 'Take one small step toward being near that person today.',
  timing: 'By tonight, this will be clearer.',
@@ -390,7 +390,7 @@ export const love = [
  {
  id: 'L049',
  teaser: 'Someone will say something today that cuts past your usual defenses.',
- full: 'Not an attack — more like an observation that lands somewhere specific. You\'ll feel the hit clearly. Something accurate will have been said, and it won\'t be easy to un-hear.',
+ full: 'Not an attack, more like an observation that lands somewhere specific. You\'ll feel the hit clearly. Something accurate will have been said, and it won\'t be easy to un-hear.',
  action: 'Sit with it before defending against it.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'Someone will say something today that cuts past your usual defenses.',
@@ -398,7 +398,7 @@ export const love = [
  {
  id: 'L050',
  teaser: 'A real moment of connection will arrive in an ordinary setting today.',
- full: 'Not planned, not charged, not built up. Just two people being not-guarded at the same time in an ordinary place. These moments are the actual substance of close relationships — not the grand gestures.',
+ full: 'Not planned, not charged, not built up. Just two people being not-guarded at the same time in an ordinary place. These moments are the actual substance of close relationships, not the grand gestures.',
  action: 'Don\'t minimize it because the setting wasn\'t significant.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'A real moment of connection will arrive in an ordinary setting today. These are the actual ones.',
@@ -406,7 +406,7 @@ export const love = [
  {
  id: 'L051',
  teaser: 'You\'ll realize someone has been paying closer attention than you knew.',
- full: 'Something they remember, something they reference, something they noticed that you assumed was invisible. You\'ll get one glimpse of how closely they\'ve been watching — and it\'ll reframe how you see the relationship.',
+ full: 'Something they remember, something they reference, something they noticed that you assumed was invisible. You\'ll get one glimpse of how closely they\'ve been watching, and it\'ll reframe how you see the relationship.',
  action: 'Let yourself be known. You\'ve been underestimating their attentiveness.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'You\'ll realize someone has been paying closer attention than you knew.',
@@ -414,7 +414,7 @@ export const love = [
  {
  id: 'L052',
  teaser: 'A tension you\'ve been carrying will either break or breathe today.',
- full: 'Something that has been building — quietly, slowly — will either surface into words or shift into a manageable state. Either outcome is better than the holding pattern. Either way, it moves today.',
+ full: 'Something that has been building, quietly, slowly, will either surface into words or shift into a manageable state. Either outcome is better than the holding pattern. Either way, it moves today.',
  action: 'Don\'t try to keep the tension exactly where it is. Let it move.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'A tension you\'ve been carrying will either break or breathe today. Either way, it moves.',

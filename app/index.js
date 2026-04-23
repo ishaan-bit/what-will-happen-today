@@ -27,6 +27,7 @@ import { SignalCard } from '@/components/SignalCard';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { StarsBackground } from '@/components/StarsBackground';
+import { HeroImage } from '@/components/HeroImage';
 import { usePredictions } from '@/hooks/usePredictions';
 import {
   getCategoryOrder,
@@ -42,6 +43,7 @@ import { tap, unlock as unlockHaptic } from '@/utils/haptics';
 export default function HomeScreen() {
   const {
     predictions,
+    heroImage,
     unlocked,
     loading,
     refreshUnlock,
@@ -141,7 +143,10 @@ export default function HomeScreen() {
       >
         <DayHeader unlocked={unlocked} streak={streak} />
 
-        {/* Free-window day badge — Day 1/2/3 of 3 */}
+        {/* Optional hero image, only renders when ops console publishes one */}
+        <HeroImage source={heroImage?.url} alt={heroImage?.alt} />
+
+        {/* Free-window day badge, Day 1/2/3 of 3 */}
         {!unlocked && inFreeWindow && (
           <View style={styles.freeBadge}>
             <Text style={styles.freeBadgeText}>

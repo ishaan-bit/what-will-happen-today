@@ -1,5 +1,5 @@
 /**
- * Cosmic flavor data — deterministic per day.
+ * Cosmic flavor data, deterministic per day.
  *
  * NOT real astrology. Static lookup table that gives the app a mystic
  * "today's energy" line. Same value every call on same date.
@@ -8,17 +8,17 @@
 import { getDailySeed, seededRandom } from '@/utils/dateUtils';
 
 const ENERGY_LINES = [
-  { glyph: '☽', text: 'Moon waxing — pay attention to small returns' },
-  { glyph: '☿', text: 'Mercury sharp — words land harder than usual' },
-  { glyph: '♀', text: 'Venus warm — softness wins where force fails' },
-  { glyph: '♂', text: 'Mars rising — direct action favoured today' },
-  { glyph: '♃', text: 'Jupiter open — say yes once to something small' },
-  { glyph: '♄', text: 'Saturn close — discipline pays before sundown' },
-  { glyph: '☉', text: 'Sun bright — visibility is on your side today' },
-  { glyph: '⚯', text: 'Energies cross — expect a plot twist by evening' },
-  { glyph: '✦', text: 'Stillness in motion — rest sharpens what comes next' },
-  { glyph: '☋', text: 'A door closes quietly — another opens you can\'t see yet' },
-  { glyph: '⚸', text: 'Old patterns resurface — notice without acting' },
+  { glyph: '☽', text: 'Moon waxing, pay attention to small returns' },
+  { glyph: '☿', text: 'Mercury sharp, words land harder than usual' },
+  { glyph: '♀', text: 'Venus warm, softness wins where force fails' },
+  { glyph: '♂', text: 'Mars rising, direct action favoured today' },
+  { glyph: '♃', text: 'Jupiter open, say yes once to something small' },
+  { glyph: '♄', text: 'Saturn close, discipline pays before sundown' },
+  { glyph: '☉', text: 'Sun bright, visibility is on your side today' },
+  { glyph: '⚯', text: 'Energies cross, expect a plot twist by evening' },
+  { glyph: '✦', text: 'Stillness in motion, rest sharpens what comes next' },
+  { glyph: '☋', text: 'A door closes quietly, another opens you can\'t see yet' },
+  { glyph: '⚸', text: 'Old patterns resurface, notice without acting' },
   { glyph: '☾', text: 'Intuition louder than logic today' },
 ];
 
@@ -38,7 +38,7 @@ export const CATEGORY_SIGILS = {
   mood:   { glyph: '☾', name: 'The Veil' },
 };
 
-// ── Affected categories — which 2 areas today's sky touches ─────────────
+// ── Affected categories, which 2 areas today's sky touches ─────────────
 
 const ALL_CATS = ['love', 'career', 'money', 'mood'];
 
@@ -51,7 +51,7 @@ export function getAffectedCategories() {
   return [ALL_CATS[a], ALL_CATS[b]];
 }
 
-// ── Continuity hints — feels like the system remembers ──────────────────
+// ── Continuity hints, feels like the system remembers ──────────────────
 
 const CONTINUITY_LINES = [
   'This has been building.',

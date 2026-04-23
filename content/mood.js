@@ -1,4 +1,4 @@
-// Mood predictions – 52 entries
+// Mood predictions, 52 entries
 // Tone: introspective, grounded, psychologically literate.
 // Each has: teaser (hook), full (depth), action (concrete step), timing (hint), shareSnippet (share text).
 
@@ -6,7 +6,7 @@ export const mood = [
  {
  id: 'D001',
  teaser: 'Something small will shift how the rest of the day feels.',
- full: 'A conversation, a piece of news, a moment of connection or friction — the pivot point isn\'t always dramatic. But something will happen before midday that resets the emotional tone of everything that follows. Notice it when it does.',
+ full: 'A conversation, a piece of news, a moment of connection or friction, the pivot point isn\'t always dramatic. But something will happen before midday that resets the emotional tone of everything that follows. Notice it when it does.',
  action: 'Stay present through the first few hours. The thing that shifts the day is usually easy to miss.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'Something small will shift how the rest of the day feels. The pivot point is usually easy to miss.',
@@ -14,7 +14,7 @@ export const mood = [
  {
  id: 'D002',
  teaser: 'You\'ll notice your mood today is different from what you expected it to be.',
- full: 'You went into the day with a prediction about how it would feel. That prediction will be wrong — either better or worse than expected. The gap between the anticipated mood and the real one is worth noticing.',
+ full: 'You went into the day with a prediction about how it would feel. That prediction will be wrong, either better or worse than expected. The gap between the anticipated mood and the real one is worth noticing.',
  action: 'Check in with how you actually feel around midday. Compare it to your default assumption this morning.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'You\'ll notice your mood today is different from what you expected it to be. Either direction.',
@@ -22,7 +22,7 @@ export const mood = [
  {
  id: 'D003',
  teaser: 'The heaviness from this morning won\'t last the day.',
- full: 'There\'s a weight that arrives early — with the alarm, in the first quiet moments — that has nothing to do with anything specific. It shifts. Not because circumstances change but because morning carries its own emotional weather that passes.',
+ full: 'There\'s a weight that arrives early, with the alarm, in the first quiet moments, that has nothing to do with anything specific. It shifts. Not because circumstances change but because morning carries its own emotional weather that passes.',
  action: 'Don\'t project this morning\'s tone onto the rest of the day. Wait it out.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'The heaviness from this morning won\'t last the day. Morning carries its own weather. Wait it out.',
@@ -37,8 +37,8 @@ export const mood = [
  },
  {
  id: 'D005',
- teaser: 'A wave of unexpected calm will arrive today — usually when you stop trying for it.',
- full: 'The anxiety or low-level hum that has been running will drop. Unexpectedly, in a moment that isn\'t planned for — usually during something low-stakes or in a pause between things — there\'ll be a real quiet.',
+ teaser: 'A wave of unexpected calm will arrive today, usually when you stop trying for it.',
+ full: 'The anxiety or low-level hum that has been running will drop. Unexpectedly, in a moment that isn\'t planned for, usually during something low-stakes or in a pause between things, there\'ll be a real quiet.',
  action: 'Don\'t rush past the quiet when it comes. Spend a few minutes in it rather than filling it immediately.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'A wave of unexpected calm will arrive today. It will arrive when you stop trying for it.',
@@ -46,7 +46,7 @@ export const mood = [
  {
  id: 'D006',
  teaser: 'Something you\'ve been carrying below the surface will feel more present today.',
- full: 'A grief, a frustration, an unresolved relationship dynamic — it won\'t necessarily surface in words or a specific event. But it\'ll occupy more of the day\'s internal space than it has lately. The increase in feeling is information.',
+ full: 'A grief, a frustration, an unresolved relationship dynamic, it won\'t necessarily surface in words or a specific event. But it\'ll occupy more of the day\'s internal space than it has lately. The increase in feeling is information.',
  action: 'Give it some acknowledgement rather than trying to push it back down. Ten minutes of honest attention helps.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'Something you\'ve been carrying below the surface will feel more present today. Give it ten minutes of attention.',
@@ -54,7 +54,7 @@ export const mood = [
  {
  id: 'D007',
  teaser: 'You\'ll feel the weight of the week more acutely today.',
- full: 'Accumulated fatigue and accumulated decisions don\'t always surface linearly. They collect and then land somewhere specific. Today is where the weight of the week chooses to become visible. That\'s fine — it means the processing is happening.',
+ full: 'Accumulated fatigue and accumulated decisions don\'t always surface linearly. They collect and then land somewhere specific. Today is where the weight of the week chooses to become visible. That\'s fine, it means the processing is happening.',
  action: 'Don\'t try to outrun the weight today. Acknowledge it and move at its speed, not against it.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'You\'ll feel the weight of the week more acutely today. It means the processing is happening.',
@@ -62,7 +62,7 @@ export const mood = [
  {
  id: 'D008',
  teaser: 'Without anything changing outside, something will settle inside by tonight.',
- full: 'There is no obvious trigger for why this day should feel different from the last few. But the internal state has its own timing. Something will clear — not dramatically, but noticeably — by the end of the day.',
+ full: 'There is no obvious trigger for why this day should feel different from the last few. But the internal state has its own timing. Something will clear, not dramatically, but noticeably, by the end of the day.',
  action: 'Notice the settling when it arrives instead of immediately attributing it to external cause.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'Without anything changing outside, something will settle inside by tonight. No specific reason. It just does.',
@@ -70,7 +70,7 @@ export const mood = [
  {
  id: 'D009',
  teaser: 'An interaction will leave you unexpectedly unsettled today.',
- full: 'A conversation, a message, a moment of contact with someone — it won\'t seem significant in the moment. But it\'ll linger. You\'ll still be thinking about it hours later. The unsettled feeling is signal, not noise.',
+ full: 'A conversation, a message, a moment of contact with someone, it won\'t seem significant in the moment. But it\'ll linger. You\'ll still be thinking about it hours later. The unsettled feeling is signal, not noise.',
  action: 'When the lingering arrives, sit with what it\'s pointing to rather than trying to talk yourself out of it.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'An interaction will leave you unexpectedly unsettled today. The feeling that lingers is signal, not noise.',
@@ -78,7 +78,7 @@ export const mood = [
  {
  id: 'D010',
  teaser: 'Your mood will be more reactive to small things today. You\'ll know it when it happens.',
- full: 'The calibration is off today. The same level of input will produce a larger response than usual. This isn\'t a flaw — it\'s information that the underlying reserve is lower than normal. Respond accordingly.',
+ full: 'The calibration is off today. The same level of input will produce a larger response than usual. This isn\'t a flaw, it\'s information that the underlying reserve is lower than normal. Respond accordingly.',
  action: 'Notice the first reaction today that feels disproportionate. That\'s the signal. Reduce input, protect the reserve.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'Your mood will be more reactive to small things today. The first disproportionate reaction is the signal.',
@@ -86,7 +86,7 @@ export const mood = [
  {
  id: 'D011',
  teaser: 'A moment of genuine lightness will arrive in the middle of something ordinary.',
- full: 'Not a grand moment, not something you planned. In the middle of something routine — a task, a walk, a meal — something will be funny, or beautiful, or briefly, genuinely good. Let it land rather than rushing past it.',
+ full: 'Not a grand moment, not something you planned. In the middle of something routine, a task, a walk, a meal, something will be funny, or beautiful, or briefly, genuinely good. Let it land rather than rushing past it.',
  action: 'Stay in the moment of lightness instead of moving immediately to the next thing. It deserves a full breath.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'A moment of genuine lightness will arrive in the middle of something ordinary. Let it land.',
@@ -94,7 +94,7 @@ export const mood = [
  {
  id: 'D012',
  teaser: 'Something will crystallize today that has been confusing for a while.',
- full: 'There\'s a thing you\'ve been trying to understand — about a situation, a person, your own feelings — that has resisted clarity. Today it will click. Not necessarily through forcing it, but through time and accumulation.',
+ full: 'There\'s a thing you\'ve been trying to understand, about a situation, a person, your own feelings, that has resisted clarity. Today it will click. Not necessarily through forcing it, but through time and accumulation.',
  action: 'When the clarity arrives, write it down before the logic fades.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'Something will crystallize today that has been confusing for a while. Write it down before the logic fades.',
@@ -102,7 +102,7 @@ export const mood = [
  {
  id: 'D013',
  teaser: 'Rest that you defer now returns as cost later this week.',
- full: 'There is a balance sheet for recovery that doesn\'t lie. The skipped rest, the early alarm, the late night — each one is a debit. The cost arrives two or three days later when the reserves run out and performance drops before you understand why.',
+ full: 'There is a balance sheet for recovery that doesn\'t lie. The skipped rest, the early alarm, the late night, each one is a debit. The cost arrives two or three days later when the reserves run out and performance drops before you understand why.',
  action: 'Go to bed 30 minutes earlier tonight. Specifically tonight.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'Rest that you defer now returns as cost later this week. Go to bed 30 minutes earlier tonight.',
@@ -118,7 +118,7 @@ export const mood = [
  {
  id: 'D015',
  teaser: 'A moment of genuine laughter today will clear more than it should be able to.',
- full: 'There is a weight-to-laughter exchange rate that\'s particularly favorable today. One real moment of humor — not performed, not politely laughed at — will reset something in the nervous system that nothing else has managed to reset lately.',
+ full: 'There is a weight-to-laughter exchange rate that\'s particularly favorable today. One real moment of humor, not performed, not politely laughed at, will reset something in the nervous system that nothing else has managed to reset lately.',
  action: 'Find or create one moment of genuine levity today. Don\'t wait for it to happen naturally.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'A moment of genuine laughter today will clear more than it should be able to. Find it, don\'t wait for it.',
@@ -126,7 +126,7 @@ export const mood = [
  {
  id: 'D016',
  teaser: 'You\'re processing something that will take longer than today.',
- full: 'There\'s a thing being integrated — an experience, a change, a loss, a shift in direction — that can\'t be completed in a single day\'s reflection. What you\'re feeling is the integration working, not something being wrong.',
+ full: 'There\'s a thing being integrated, an experience, a change, a loss, a shift in direction, that can\'t be completed in a single day\'s reflection. What you\'re feeling is the integration working, not something being wrong.',
  action: 'Give the process the time it needs. The discomfort of not being done is part of the process.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'You\'re processing something that will take longer than today. What you feel is the integration working.',
@@ -134,7 +134,7 @@ export const mood = [
  {
  id: 'D017',
  teaser: 'Movement of any kind will improve everything else today.',
- full: 'The body in its current state is quietly making everything heavier. Not dramatically — just a consistent five percent worse. Any movement — a walk, a stretch, stairs instead of the lift — shifts the register and it stays shifted.',
+ full: 'The body in its current state is quietly making everything heavier. Not dramatically, just a consistent five percent worse. Any movement, a walk, a stretch, stairs instead of the lift, shifts the register and it stays shifted.',
  action: 'Move your body for 20 minutes before committing fully to the day. The return is reliable.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'Movement of any kind will improve everything else today. Twenty minutes. The return is reliable.',
@@ -150,7 +150,7 @@ export const mood = [
  {
  id: 'D019',
  teaser: 'Your focus is scattered because the day doesn\'t have a single clear intention yet.',
- full: 'When there\'s no specific thing that today is for — no primary direction — attention distributes itself across everything and sinks into nothing. The scattered feeling is a symptom of missing purpose, not a flaw in concentration.',
+ full: 'When there\'s no specific thing that today is for, no primary direction, attention distributes itself across everything and sinks into nothing. The scattered feeling is a symptom of missing purpose, not a flaw in concentration.',
  action: 'Name one thing today is for. One. Not three. Name it, and everything else becomes secondary.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'Your focus is scattered because the day doesn\'t have a single clear intention yet. Name the one thing.',
@@ -158,7 +158,7 @@ export const mood = [
  {
  id: 'D020',
  teaser: 'Overstimulation from the last day or two is catching up with you.',
- full: 'Information, decisions, interaction, noise — the input volume recently has been above what the system can process in real time. What you\'re feeling now is the processing catching up. Back off the input today.',
+ full: 'Information, decisions, interaction, noise, the input volume recently has been above what the system can process in real time. What you\'re feeling now is the processing catching up. Back off the input today.',
  action: 'Reduce active input for the next few hours. Quiet is the actual medicine for this.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'Overstimulation from the last day or two is catching up with you. Reduce input. Quiet is the medicine.',
@@ -166,7 +166,7 @@ export const mood = [
  {
  id: 'D021',
  teaser: 'There\'s a specific person whose energy is affecting yours more than you realize.',
- full: 'Someone in your regular orbit carries a quality — anxiety, negativity, urgency, heaviness — that transfers to you in proximity or contact. You\'ve been absorbing it as your own mood without locating the source.',
+ full: 'Someone in your regular orbit carries a quality, anxiety, negativity, urgency, heaviness, that transfers to you in proximity or contact. You\'ve been absorbing it as your own mood without locating the source.',
  action: 'Notice how you feel before and after specific interactions today. The pattern will be visible.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'There\'s a specific person whose energy is affecting yours more than you realize. Notice how you feel after.',
@@ -174,7 +174,7 @@ export const mood = [
  {
  id: 'D022',
  teaser: 'Productivity is not the right metric for today.',
- full: 'The pull to justify the day through output is strong. But the internal state needs something different today — rest, connection, reflection, or the permission to operate at a lower throughput without it meaning something is wrong with you.',
+ full: 'The pull to justify the day through output is strong. But the internal state needs something different today, rest, connection, reflection, or the permission to operate at a lower throughput without it meaning something is wrong with you.',
  action: 'Remove output as the metric for today. Replace it with how you treated yourself and others.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'Productivity is not the right metric for today. Replace output with how you treated yourself and others.',
@@ -182,7 +182,7 @@ export const mood = [
  {
  id: 'D023',
  teaser: 'A creative window that has been closed for a while will open today.',
- full: 'Something has cleared — a pressure, a preoccupation, a mental weight that has been taking up the space where creative thought lives. The opening is real. It won\'t be here tomorrow in the same way.',
+ full: 'Something has cleared, a pressure, a preoccupation, a mental weight that has been taking up the space where creative thought lives. The opening is real. It won\'t be here tomorrow in the same way.',
  action: 'Use the next two hours for something that actually interests you, not something that needs doing.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'A creative window that has been closed for a while will open today. Use it for what interests you, not what needs doing.',
@@ -198,7 +198,7 @@ export const mood = [
  {
  id: 'D025',
  teaser: 'Gratitude for something specific today will reframe the next few hours.',
- full: 'Not the performed kind, not the forced list-making — but one genuine noticing of something real and specific that is currently good. This creates a real chemical shift. The specificity is what makes it work.',
+ full: 'Not the performed kind, not the forced list-making, but one genuine noticing of something real and specific that is currently good. This creates a real chemical shift. The specificity is what makes it work.',
  action: 'Name one specific thing that is genuinely good in your life this week. Not a general thing.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'Gratitude for something specific today will reframe the next few hours. It has to be real and specific to work.',
@@ -206,7 +206,7 @@ export const mood = [
  {
  id: 'D026',
  teaser: 'Something you told yourself you were over is not fully over.',
- full: 'A loss, a relationship chapter, a transition you declared resolved — it will show its incomplete status today through a feeling you weren\'t expecting. That doesn\'t mean the resolution failed. It means integration takes longer than the announcement.',
+ full: 'A loss, a relationship chapter, a transition you declared resolved, it will show its incomplete status today through a feeling you weren\'t expecting. That doesn\'t mean the resolution failed. It means integration takes longer than the announcement.',
  action: 'Give it one honest hour of attention instead of bypassing it again.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'Something you told yourself you were over is not fully over. Give it one honest hour instead of bypassing it.',
@@ -214,7 +214,7 @@ export const mood = [
  {
  id: 'D027',
  teaser: 'Sleep quality is doing more to your mood today than any external event.',
- full: 'The low patience, the blunted enthusiasm, the way things feel slightly harder than they should — this is sleep-driven, not life-driven. Your life is not the problem. Your sleep is the variable. Don\'t make significant decisions today.',
+ full: 'The low patience, the blunted enthusiasm, the way things feel slightly harder than they should, this is sleep-driven, not life-driven. Your life is not the problem. Your sleep is the variable. Don\'t make significant decisions today.',
  action: 'Defer any significant decisions until tomorrow. Don\'t let fatigue-level cognition set important things.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'Sleep quality is doing more to your mood than any external event. Don\'t make significant decisions today.',
@@ -222,7 +222,7 @@ export const mood = [
  {
  id: 'D028',
  teaser: 'An unexpected encounter today will briefly but genuinely lift your state.',
- full: 'There will be a moment — a conversation, a shared laugh, an unexpected piece of news, an accidental connection — that provides a real if temporary lift. Don\'t dismiss it as small. Small genuine lifts are the currency of good days.',
+ full: 'There will be a moment, a conversation, a shared laugh, an unexpected piece of news, an accidental connection, that provides a real if temporary lift. Don\'t dismiss it as small. Small genuine lifts are the currency of good days.',
  action: 'Be present enough in your interactions today to let the lift land when it arrives.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'An unexpected encounter today will briefly but genuinely lift your state. Be present enough to let it land.',
@@ -238,7 +238,7 @@ export const mood = [
  {
  id: 'D030',
  teaser: 'Low-grade depletion has become your background state and you\'ve stopped noticing.',
- full: 'The depletion has been present long enough to feel like your baseline. You\'re not in crisis — but you\'re performing at a significant discount to your actual capacity. The invisible floor is lower than you realize.',
+ full: 'The depletion has been present long enough to feel like your baseline. You\'re not in crisis, but you\'re performing at a significant discount to your actual capacity. The invisible floor is lower than you realize.',
  action: 'What would three full days of genuine recovery look like? Name what would be in them.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'Low-grade depletion has become your background state and you\'ve stopped noticing. Name what recovery looks like.',
@@ -246,7 +246,7 @@ export const mood = [
  {
  id: 'D031',
  teaser: 'Frustration you\'ve been managing with effort is closer to the surface today.',
- full: 'A justified frustration — something real and not resolved — has been contained because the moment wasn\'t right. Today it\'s closer to the edge. This is fine. But the edge needs a better outlet than the nearest person who happens to be there.',
+ full: 'A justified frustration, something real and not resolved, has been contained because the moment wasn\'t right. Today it\'s closer to the edge. This is fine. But the edge needs a better outlet than the nearest person who happens to be there.',
  action: 'Name the real source of the frustration before you\'re in the situation where it will surface.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'Frustration you\'ve been managing with effort is closer to the surface today. Name the real source first.',
@@ -254,7 +254,7 @@ export const mood = [
  {
  id: 'D032',
  teaser: 'Nostalgia today is pointing at something missing in the present.',
- full: 'When the past feels particularly vivid and good, it\'s usually because the present is missing a quality that the past had — a sense of possibility, a belonging, a simplicity. The nostalgia is a useful diagnostic if you let it be.',
+ full: 'When the past feels particularly vivid and good, it\'s usually because the present is missing a quality that the past had, a sense of possibility, a belonging, a simplicity. The nostalgia is a useful diagnostic if you let it be.',
  action: 'What quality is the nostalgia pointing at? Find one way to get more of that quality now.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'Nostalgia today is pointing at something missing in the present. What quality is it pointing at?',
@@ -262,7 +262,7 @@ export const mood = [
  {
  id: 'D033',
  teaser: 'Your gut is more reliable on a current situation than your analysis.',
- full: 'You have a sense about something — a person, a decision, a direction — that your logical mind keeps countermanding. The logical frame will be built on assumptions the intuition is already seeing past. Trust the discomfort it\'s signaling.',
+ full: 'You have a sense about something, a person, a decision, a direction, that your logical mind keeps countermanding. The logical frame will be built on assumptions the intuition is already seeing past. Trust the discomfort it\'s signaling.',
  action: 'Write down what your gut says about this situation. Then separate it from the arguments against it.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'Your gut is more reliable on a current situation than your analysis. Write down what it\'s actually saying.',
@@ -270,7 +270,7 @@ export const mood = [
  {
  id: 'D034',
  teaser: 'The need to be seen and acknowledged is present today in a specific way.',
- full: 'This isn\'t vanity — it\'s a basic human need running at elevated intensity. The specific form it\'s taking today — recognition, validation, being heard — is worth identifying. What goes unnamed will come out sideways.',
+ full: 'This isn\'t vanity, it\'s a basic human need running at elevated intensity. The specific form it\'s taking today, recognition, validation, being heard, is worth identifying. What goes unnamed will come out sideways.',
  action: 'Find a way to meet this need directly today rather than waiting for someone to notice.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'The need to be seen and acknowledged is present today. It\'s not vanity. Find a way to meet it directly.',
@@ -278,7 +278,7 @@ export const mood = [
  {
  id: 'D035',
  teaser: 'A period of sustained pressure is approaching its natural end.',
- full: 'The extended stretch of intensity — whatever its form — is close to completing. The weight has been real but it isn\'t permanent. There are signals that this particular phase is winding down. Your nervous system needs something to look forward to.',
+ full: 'The extended stretch of intensity, whatever its form, is close to completing. The weight has been real but it isn\'t permanent. There are signals that this particular phase is winding down. Your nervous system needs something to look forward to.',
  action: 'Identify what the period after this looks like. Give yourself something specific to anticipate.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'A period of sustained pressure is approaching its natural end. Give your nervous system something to anticipate.',
@@ -286,7 +286,7 @@ export const mood = [
  {
  id: 'D036',
  teaser: 'Something genuinely funny exists inside your current situation. You haven\'t found it yet.',
- full: 'Whatever you\'re dealing with — and it will be real and significant — there is also an absurd element that you haven\'t been allowing yourself to notice. Finding it doesn\'t diminish the seriousness. It creates room to breathe inside it.',
+ full: 'Whatever you\'re dealing with, and it will be real and significant, there is also an absurd element that you haven\'t been allowing yourself to notice. Finding it doesn\'t diminish the seriousness. It creates room to breathe inside it.',
  action: 'Look for the genuinely funny thing inside your current situation. It\'s there.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'Something genuinely funny exists inside your current situation. You haven\'t found it yet. Look.',
@@ -302,7 +302,7 @@ export const mood = [
  {
  id: 'D038',
  teaser: 'A small completion available today will free energy that\'s been held in place.',
- full: 'There\'s something unfinished — not large, but persistent — that consumes a small amount of energy every day in the background. It\'s the task that takes 20 minutes and has been waiting three weeks. Finishing it today frees that held energy.',
+ full: 'There\'s something unfinished, not large, but persistent, that consumes a small amount of energy every day in the background. It\'s the task that takes 20 minutes and has been waiting three weeks. Finishing it today frees that held energy.',
  action: 'Finish the small incomplete thing. Today. The energy return is immediate.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'A small completion available today will free energy that\'s been held in place. Finish the small incomplete thing.',
@@ -310,7 +310,7 @@ export const mood = [
  {
  id: 'D039',
  teaser: 'Being genuinely kind to one person today will matter more than you expect.',
- full: 'Not performed kindness, not strategic kindness — a specific, unsolicited act toward one person that costs you something small and gives them something real. The research is consistent: the giver benefits more than the recipient, and longer.',
+ full: 'Not performed kindness, not strategic kindness, a specific, unsolicited act toward one person that costs you something small and gives them something real. The research is consistent: the giver benefits more than the recipient, and longer.',
  action: 'Find one person today who benefits from a small, genuine, unsolicited act of kindness.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'Being genuinely kind to one person today will matter more than you expect. The giver benefits more than the recipient.',
@@ -318,7 +318,7 @@ export const mood = [
  {
  id: 'D040',
  teaser: 'The urgency you feel today is coming from inside, not outside.',
- full: 'The pressure of right now is self-imposed — a timeline you set, a standard you\'ve inherited, a fear of falling behind. The urgency is real as a feeling. Its necessity is much less certain. Most of what feels urgent today is not.',
+ full: 'The pressure of right now is self-imposed, a timeline you set, a standard you\'ve inherited, a fear of falling behind. The urgency is real as a feeling. Its necessity is much less certain. Most of what feels urgent today is not.',
  action: 'Ask: who says this has to happen today? Then check if that answer is actually true.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'The urgency you feel today is coming from inside, not outside. Ask who says this has to happen today.',
@@ -326,7 +326,7 @@ export const mood = [
  {
  id: 'D041',
  teaser: 'You have more capacity for joy today than you\'re accessing.',
- full: 'The conditions are present. The people are available. The moment exists. But there\'s a habitual seriousness in the way — a sense that things aren\'t earned or settled enough to allow enjoyment. They are. The permission is the missing ingredient.',
+ full: 'The conditions are present. The people are available. The moment exists. But there\'s a habitual seriousness in the way, a sense that things aren\'t earned or settled enough to allow enjoyment. They are. The permission is the missing ingredient.',
  action: 'Give yourself explicit permission to feel genuinely good today.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'You have more capacity for joy today than you\'re accessing. The permission to feel good is the missing ingredient.',
@@ -334,7 +334,7 @@ export const mood = [
  {
  id: 'D042',
  teaser: 'A problem that feels large today is partly a problem of isolation.',
- full: 'The thing sitting on you would reduce significantly if it were shared with someone who can actually hear it. It doesn\'t need solving — it needs witnessing. Carrying it alone is adding weight that isn\'t inherent to the problem itself.',
+ full: 'The thing sitting on you would reduce significantly if it were shared with someone who can actually hear it. It doesn\'t need solving, it needs witnessing. Carrying it alone is adding weight that isn\'t inherent to the problem itself.',
  action: 'Tell one person about the thing you\'ve been carrying alone. Not to solve it. Just to say it.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'A problem that feels large today is partly a problem of isolation. Tell one person. Not to solve it, just to say it.',
@@ -342,7 +342,7 @@ export const mood = [
  {
  id: 'D043',
  teaser: 'The afternoon will feel qualitatively different from the morning.',
- full: 'Whatever the morning brings — heaviness, difficulty, low energy, unwanted thoughts — there is a shift point around midday that reliably resets the register. Don\'t write the whole day off based on what the first few hours look like.',
+ full: 'Whatever the morning brings, heaviness, difficulty, low energy, unwanted thoughts, there is a shift point around midday that reliably resets the register. Don\'t write the whole day off based on what the first few hours look like.',
  action: 'Reserve judgement about today until at least 2pm.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'The afternoon will feel qualitatively different from the morning. Don\'t write the day off in the first few hours.',
@@ -350,7 +350,7 @@ export const mood = [
  {
  id: 'D044',
  teaser: 'A habit that grounds you has quietly lapsed and the absence is contributing to your current state.',
- full: 'There\'s a practice — exercise, time outside, creative work, a specific social contact — that consistently regulates your emotional baseline, and that you\'ve let go without fully registering what it was doing. The absence has a cost.',
+ full: 'There\'s a practice, exercise, time outside, creative work, a specific social contact, that consistently regulates your emotional baseline, and that you\'ve let go without fully registering what it was doing. The absence has a cost.',
  action: 'Reinstate the practice today. Even a fraction of the usual scale counts.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'A habit that grounds you has quietly lapsed and the absence is contributing to your current state. Reinstate it.',
@@ -374,7 +374,7 @@ export const mood = [
  {
  id: 'D047',
  teaser: 'Clarity about what you actually want would improve today significantly.',
- full: 'Much of the ambient dissatisfaction doesn\'t come from having the wrong things — it comes from not knowing specifically what you want. Undefined desire experiences itself as general unfulfillment. Knowing the specific want changes this.',
+ full: 'Much of the ambient dissatisfaction doesn\'t come from having the wrong things, it comes from not knowing specifically what you want. Undefined desire experiences itself as general unfulfillment. Knowing the specific want changes this.',
  action: 'Name one thing you genuinely want this week. Then take one concrete step toward it today.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'Clarity about what you actually want would improve today significantly. Name the specific want.',
@@ -390,7 +390,7 @@ export const mood = [
  {
  id: 'D049',
  teaser: 'The best thinking window of your day today hasn\'t happened yet.',
- full: 'There\'s a period coming — mid-morning, mid-afternoon — where the mental clarity will be higher and the emotional noise lower. The thinking done in that window will be qualitatively better. Reserve the hardest problems for it.',
+ full: 'There\'s a period coming, mid-morning, mid-afternoon, where the mental clarity will be higher and the emotional noise lower. The thinking done in that window will be qualitatively better. Reserve the hardest problems for it.',
  action: 'Don\'t attempt your most important thinking before your energy peak. Note when the clarity window arrives.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'The best thinking window of your day today hasn\'t happened yet. Save the hard thinking for when it arrives.',
@@ -398,7 +398,7 @@ export const mood = [
  {
  id: 'D050',
  teaser: 'Accepting one specific thing today would remove a significant internal drain.',
- full: 'There\'s something you\'re spending energy on — resisting its reality, arguing with its existence, being angry at it. Accepting that thing doesn\'t mean agreeing with it. It means stopping the fight against what is already true.',
+ full: 'There\'s something you\'re spending energy on, resisting its reality, arguing with its existence, being angry at it. Accepting that thing doesn\'t mean agreeing with it. It means stopping the fight against what is already true.',
  action: 'Name the thing. Then try: this is what is true right now. Then breathe.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'Accepting one specific thing today would remove a significant internal drain. Name the thing. Stop fighting what\'s true.',
@@ -406,7 +406,7 @@ export const mood = [
  {
  id: 'D051',
  teaser: 'You are more resilient than recent events have made you feel.',
- full: 'Recent events have been demanding and the coping has been effortful. It would be easy to interpret that effort as fragility. The actual evidence points the other way — you\'ve continued to function under conditions that are genuinely not easy.',
+ full: 'Recent events have been demanding and the coping has been effortful. It would be easy to interpret that effort as fragility. The actual evidence points the other way, you\'ve continued to function under conditions that are genuinely not easy.',
  action: 'Name three things you\'ve handled in the last month that were actually difficult.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'You are more resilient than recent events have made you feel. The evidence is that you\'re still functioning.',
@@ -414,8 +414,8 @@ export const mood = [
  {
  id: 'D052',
  teaser: 'A moment of stillness today will do more than a full day of managing.',
- full: 'You\'ve been managing — responding, adapting, producing, handling. The rate of management has exceeded the rate of restoration. Today\'s highest-value activity will simply be to stop long enough for things to settle rather than adding more management to the pile.',
- action: 'Find fifteen minutes today with no input — no phone, no music, no agenda.',
+ full: 'You\'ve been managing, responding, adapting, producing, handling. The rate of management has exceeded the rate of restoration. Today\'s highest-value activity will simply be to stop long enough for things to settle rather than adding more management to the pile.',
+ action: 'Find fifteen minutes today with no input, no phone, no music, no agenda.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'A moment of stillness today will do more than a full day of managing. Fifteen minutes of no input.',
  },

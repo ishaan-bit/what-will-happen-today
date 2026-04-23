@@ -1,14 +1,3 @@
-/**
- * Prediction Engine
- *
- * Layer 1: Rule-based, deterministic, instant.
- * Takes a date seed + category offset → deterministic daily pick.
- * Avoids recently shown predictions using AsyncStorage history.
- *
- * Layer 2 hook: fetchRemotePredictions() for LLM-enhanced batch.
- * Falls back to local content if remote is unavailable.
- */
-
 import { love } from '@/content/love';
 import { career } from '@/content/career';
 import { money } from '@/content/money';
@@ -19,11 +8,14 @@ import {
   recordShownId,
   getCachedPredictions,
   cachePredictions,
+  clearCachedPredictions,
+  getInstallSalt,
+  getLastRuleBucket,
+  setLastRuleBucket,
 } from '@/services/storageService';
 
 const POOLS = { love, career, money, mood };
 
-// Category offsets ensure different categories never pick the same index
 const CATEGORY_OFFSETS = {
   love: 0,
   career: 1000,
@@ -31,106 +23,98 @@ const CATEGORY_OFFSETS = {
   mood: 3000,
 };
 
-/**
- * Picks a prediction for a single category using daily seed.
- * Filters out recently shown IDs for variety.
- */
-async function pickForCategory(category) {
+const CATEGORIES = ['love', 'career', 'money', 'mood'];
+
+function hashString(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+async function pickForCategory(category, saltSeed) {
   const pool = POOLS[category];
   if (!pool || pool.length === 0) return null;
 
   const recentIds = await getRecentIds(category);
   const available = pool.filter((p) => !recentIds.includes(p.id));
-  const source = available.length > 0 ? available : pool; // fallback: full pool
+  const source = available.length > 0 ? available : pool;
 
-  const seed = getDailySeed() + CATEGORY_OFFSETS[category];
+  const seed = (getDailySeed() + CATEGORY_OFFSETS[category] + saltSeed) >>> 0;
   const index = Math.floor(seededRandom(seed) * source.length);
   const prediction = source[index];
 
   await recordShownId(category, prediction.id);
-  return prediction;
+  return { ...prediction, source: 'rule' };
 }
 
-/**
- * Returns today's predictions for all four categories.
- * Uses cache if available for the current date; otherwise generates fresh.
- */
-export async function getTodaysPredictions() {
-  // Check cache first (re-use within same day)
+export async function getTodaysPredictions(remoteRuleBucket = null) {
+  const [installSalt, lastBucket] = await Promise.all([
+    getInstallSalt(),
+    getLastRuleBucket(),
+  ]);
+
+  const bucket = remoteRuleBucket != null ? String(remoteRuleBucket) : lastBucket;
+  const saltSeed = hashString(`${installSalt}|${bucket}`);
+
+  if (remoteRuleBucket != null && String(remoteRuleBucket) !== lastBucket) {
+    await clearCachedPredictions();
+    await setLastRuleBucket(remoteRuleBucket);
+  }
+
   const cached = await getCachedPredictions();
   if (cached) return cached;
 
-  // Generate fresh
-  const [lovePred, careerPred, moneyPred, moodPred] = await Promise.all([
-    pickForCategory('love'),
-    pickForCategory('career'),
-    pickForCategory('money'),
-    pickForCategory('mood'),
-  ]);
-
-  const predictions = {
-    love: lovePred,
-    career: careerPred,
-    money: moneyPred,
-    mood: moodPred,
-  };
+  const picks = await Promise.all(
+    CATEGORIES.map((cat) => pickForCategory(cat, saltSeed))
+  );
+  const predictions = {};
+  CATEGORIES.forEach((cat, i) => { predictions[cat] = picks[i]; });
 
   await cachePredictions(predictions);
   return predictions;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Layer 2: Remote LLM-enhanced predictions (optional)
-// Falls back to local if fetch fails or is unavailable.
-// ─────────────────────────────────────────────────────────────
-
 const REMOTE_TIMEOUT_MS = 4000;
 
-/**
- * Attempts to fetch LLM-enhanced predictions from backend.
- * On failure, returns null so the engine falls back to local pool.
- */
-export async function fetchRemotePredictions() {
+export async function fetchRemotePayload() {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
   if (!apiUrl) return null;
-
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS);
-
     const response = await fetch(`${apiUrl}/api/predictions/daily`, {
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
     });
-
     clearTimeout(timeout);
-
     if (!response.ok) return null;
-
-    const json = await response.json();
-    return json?.data ?? json ?? null;
+    return await response.json();
   } catch {
     return null;
   }
 }
 
-/**
- * Main entry: tries remote first, merges over local picks.
- * Remote predictions override local ones for any category they include.
- */
 export async function getPredictions() {
-  const [local, remote] = await Promise.all([
-    getTodaysPredictions(),
-    fetchRemotePredictions(),
-  ]);
+  const remote = await fetchRemotePayload();
+  const ruleBucket = remote?.ruleBucket ?? null;
+  const local = await getTodaysPredictions(ruleBucket);
 
-  if (!remote) return local;
+  const remoteData = remote?.data || null;
+  const merged = {};
+  for (const cat of CATEGORIES) {
+    if (remoteData && remoteData[cat]) {
+      merged[cat] = { ...remoteData[cat], source: 'llm' };
+    } else {
+      merged[cat] = local[cat];
+    }
+  }
 
-  // Merge: remote wins per-category if it provides the field
   return {
-    love: remote.love ?? local.love,
-    career: remote.career ?? local.career,
-    money: remote.money ?? local.money,
-    mood: remote.mood ?? local.mood,
+    predictions: merged,
+    heroImage: remote?.heroImage || null,
+    llmGeneratedAt: remote?.generatedAt || null,
   };
 }

@@ -6,5 +6,8 @@
     "pages/api/cron/**/*.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    { "path": "/api/cron/daily-push", "schedule": "30 2 * * *" }
+  ]
 }

@@ -30,7 +30,7 @@ export default function PrivacyScreen() {
         <Bullet>An anonymous device identifier stored locally on your device.</Bullet>
         <Bullet>Local prediction history so we don't repeat the same reading too soon.</Bullet>
         <Bullet>In-app purchase tokens and Google Play transaction metadata for verification.</Bullet>
-        <Bullet>Anonymous diagnostic and product analytics events (e.g. PostHog) — no personal content.</Bullet>
+        <Bullet>Anonymous diagnostic and product analytics events (e.g. PostHog), no personal content.</Bullet>
 
         <H>How we use data</H>
         <Bullet>Generate, rotate, and personalize today's reading.</Bullet>

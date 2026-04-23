@@ -1,11 +1,9 @@
 /**
  * GET /api/predictions/daily
  *
- * Serves today's LLM-generated predictions to the mobile app.
- * Falls back gracefully if predictions haven't been generated yet.
- *
- * Mobile app calls this once per day and falls back to local pool
- * if this endpoint is unavailable or returns an error.
+ * Serves todays LLM-generated predictions to the mobile app PLUS
+ * server-driven control values that influence the rule-based engine
+ * (ruleBucket) and the optional hero image at the top of the UI.
  */
 
 import { Redis } from '@upstash/redis';
@@ -29,27 +27,41 @@ export default async function handler(req, res) {
   try {
     const redis = getRedis();
     const dateKey = getTodayKey();
-    const cacheKey = `wwht:predictions:${dateKey}`;
 
-    const raw = await redis.get(cacheKey);
+    const [raw, ruleBucket, heroRaw] = await Promise.all([
+      redis.get(`wwht:predictions:${dateKey}`),
+      redis.get('wwht:ruleBucket'),
+      redis.get('wwht:heroImage'),
+    ]);
 
-    if (!raw) {
-      // Not yet generated – mobile falls back to local pool
-      return res.status(404).json({
-        error: 'not_ready',
-        message: 'Predictions not yet generated for today',
-      });
+    let data = null;
+    let generatedAt = null;
+    if (raw) {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      data = parsed.predictions || null;
+      generatedAt = parsed.generatedAt || null;
     }
 
-    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    let heroImage = null;
+    if (heroRaw) {
+      try {
+        heroImage = typeof heroRaw === 'string' ? JSON.parse(heroRaw) : heroRaw;
+      } catch {
+        heroImage = null;
+      }
+      if (heroImage && (!heroImage.url || heroImage.enabled === false)) {
+        heroImage = null;
+      }
+    }
 
-    // Cache at CDN/browser for 1 hour
-    res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400');
 
     return res.status(200).json({
-      data: data.predictions,
-      dateKey: data.dateKey,
-      generatedAt: data.generatedAt,
+      data,
+      dateKey,
+      generatedAt,
+      ruleBucket: ruleBucket ? String(ruleBucket) : '0',
+      heroImage,
     });
   } catch (err) {
     console.error('[/api/predictions/daily]', err);

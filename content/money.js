@@ -1,4 +1,4 @@
-// Money predictions – 52 entries
+// Money predictions, 52 entries
 // Tone: grounded, sharp, behavioral finance framing.
 // Each has: teaser (hook), full (depth), action (concrete step), timing (hint), shareSnippet (share text).
 
@@ -14,7 +14,7 @@ export const money = [
  {
  id: 'M002',
  teaser: 'You\'ll be tempted to justify a purchase you already know isn\'t right.',
- full: 'The rationalization will be convincing — there are good arguments for it, the timing feels reasonable, you will find a use for it. But you already know the answer. The arguments are post-hoc comfort, not analysis.',
+ full: 'The rationalization will be convincing, there are good arguments for it, the timing feels reasonable, you will find a use for it. But you already know the answer. The arguments are post-hoc comfort, not analysis.',
  action: 'If you already know the answer, stop finding reasons to reverse it.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'You\'ll be tempted to justify a purchase you already know isn\'t right. The rationalization is not analysis.',
@@ -22,7 +22,7 @@ export const money = [
  {
  id: 'M003',
  teaser: 'Something expected around money today will cost more than you planned.',
- full: 'A bill, a service, a purchase you\'d mentally priced will come in higher than anticipated. The surprise is useful data about your mental cost model. Don\'t just pay it — note the gap.',
+ full: 'A bill, a service, a purchase you\'d mentally priced will come in higher than anticipated. The surprise is useful data about your mental cost model. Don\'t just pay it, note the gap.',
  action: 'Note the discrepancy and update your estimates for similar items.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'Something expected around money today will cost more than you planned. Note the gap in your mental model.',
@@ -30,7 +30,7 @@ export const money = [
  {
  id: 'M004',
  teaser: 'An unexpected payment request will show up today.',
- full: 'Something will arrive — a bill, a request, a fee — that you weren\'t tracking or had moved to the background. The amount will be manageable but the timing will feel off.',
+ full: 'Something will arrive, a bill, a request, a fee, that you weren\'t tracking or had moved to the background. The amount will be manageable but the timing will feel off.',
  action: 'Deal with it today if it\'s legitimate. Don\'t let it sit.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'An unexpected payment request will show up today. Deal with the legitimate ones immediately.',
@@ -38,7 +38,7 @@ export const money = [
  {
  id: 'M005',
  teaser: 'A money conversation you\'ve been avoiding will push its way into today.',
- full: 'Something you\'ve been deferring — a specific conversation about finances with someone — will surface. Either an opportunity arrives, or a situation forces it, or the other person initiates. It\'ll be harder to avoid than before.',
+ full: 'Something you\'ve been deferring, a specific conversation about finances with someone, will surface. Either an opportunity arrives, or a situation forces it, or the other person initiates. It\'ll be harder to avoid than before.',
  action: 'If it surfaces today, go through it rather than rescheduling.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'A money conversation you\'ve been avoiding will push its way into today. Go through it rather than past it.',
@@ -46,15 +46,15 @@ export const money = [
  {
  id: 'M006',
  teaser: 'A financial decision that\'s been sitting will need an answer today.',
- full: 'You\'ve been living with ambiguity on something that actually needs to resolve. A payment, a choice, a commitment — the indecision has been its own form of choice. Today the situation asks for a deliberate answer.',
+ full: 'You\'ve been living with ambiguity on something that actually needs to resolve. A payment, a choice, a commitment, the indecision has been its own form of choice. Today the situation asks for a deliberate answer.',
  action: 'Give it one. Even an imperfect decision is better than continued ambiguity here.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'A financial decision that\'s been sitting will need an answer today. An imperfect decision beats continued ambiguity.',
  },
  {
  id: 'M007',
- teaser: 'A number will surprise you today — in either direction.',
- full: 'An account balance, a price, a bill — some number will land differently from what you expected. If it\'s a pleasant surprise, use the feeling to inform better tracking. If it\'s an unpleasant one, use it the same way.',
+ teaser: 'A number will surprise you today, in either direction.',
+ full: 'An account balance, a price, a bill, some number will land differently from what you expected. If it\'s a pleasant surprise, use the feeling to inform better tracking. If it\'s an unpleasant one, use it the same way.',
  action: 'Don\'t just react to the number. Ask what it reveals about where your mental model was off.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'A number will surprise you today. What matters is what it reveals about your assumptions.',
@@ -62,7 +62,7 @@ export const money = [
  {
  id: 'M008',
  teaser: 'A purchase you\'ve been holding off will suddenly feel urgent today. It isn\'t.',
- full: 'The urgency will feel real — a deadline, a price point, a sense that this is the window. In most cases, what feels like now-or-never is actually just now-is-an-option. The pressure is coming from inside the situation, not from the situation itself.',
+ full: 'The urgency will feel real, a deadline, a price point, a sense that this is the window. In most cases, what feels like now-or-never is actually just now-is-an-option. The pressure is coming from inside the situation, not from the situation itself.',
  action: 'Name what\'s creating the urgency. Then ask if the urgency is actually real.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'A purchase you\'ve been holding off will suddenly feel urgent today. The urgency is not real.',
@@ -70,10 +70,10 @@ export const money = [
  {
  id: 'M009',
  teaser: 'You\'ll compare your financial situation to someone else\'s today in a way that\'s inaccurate.',
- full: 'You\'ll get a glimpse of something — someone\'s purchase, their lifestyle, something visible — and a comparison will happen automatically. The comparison will almost certainly be incomplete: their visible output against your full accounting.',
+ full: 'You\'ll get a glimpse of something, someone\'s purchase, their lifestyle, something visible, and a comparison will happen automatically. The comparison will almost certainly be incomplete: their visible output against your full accounting.',
  action: 'Remind yourself comparisons are always partial. Focus on your own trajectory.',
  timing: 'Pay attention to this before the day gets complicated.',
- shareSnippet: 'You\'ll compare your finances to someone else\'s today. The comparison will be inaccurate — theirs is always partial.',
+ shareSnippet: 'You\'ll compare your finances to someone else\'s today. The comparison will be inaccurate, theirs is always partial.',
  },
  {
  id: 'M010',
@@ -102,7 +102,7 @@ export const money = [
  {
  id: 'M013',
  teaser: 'A cheap option now will carry a more expensive cost later.',
- full: 'There\'s a decision where the cheaper path looks like a deal. It will be — or it will be transferring the cost to a later point where it\'ll be harder to manage. The full cost calculation isn\'t just the price tag.',
+ full: 'There\'s a decision where the cheaper path looks like a deal. It will be, or it will be transferring the cost to a later point where it\'ll be harder to manage. The full cost calculation isn\'t just the price tag.',
  action: 'Think through the downstream costs before choosing the cheaper option.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'A cheap option now will carry a more expensive cost later. Calculate full cost, not just upfront.',
@@ -110,7 +110,7 @@ export const money = [
  {
  id: 'M014',
  teaser: 'You have an idle asset that will be working for you.',
- full: 'Something you own — a skill, a tool, a space, an account, a relationship — is sitting unused or underdeployed. It has value that isn\'t being extracted. This isn\'t urgent, but it is a quiet waste.',
+ full: 'Something you own, a skill, a tool, a space, an account, a relationship, is sitting unused or underdeployed. It has value that isn\'t being extracted. This isn\'t urgent, but it is a quiet waste.',
  action: 'Name one idle asset today. Spend five minutes thinking about one way it will be put to work.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'You have an idle asset that will be working for you. Name it. That\'s the first step.',
@@ -125,7 +125,7 @@ export const money = [
  },
  {
  id: 'M016',
- teaser: 'Your financial stress has a specific source — you\'ve been treating it as general.',
+ teaser: 'Your financial stress has a specific source, you\'ve been treating it as general.',
  full: 'The anxiety doesn\'t feel like it has a single cause because you\'re not letting yourself identify one. But it does. One specific number, obligation, or situation is producing most of the weight. Treating it as diffuse keeps it large.',
  action: 'Name the one specific source today. Then make a plan for just that.',
  timing: 'By tonight, this will be clearer.',
@@ -142,7 +142,7 @@ export const money = [
  {
  id: 'M018',
  teaser: 'Someone owes you money and you\'ve been too polite to bring it up.',
- full: 'Time passing doesn\'t make this easier — it makes it harder. The longer the gap, the more loaded the conversation becomes. What started as a reasonable amount is now carrying relationship weight it didn\'t need to.',
+ full: 'Time passing doesn\'t make this easier, it makes it harder. The longer the gap, the more loaded the conversation becomes. What started as a reasonable amount is now carrying relationship weight it didn\'t need to.',
  action: 'Bring it up today. Casually, specifically, soon.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'Someone owes you money and you\'ve been too polite to bring it up. The longer you wait, the harder it gets.',
@@ -158,7 +158,7 @@ export const money = [
  {
  id: 'M020',
  teaser: 'Money and self-image are tangled in a way that will distort a decision today.',
- full: 'A financial choice today isn\'t really about the money — it\'s about how you see yourself or how you want to be seen. The amount is real but the driver is identity. Decisions made from an identity place often produce the wrong financial outcome.',
+ full: 'A financial choice today isn\'t really about the money, it\'s about how you see yourself or how you want to be seen. The amount is real but the driver is identity. Decisions made from an identity place often produce the wrong financial outcome.',
  action: 'Separate the financial question from the identity question. Answer each on its own terms.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'Money and self-image are tangled in a way that will distort a decision today. Separate the two.',
@@ -166,7 +166,7 @@ export const money = [
  {
  id: 'M021',
  teaser: 'An unexpected source of money or value will appear today.',
- full: 'Something will arrive that you weren\'t tracking — a payment, a credit, an opportunity, a referral. The amount will be small or the upside will take time. Notice it. Unexpected income handled well will compound.',
+ full: 'Something will arrive that you weren\'t tracking, a payment, a credit, an opportunity, a referral. The amount will be small or the upside will take time. Notice it. Unexpected income handled well will compound.',
  action: 'When it arrives, don\'t automatically fold it into regular spending. Think about where it should go.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'An unexpected source of money or value will appear today. Decide where it goes before it disappears into spending.',
@@ -174,7 +174,7 @@ export const money = [
  {
  id: 'M022',
  teaser: 'A financial goal you\'ve been half-ignoring will demand full attention.',
- full: 'It\'s been running in the background — meant to be a priority but consistently displaced. Today something shifts its position from the periphery to the foreground. Either an opportunity arrives or a cost is becoming visible.',
+ full: 'It\'s been running in the background, meant to be a priority but consistently displaced. Today something shifts its position from the periphery to the foreground. Either an opportunity arrives or a cost is becoming visible.',
  action: 'Spend 30 minutes today treating this goal as the primary thing.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'A financial goal you\'ve been half-ignoring will demand full attention today.',
@@ -182,7 +182,7 @@ export const money = [
  {
  id: 'M023',
  teaser: 'Someone will suggest you spend money in a way that doesn\'t align with how you actually feel.',
- full: 'Social spending, group decisions, someone\'s recommendation — a purchase will be suggested that sounds reasonable but sits wrong. The right answer is the honest one, not the easy one.',
+ full: 'Social spending, group decisions, someone\'s recommendation, a purchase will be suggested that sounds reasonable but sits wrong. The right answer is the honest one, not the easy one.',
  action: 'Say what you actually think before agreeing to something you\'ll resent.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'Someone will suggest you spend money in a way that doesn\'t feel right. Say what you actually think.',
@@ -190,7 +190,7 @@ export const money = [
  {
  id: 'M024',
  teaser: 'You\'ll want to make a money decision quickly today. Slowing down is right.',
- full: 'The feeling of urgency is real but not well-founded. The purchase, the commitment, the move — it\'ll feel like it needs to happen now. It usually doesn\'t. The urgency is a feature of the situation, not an accurate signal.',
+ full: 'The feeling of urgency is real but not well-founded. The purchase, the commitment, the move, it\'ll feel like it needs to happen now. It usually doesn\'t. The urgency is a feature of the situation, not an accurate signal.',
  action: 'If you feel the pressure to decide quickly about money today, take one extra day.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'You\'ll want to make a money decision quickly today. The urgency isn\'t real. Take one extra day.',
@@ -206,7 +206,7 @@ export const money = [
  {
  id: 'M026',
  teaser: 'A financial boundary you\'ve set for yourself will be tested today.',
- full: 'A specific limit — an amount you said you wouldn\'t exceed, a type of expense you said you\'d avoid — will have pressure put on it. The pressure will be real and the reason will be convincing. The boundary is still the right one.',
+ full: 'A specific limit, an amount you said you wouldn\'t exceed, a type of expense you said you\'d avoid, will have pressure put on it. The pressure will be real and the reason will be convincing. The boundary is still the right one.',
  action: 'Hold the boundary today. One held line makes the next one easier.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'A financial boundary you\'ve set for yourself will be tested today. Hold it.',
@@ -229,8 +229,8 @@ export const money = [
  },
  {
  id: 'M029',
- teaser: 'You\'ll spend money today to address a surface problem — not the actual one.',
- full: 'A purchase, a service, a fix — it\'ll address the symptom without touching what\'s actually generating the problem. The money will be spent but the problem will return in a different form.',
+ teaser: 'You\'ll spend money today to address a surface problem, not the actual one.',
+ full: 'A purchase, a service, a fix, it\'ll address the symptom without touching what\'s actually generating the problem. The money will be spent but the problem will return in a different form.',
  action: 'Before spending on a solution today, ask: is this the actual problem or the visible one?',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'You\'ll spend money today addressing the surface problem, not the actual one. Ask what\'s actually generating it.',
@@ -238,7 +238,7 @@ export const money = [
  {
  id: 'M030',
  teaser: 'Today\'s small money choice is setting a pattern, not just solving a moment.',
- full: 'The purchase, the concession, the decision that feels one-time — it\'s establishing a category of decision. Small financial choices made consistently are what financial trajectories are actually built from.',
+ full: 'The purchase, the concession, the decision that feels one-time, it\'s establishing a category of decision. Small financial choices made consistently are what financial trajectories are actually built from.',
  action: 'Make today\'s small money choice as if it will be your default going forward. Because it likely will be.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'Today\'s small money choice is setting a pattern, not just solving a moment.',
@@ -246,7 +246,7 @@ export const money = [
  {
  id: 'M031',
  teaser: 'A purchase you\'ve been delaying will stop being available at this price soon.',
- full: 'Something real is changing — a price increase, an offer window, a genuine shift in availability. This isn\'t manufactured urgency. The window is actually narrowing.',
+ full: 'Something real is changing, a price increase, an offer window, a genuine shift in availability. This isn\'t manufactured urgency. The window is actually narrowing.',
  action: 'If you\'ve been considering this genuinely, today is a reasonable day to decide.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'A purchase you\'ve been delaying will stop being available at this price soon. The window is real.',
@@ -254,7 +254,7 @@ export const money = [
  {
  id: 'M032',
  teaser: 'A financial conversation today will affect how someone else sees your judgment.',
- full: 'Something about how you handle a money matter — a decision, a request, a response — will be read as a signal about your general financial intelligence. You\'re being assessed, even in a casual exchange.',
+ full: 'Something about how you handle a money matter, a decision, a request, a response, will be read as a signal about your general financial intelligence. You\'re being assessed, even in a casual exchange.',
  action: 'Be clear, specific, and honest in any financial exchange today.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'A financial conversation today will affect how someone else sees your judgment. Be specific and clear.',
@@ -262,7 +262,7 @@ export const money = [
  {
  id: 'M033',
  teaser: 'You\'ll feel more financially stressed today than the actual numbers warrant.',
- full: 'The anxiety will arrive ahead of the actual problem. Your situation is tighter than you\'d like but it is not in crisis. The stress is anticipatory — running possible futures, not the present one.',
+ full: 'The anxiety will arrive ahead of the actual problem. Your situation is tighter than you\'d like but it is not in crisis. The stress is anticipatory, running possible futures, not the present one.',
  action: 'Write down your actual numbers. Compare them to the feeling. The feeling will be larger.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'You\'ll feel more financially stressed today than the actual numbers warrant. Write down the real numbers.',
@@ -270,7 +270,7 @@ export const money = [
  {
  id: 'M034',
  teaser: 'Something you invested in months ago is showing results you haven\'t noticed yet.',
- full: 'A choice you made — money, time, a decision — that felt uncertain or even like a mistake is quietly working. The returns aren\'t dramatic but they\'re visible if you look. You\'ve been looking at other things.',
+ full: 'A choice you made, money, time, a decision, that felt uncertain or even like a mistake is quietly working. The returns aren\'t dramatic but they\'re visible if you look. You\'ve been looking at other things.',
  action: 'Check in on something you put in place months ago. Look at what\'s actually happened to it.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'Something you invested in months ago is showing results you haven\'t noticed yet. Check on it.',
@@ -278,10 +278,10 @@ export const money = [
  {
  id: 'M035',
  teaser: 'You\'ll be offered a financial shortcut today. The hidden cost is real.',
- full: 'The offer will be attractive — a deal, a faster path, a way to skip a step. The offer is real but it transfers cost rather than eliminating it. The hidden cost becomes visible later, usually when your options are narrower.',
+ full: 'The offer will be attractive, a deal, a faster path, a way to skip a step. The offer is real but it transfers cost rather than eliminating it. The hidden cost becomes visible later, usually when your options are narrower.',
  action: 'When the shortcut appears, ask specifically: where is the cost going?',
  timing: 'The signal is strongest in unguarded moments.',
- shareSnippet: 'You\'ll be offered a financial shortcut today. Ask where the cost is going — it doesn\'t disappear.',
+ shareSnippet: 'You\'ll be offered a financial shortcut today. Ask where the cost is going, it doesn\'t disappear.',
  },
  {
  id: 'M036',
@@ -294,7 +294,7 @@ export const money = [
  {
  id: 'M037',
  teaser: 'The best financial move available to you today costs nothing.',
- full: 'It\'s a subtraction — stopping a payment, cancelling something, saying no, opting out. The most valuable financial decisions are often removing something, not adding it. What can you stop that you haven\'t stopped yet?',
+ full: 'It\'s a subtraction, stopping a payment, cancelling something, saying no, opting out. The most valuable financial decisions are often removing something, not adding it. What can you stop that you haven\'t stopped yet?',
  action: 'Name one financial commitment you should remove. Then remove it today.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'The best financial move available to you today costs nothing. It\'s a subtraction, not an addition.',
@@ -302,7 +302,7 @@ export const money = [
  {
  id: 'M038',
  teaser: 'A money pattern you learned from your family is operating in the background.',
- full: 'The anxiety about money, the generosity, the avoidance, the ambition — whatever shaped your family\'s relationship to finances is in your operating system. It runs without you choosing it. Worth knowing which pattern is running today.',
+ full: 'The anxiety about money, the generosity, the avoidance, the ambition, whatever shaped your family\'s relationship to finances is in your operating system. It runs without you choosing it. Worth knowing which pattern is running today.',
  action: 'Identify one money behavior today that you recognize from your family. Notice whether it\'s serving you.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'A money pattern you learned from your family is operating in the background. Notice which one it is.',
@@ -318,7 +318,7 @@ export const money = [
  {
  id: 'M040',
  teaser: 'The financial milestone you hit deserves recognition that doesn\'t involve spending.',
- full: 'You did something — paid something off, reached a number, cleared something — that matters. The impulse to celebrate by spending is understandable. But the milestone can be marked without a purchase.',
+ full: 'You did something, paid something off, reached a number, cleared something, that matters. The impulse to celebrate by spending is understandable. But the milestone can be marked without a purchase.',
  action: 'Acknowledge the milestone without buying something to mark it.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'The financial milestone you hit deserves recognition that doesn\'t involve spending.',
@@ -326,7 +326,7 @@ export const money = [
  {
  id: 'M041',
  teaser: 'A financial goal without a specific number is still just an intention.',
- full: 'You have an intention — saving more, investing, reducing something. It doesn\'t have a specific target or timeline. Without those, there\'s no mechanism for accountability, and the intention stays an intention.',
+ full: 'You have an intention, saving more, investing, reducing something. It doesn\'t have a specific target or timeline. Without those, there\'s no mechanism for accountability, and the intention stays an intention.',
  action: 'Assign a specific number and a specific date to one financial goal. Write it down.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'A financial goal without a specific number is still just an intention. Give it a number and a date.',
@@ -334,7 +334,7 @@ export const money = [
  {
  id: 'M042',
  teaser: 'Supplementary income you\'ve been treating as spending money is building something.',
- full: 'The secondary income — the side work, the extra stream — has more potential than “spending money” treatment gives it. Even moderate supplementary income invested consistently changes the picture materially over two to three years.',
+ full: 'The secondary income, the side work, the extra stream, has more potential than “spending money” treatment gives it. Even moderate supplementary income invested consistently changes the picture materially over two to three years.',
  action: 'Treat the next supplementary income as a building entry, not a spending entry.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'Supplementary income you\'ve been treating as spending money is building something if you let it.',
@@ -342,7 +342,7 @@ export const money = [
  {
  id: 'M043',
  teaser: 'Something you\'ve been calling expensive is actually good value at its real rate.',
- full: 'There\'s a cost you\'ve been resisting — a service, a tool, a professional — that felt too high. Evaluated per use, per hour, or per actual output delivered, the effective rate will be significantly better than the sticker price implied.',
+ full: 'There\'s a cost you\'ve been resisting, a service, a tool, a professional, that felt too high. Evaluated per use, per hour, or per actual output delivered, the effective rate will be significantly better than the sticker price implied.',
  action: 'Re-calculate the real per-unit cost of one thing you\'ve been calling expensive.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'Something you\'ve been calling expensive is actually good value at its real rate. Calculate it differently.',
@@ -350,7 +350,7 @@ export const money = [
  {
  id: 'M044',
  teaser: 'Urgency around a discount is creating pressure that isn\'t real.',
- full: 'A sale, a limited offer, a countdown — the mechanism is designed to make the decision feel time-constrained. Sometimes the window is real. Often it isn\'t. The urgency is a feature of the offer, not a signal about your actual need.',
+ full: 'A sale, a limited offer, a countdown, the mechanism is designed to make the decision feel time-constrained. Sometimes the window is real. Often it isn\'t. The urgency is a feature of the offer, not a signal about your actual need.',
  action: 'Before buying because of a deadline, ask whether you\'d buy it at full price. If not, the discount is the product.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'Urgency around a discount is creating pressure that isn\'t real. Ask if you\'d buy it at full price.',
@@ -358,7 +358,7 @@ export const money = [
  {
  id: 'M045',
  teaser: 'An investment you made that felt uncertain is about to confirm itself.',
- full: 'Something you put money or time into — a decision that felt shaky, a move that seemed like a risk — is about to deliver a signal. The return will be financial, or it will be information that the decision was right. Either is valuable.',
+ full: 'Something you put money or time into, a decision that felt shaky, a move that seemed like a risk, is about to deliver a signal. The return will be financial, or it will be information that the decision was right. Either is valuable.',
  action: 'Pay attention to the signal when it comes. Don\'t explain it away.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'An investment you made that felt uncertain is about to confirm itself. Pay attention to the signal.',
@@ -366,7 +366,7 @@ export const money = [
  {
  id: 'M046',
  teaser: 'Someone around you is managing money more intelligently than their visible lifestyle suggests.',
- full: 'A person in your orbit looks like they\'re spending at a level you\'d expect. But the full picture is different — they have discipline or a strategy that isn\'t visible from the outside. The visible surface is not the actual financial situation.',
+ full: 'A person in your orbit looks like they\'re spending at a level you\'d expect. But the full picture is different, they have discipline or a strategy that isn\'t visible from the outside. The visible surface is not the actual financial situation.',
  action: 'Don\'t benchmark to what you can see. Their actual position doesn\'t match their visible one.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'Someone around you is managing money more intelligently than their visible lifestyle suggests.',
@@ -374,7 +374,7 @@ export const money = [
  {
  id: 'M047',
  teaser: 'You\'ll want to buy something to feel better today. It\'ll work briefly.',
- full: 'The desire will be real, the item will be real, and the relief will also briefly be real. But relief through purchasing is short-acting. Understanding what you\'re actually managing — stress, boredom, a feeling — does more than the object will.',
+ full: 'The desire will be real, the item will be real, and the relief will also briefly be real. But relief through purchasing is short-acting. Understanding what you\'re actually managing, stress, boredom, a feeling, does more than the object will.',
  action: 'Notice the feeling before buying. If the feeling is real, address it directly.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'You\'ll want to buy something to feel better today. It\'ll work briefly. Notice what you\'re actually managing.',
@@ -382,7 +382,7 @@ export const money = [
  {
  id: 'M048',
  teaser: 'A financial promise someone made to you will either come through or clearly won\'t today.',
- full: 'Something you\'ve been waiting on — a payment, a commitment, a financial follow-through — will resolve itself today. Either the promise lands or it becomes clear that it won\'t on the expected terms.',
+ full: 'Something you\'ve been waiting on, a payment, a commitment, a financial follow-through, will resolve itself today. Either the promise lands or it becomes clear that it won\'t on the expected terms.',
  action: 'Have a clear response ready for either outcome. Don\'t let the result drive a reactive financial decision.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'A financial promise someone made to you will either come through or clearly won\'t today. Be ready for either.',
@@ -390,7 +390,7 @@ export const money = [
  {
  id: 'M049',
  teaser: 'Now is actually a reasonable time to ask for more.',
- full: 'Whatever the context — a raise, a rate increase, a renegotiation — the conditions are not worse than they were and better than you\'re treating them. Timing always feels uncertain. This is not a worse-than-usual moment.',
+ full: 'Whatever the context, a raise, a rate increase, a renegotiation, the conditions are not worse than they were and better than you\'re treating them. Timing always feels uncertain. This is not a worse-than-usual moment.',
  action: 'Initiate a conversation about money with someone who owes you a better arrangement.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'Now is actually a reasonable time to ask for more. Timing always feels uncertain. This moment is fine.',
@@ -398,7 +398,7 @@ export const money = [
  {
  id: 'M050',
  teaser: 'Your current financial position is a snapshot, not a verdict.',
- full: 'What the numbers show today is the result of earlier decisions — some good, some not. It is not a fixed outcome. The decisions being made now are already changing what the snapshot will look like in six months.',
+ full: 'What the numbers show today is the result of earlier decisions, some good, some not. It is not a fixed outcome. The decisions being made now are already changing what the snapshot will look like in six months.',
  action: 'Make one decision today that moves your financial snapshot in the direction you want.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'Your current financial position is a snapshot, not a verdict. The decisions being made now are already changing it.',
@@ -406,15 +406,15 @@ export const money = [
  {
  id: 'M051',
  teaser: 'You\'re paying for access to something you\'re not using.',
- full: 'A subscription, a membership, a paid account — something you have access to is sitting unused and being automatically billed. The switching cost feels higher than it is. The actual process of cancellation is always shorter than the resistance to it suggests.',
+ full: 'A subscription, a membership, a paid account, something you have access to is sitting unused and being automatically billed. The switching cost feels higher than it is. The actual process of cancellation is always shorter than the resistance to it suggests.',
  action: 'Cancel or pause one paid service you haven\'t used this month.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'You\'re paying for access to something you\'re not using. The cancellation takes less time than the resistance suggests.',
  },
  {
  id: 'M052',
- teaser: 'A portion of your spending is functioning as stress management — more than you\'ve acknowledged.',
- full: 'Food delivery, impulse purchases, paid entertainment used as avoidance — some percentage of spending is doing emotional work. This isn\'t inherently wrong. But spending that\'s functioning as stress management should be labeled as such, not tracked as a neutral expense.',
+ teaser: 'A portion of your spending is functioning as stress management, more than you\'ve acknowledged.',
+ full: 'Food delivery, impulse purchases, paid entertainment used as avoidance, some percentage of spending is doing emotional work. This isn\'t inherently wrong. But spending that\'s functioning as stress management should be labeled as such, not tracked as a neutral expense.',
  action: 'Identify what percentage of last week\'s discretionary spending was stress-driven. Just know the number.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'A portion of your spending is functioning as stress management. Know how much. It changes how you see the budget.',

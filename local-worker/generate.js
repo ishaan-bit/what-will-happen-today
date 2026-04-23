@@ -104,8 +104,64 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
     model,
   });
   if (!content) throw new Error(`Empty response for ${category}`);
-  const cleaned = content.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
-  return JSON.parse(cleaned);
+  const parsed = extractJsonObject(content);
+  if (!parsed) {
+    const head = content.slice(0, 200).replace(/\s+/g, ' ');
+    throw new Error(`No JSON object found in model output. Head: ${head}`);
+  }
+  return sanitizePrediction(parsed);
+}
+
+/**
+ * Pull the first balanced JSON object out of arbitrary model output.
+ * Handles markdown fences, trailing commentary, multiple objects, etc.
+ */
+function extractJsonObject(raw) {
+  if (!raw) return null;
+  let text = raw.replace(/```[a-z]*\n?/gi, '').replace(/```/g, '').trim();
+  const start = text.indexOf('{');
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escape) { escape = false; continue; }
+      if (ch === '\\') { escape = true; continue; }
+      if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        const slice = text.slice(start, i + 1);
+        try { return JSON.parse(slice); }
+        catch {
+          // Try lenient repair: drop trailing commas
+          try { return JSON.parse(slice.replace(/,(\s*[}\]])/g, '$1')); }
+          catch { return null; }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/** Strip em/en dashes and ensure required fields exist. */
+function sanitizePrediction(p) {
+  const out = { ...p };
+  for (const k of Object.keys(out)) {
+    if (typeof out[k] === 'string') out[k] = stripDashes(out[k]);
+  }
+  return out;
+}
+function stripDashes(s) {
+  return s
+    .replace(/\s*[\u2014\u2013]\s*/g, ', ')
+    .replace(/[\u2014\u2013]/g, '-');
 }
 
 /**
@@ -130,32 +186,66 @@ export async function generateAll({ force = false, model } = {}) {
 
   const results = {};
   const errors = {};
+  const attempts = {};
+  const startedAt = new Date().toISOString();
 
   for (const cat of CATEGORIES) {
     if (JOB_STATE.cancelRequested) {
       console.log('[gen] cancel requested — stopping.');
       break;
     }
+    const t0 = Date.now();
     try {
-      const t0 = Date.now();
       results[cat] = await generateForCategory(cat, dateKey, model);
+      attempts[cat] = { ok: true, ms: Date.now() - t0, teaser: results[cat].teaser };
       console.log(`[gen] ✓ ${cat} (${Date.now() - t0}ms): "${results[cat].teaser}"`);
     } catch (err) {
-      console.error(`[gen] ✗ ${cat}: ${err.message}`);
+      attempts[cat] = { ok: false, ms: Date.now() - t0, error: err.message };
       errors[cat] = err.message;
+      console.error(`[gen] ✗ ${cat}: ${err.message}`);
     }
+  }
+
+  // Always write a run record so ops console can show success+failures
+  const runRecord = {
+    dateKey,
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    model: model || OLLAMA_MODEL_DEFAULT,
+    attempts,
+    errors: Object.keys(errors).length > 0 ? errors : undefined,
+    successCount: Object.keys(results).length,
+  };
+  try {
+    await redis.set(`wwht:lastRun:${dateKey}`, JSON.stringify(runRecord), { ex: 7 * 24 * 60 * 60 });
+    // Also append to a rolling history list (last 50 runs)
+    await redis.lpush('wwht:runs', JSON.stringify(runRecord));
+    await redis.ltrim('wwht:runs', 0, 49);
+  } catch (e) {
+    console.warn('[gen] failed to write run record:', e.message);
   }
 
   if (Object.keys(results).length === 0) {
     throw new Error('All categories failed: ' + JSON.stringify(errors));
   }
 
+  // Merge with any existing partial cache so a partial regen does not wipe good data
+  let mergedPredictions = results;
+  try {
+    const existing = await redis.get(cacheKey);
+    if (existing) {
+      const prev = typeof existing === 'string' ? JSON.parse(existing) : existing;
+      mergedPredictions = { ...(prev.predictions || {}), ...results };
+    }
+  } catch {}
+
   const payload = {
     dateKey,
     generatedAt: new Date().toISOString(),
-    predictions: results,
+    predictions: mergedPredictions,
     errors: Object.keys(errors).length > 0 ? errors : undefined,
     model: model || OLLAMA_MODEL_DEFAULT,
+    source: 'llm',
   };
 
   await redis.set(cacheKey, JSON.stringify(payload), { ex: 36 * 60 * 60 });

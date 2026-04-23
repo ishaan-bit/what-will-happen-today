@@ -120,7 +120,7 @@ export function SignalCard({ category, prediction, isFree, isUnlocked, onUnlockP
     let prefix = '';
     if (variant === 'accurate') prefix = 'This is so accurate it\'s annoying.\n\n';
     else if (variant === 'reminder') prefix = 'This reminded me of you.\n\n';
-    const text = `${prefix}${snippet}\n\n— What Will Happen Today`;
+    const text = `${prefix}${snippet}\n\nWhat Will Happen Today`;
     try {
       await Share.share({ message: text });
     } catch (_) {}

@@ -112,6 +112,13 @@ function Dashboard({ creds, onLogout }) {
   const [selectedModel, setSelectedModel] = useState('');
   const [busyAction, setBusyAction] = useState(null);
   const [toast, setToast] = useState(null);
+  const [runs, setRuns] = useState(null);
+  const [ruleBucket, setRuleBucket] = useState(null);
+  const [hero, setHero] = useState(null);
+  const [heroDraft, setHeroDraft] = useState({ url: '', alt: '' });
+  const [push, setPush] = useState(null);
+  const [pushDraft, setPushDraft] = useState({ hour: 8, minute: 0, enabled: true, title: '', body: '' });
+  const [pushTestDraft, setPushTestDraft] = useState({ title: '', body: '' });
 
   const showToast = useCallback((msg, kind = 'info') => {
     setToast({ msg, kind });
@@ -120,12 +127,30 @@ function Dashboard({ creds, onLogout }) {
 
   const refreshBackend = useCallback(async () => {
     try {
-      const [s, t] = await Promise.all([
+      const [s, t, r, rb, h, p] = await Promise.all([
         backend.status(),
         backend.getToday().catch(() => null),
+        backend.getRuns(5).catch(() => null),
+        backend.getRuleBucket().catch(() => null),
+        backend.getHero().catch(() => null),
+        backend.getPush().catch(() => null),
       ]);
       setBackendStatus({ ok: true, data: s });
       setToday(t);
+      setRuns(r?.runs || []);
+      setRuleBucket(rb?.ruleBucket || '0');
+      setHero(h?.heroImage || null);
+      if (h?.heroImage) setHeroDraft({ url: h.heroImage.url, alt: h.heroImage.alt || '' });
+      if (p?.ok) {
+        setPush(p);
+        setPushDraft({
+          hour: p.schedule?.hour ?? 8,
+          minute: p.schedule?.minute ?? 0,
+          enabled: p.schedule?.enabled !== false,
+          title: p.schedule?.title || '',
+          body: p.schedule?.body || '',
+        });
+      }
     } catch (err) {
       setBackendStatus({ ok: false, error: err.message });
     }
@@ -177,6 +202,78 @@ function Dashboard({ creds, onLogout }) {
       refreshBackend();
     } catch (err) {
       showToast(`Clear failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function bumpRule() {
+    setBusyAction('bumpRule');
+    try {
+      const r = await backend.bumpRuleBucket();
+      setRuleBucket(r.ruleBucket);
+      showToast(`Rule bucket bumped to ${r.ruleBucket}. All clients will repick.`);
+    } catch (err) {
+      showToast(`Bump failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function saveHero() {
+    if (!heroDraft.url) { showToast('URL required', 'error'); return; }
+    setBusyAction('hero');
+    try {
+      const r = await backend.setHero({ url: heroDraft.url, alt: heroDraft.alt, enabled: true });
+      setHero(r.heroImage);
+      showToast('Hero image updated.');
+    } catch (err) {
+      showToast(`Hero save failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function removeHero() {
+    if (!confirm('Remove hero image from the app?')) return;
+    setBusyAction('hero');
+    try {
+      await backend.clearHero();
+      setHero(null);
+      setHeroDraft({ url: '', alt: '' });
+      showToast('Hero image removed.');
+    } catch (err) {
+      showToast(`Hero remove failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function savePushSchedule() {
+    setBusyAction('pushSched');
+    try {
+      const r = await backend.setPushSchedule(pushDraft);
+      setPush((p) => ({ ...(p || {}), schedule: r.schedule }));
+      showToast('Schedule saved.');
+    } catch (err) {
+      showToast(`Schedule failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function sendPushTest() {
+    if (!confirm(`Send push to ALL ${push?.tokenCount || 0} registered devices now?`)) return;
+    setBusyAction('pushSend');
+    try {
+      const r = await backend.sendPushNow({
+        title: pushTestDraft.title || pushDraft.title || "Today's reading is ready",
+        body: pushTestDraft.body || pushDraft.body || 'Open the app to see your four signals.',
+      });
+      showToast(`Sent. ok=${r.ok} failed=${r.failed}`);
+      refreshBackend();
+    } catch (err) {
+      showToast(`Send failed: ${err.message}`, 'error');
     } finally {
       setBusyAction(null);
     }
@@ -325,9 +422,17 @@ function Dashboard({ creds, onLogout }) {
                 borderRadius: 8, padding: 14,
               }}>
                 <div style={{
-                  fontSize: 11, color: '#888', textTransform: 'uppercase',
-                  letterSpacing: 1, marginBottom: 6,
-                }}>{cat}</div>
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  marginBottom: 6,
+                }}>
+                  <div style={{
+                    fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1,
+                  }}>{cat}</div>
+                  <span style={{
+                    fontSize: 10, padding: '2px 8px', borderRadius: 10,
+                    background: '#1a3322', color: '#8aff9f', border: '1px solid #2a5535',
+                  }}>LLM</span>
+                </div>
                 <div style={{ fontSize: 15, marginBottom: 8 }}>{p.teaser}</div>
                 <div style={{ fontSize: 13, color: '#ccc', whiteSpace: 'pre-wrap', marginBottom: 8 }}>{p.full}</div>
                 {p.punch && (
@@ -340,13 +445,241 @@ function Dashboard({ creds, onLogout }) {
               </div>
             ))}
             {today.errors && (
-              <div style={{ fontSize: 12, color: '#ffaa8a' }}>
-                Some categories failed: {JSON.stringify(today.errors)}
+              <div style={{
+                background: '#3a1a22', border: '1px solid #5a2a35', borderRadius: 8,
+                padding: 12, fontSize: 12, color: '#ffaaaa',
+              }}>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>Per-category LLM errors</div>
+                {Object.entries(today.errors).map(([cat, msg]) => (
+                  <div key={cat} style={{ marginBottom: 4 }}>
+                    <strong style={{ color: '#ff8aa0' }}>{cat}:</strong> {msg}
+                  </div>
+                ))}
+                <div style={{ marginTop: 6, color: '#ccc' }}>
+                  Rule-based engine fills these gaps automatically on the device.
+                </div>
               </div>
             )}
           </div>
         )}
 
+      </Card>
+
+      <Card title="LLM Run History" action={<button onClick={refreshBackend}>Reload</button>}>
+        {!runs && <div style={{ color: '#666' }}>Loading…</div>}
+        {runs && runs.length === 0 && <div style={{ color: '#666', fontSize: 13 }}>No runs yet.</div>}
+        {runs && runs.length > 0 && (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {runs.map((run, i) => (
+              <div key={i} style={{
+                background: '#0f0f17', border: '1px solid #1f1f2a',
+                borderRadius: 8, padding: 12, fontSize: 12,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: '#ccc' }}>
+                    {run.dateKey} · {run.model} · {run.successCount}/4 ok
+                  </span>
+                  <span style={{ color: '#666' }}>
+                    {run.finishedAt ? new Date(run.finishedAt).toLocaleString() : ''}
+                  </span>
+                </div>
+                {run.attempts && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                    {Object.entries(run.attempts).map(([cat, a]) => (
+                      <div key={cat} style={{
+                        padding: '4px 8px', borderRadius: 6,
+                        background: a.ok ? '#1a3322' : '#3a1a22',
+                        color: a.ok ? '#8aff9f' : '#ff8aa0',
+                      }}>
+                        <strong>{cat}</strong>: {a.ok ? `ok (${a.ms}ms)` : a.error?.slice(0, 80)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title="Rule-Based Engine"
+        action={<span style={{ fontSize: 11, color: '#888' }}>bucket: <strong style={{ color: '#ccc' }}>{ruleBucket || '0'}</strong></span>}
+      >
+        <div style={{ fontSize: 13, color: '#ccc', marginBottom: 10 }}>
+          Bumping the rule bucket forces every install to re-pick its rule-based
+          prediction on next app open. Different users see different picks because
+          each install has its own random salt.
+        </div>
+        <button
+          className="primary"
+          disabled={busyAction === 'bumpRule'}
+          onClick={bumpRule}
+        >
+          {busyAction === 'bumpRule' ? 'Bumping…' : 'Bump rule bucket (refresh UI)'}
+        </button>
+      </Card>
+
+      <Card title="Hero Image (top of UI)">
+        <div style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
+          Optional. If set, appears at the top of the daily reading. Leave empty
+          to hide the section entirely.
+        </div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          <label>
+            <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Image URL (https or data:image/...)</div>
+            <input
+              value={heroDraft.url}
+              onChange={(e) => setHeroDraft((d) => ({ ...d, url: e.target.value }))}
+              placeholder="https://your-cdn/tarot-girl.webp"
+              style={{ width: '100%' }}
+            />
+          </label>
+          <label>
+            <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Alt text</div>
+            <input
+              value={heroDraft.alt}
+              onChange={(e) => setHeroDraft((d) => ({ ...d, alt: e.target.value }))}
+              placeholder="Tarot reader dealing cards"
+              style={{ width: '100%' }}
+            />
+          </label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="primary" disabled={busyAction === 'hero'} onClick={saveHero}>
+              {hero ? 'Update' : 'Publish'}
+            </button>
+            {hero && (
+              <button className="danger" disabled={busyAction === 'hero'} onClick={removeHero}>
+                Remove
+              </button>
+            )}
+          </div>
+          {hero && (
+            <div style={{
+              marginTop: 8, padding: 10, background: '#0f0f17',
+              border: '1px solid #1f1f2a', borderRadius: 8,
+            }}>
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>Live preview</div>
+              <img
+                src={hero.url}
+                alt={hero.alt}
+                style={{
+                  width: '100%', maxHeight: 400, objectFit: 'cover',
+                  borderRadius: 6, border: '1px solid #2a2a35',
+                }}
+              />
+              <div style={{ fontSize: 11, color: '#666', marginTop: 6 }}>
+                Updated: {hero.updatedAt ? new Date(hero.updatedAt).toLocaleString() : 'unknown'}
+              </div>
+            </div>
+          )}
+          <details style={{ marginTop: 6, fontSize: 12, color: '#aaa' }}>
+            <summary style={{ cursor: 'pointer', color: '#ccc' }}>Image guidelines for the tarot-girl artwork</summary>
+            <ul style={{ paddingLeft: 18, marginTop: 8, lineHeight: 1.6 }}>
+              <li><strong>Aspect ratio:</strong> 4:5 portrait (e.g. 1024 x 1280 or 1200 x 1500).</li>
+              <li><strong>Background:</strong> deep navy / near-black (#07080f) so it blends with the cosmic UI. Avoid bright whites.</li>
+              <li><strong>Subject framing:</strong> waist-up of a young woman dealing tarot cards on a velvet table; cards visible in the lower third.</li>
+              <li><strong>Palette:</strong> warm gold (#c9a96e), deep purples, candle warmth. Light source from the cards.</li>
+              <li><strong>Mood:</strong> mystic, slightly cinematic, screenshot-worthy. Not cartoon, not stock.</li>
+              <li><strong>Edges:</strong> soft vignette, no hard borders. The UI adds a top + bottom gradient mask automatically.</li>
+              <li><strong>File format:</strong> WebP or JPG, under 200 KB. Compress aggressively, mobile bandwidth matters.</li>
+              <li><strong>Hosting:</strong> upload to any image CDN (Vercel Blob, Cloudinary, Imgur direct link) and paste the URL.</li>
+            </ul>
+          </details>
+        </div>
+      </Card>
+
+      <Card
+        title="Daily Push Notifications"
+        action={
+          <span style={{ fontSize: 11, color: '#888' }}>
+            registered: <strong style={{ color: '#ccc' }}>{push?.tokenCount ?? '—'}</strong>
+          </span>
+        }
+      >
+        <div style={{ display: 'grid', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <label>
+              <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Hour (IST, 0-23)</div>
+              <input
+                type="number" min={0} max={23}
+                value={pushDraft.hour}
+                onChange={(e) => setPushDraft((d) => ({ ...d, hour: parseInt(e.target.value, 10) || 0 }))}
+                style={{ width: 80 }}
+              />
+            </label>
+            <label>
+              <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Minute (0-59)</div>
+              <input
+                type="number" min={0} max={59}
+                value={pushDraft.minute}
+                onChange={(e) => setPushDraft((d) => ({ ...d, minute: parseInt(e.target.value, 10) || 0 }))}
+                style={{ width: 80 }}
+              />
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={pushDraft.enabled}
+                onChange={(e) => setPushDraft((d) => ({ ...d, enabled: e.target.checked }))}
+              />
+              <span style={{ fontSize: 12, color: '#ccc' }}>Enabled</span>
+            </label>
+          </div>
+          <label>
+            <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Title</div>
+            <input
+              value={pushDraft.title}
+              onChange={(e) => setPushDraft((d) => ({ ...d, title: e.target.value }))}
+              placeholder="Today's reading is ready"
+              style={{ width: '100%' }}
+            />
+          </label>
+          <label>
+            <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Body</div>
+            <input
+              value={pushDraft.body}
+              onChange={(e) => setPushDraft((d) => ({ ...d, body: e.target.value }))}
+              placeholder="Your four signals for today are waiting."
+              style={{ width: '100%' }}
+            />
+          </label>
+          <button className="primary" disabled={busyAction === 'pushSched'} onClick={savePushSchedule}>
+            Save schedule
+          </button>
+
+          <hr style={{ border: 'none', borderTop: '1px solid #1f1f2a', margin: '12px 0' }} />
+
+          <div style={{ fontSize: 12, color: '#aaa' }}>Send a one-off push now</div>
+          <input
+            value={pushTestDraft.title}
+            onChange={(e) => setPushTestDraft((d) => ({ ...d, title: e.target.value }))}
+            placeholder="Title (defaults to scheduled title)"
+            style={{ width: '100%' }}
+          />
+          <input
+            value={pushTestDraft.body}
+            onChange={(e) => setPushTestDraft((d) => ({ ...d, body: e.target.value }))}
+            placeholder="Body (defaults to scheduled body)"
+            style={{ width: '100%' }}
+          />
+          <button className="danger" disabled={busyAction === 'pushSend' || !push?.tokenCount} onClick={sendPushTest}>
+            Send to all {push?.tokenCount || 0} devices now
+          </button>
+
+          {push?.recentSends?.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>Recent sends</div>
+              <div style={{ display: 'grid', gap: 4 }}>
+                {push.recentSends.map((s, i) => (
+                  <div key={i} style={{ fontSize: 11, color: '#aaa' }}>
+                    {new Date(s.at).toLocaleString()} · {s.trigger} · ok={s.ok} failed={s.failed} pruned={s.prunedInvalid}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </Card>
     </div>
   );

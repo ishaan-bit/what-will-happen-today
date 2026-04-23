@@ -1,20 +1,20 @@
-// Career predictions – 52 entries
+// Career predictions, 52 entries
 // Tone: sharp, behaviorally grounded. Avoids generic motivation.
 // Each has: teaser (hook), full (depth), action (concrete step), timing (hint), shareSnippet (share text).
 
 export const career = [
  {
  id: 'C001',
- teaser: 'You will be put on the spot today — before you feel fully ready.',
+ teaser: 'You will be put on the spot today, before you feel fully ready.',
  full: 'A question, a request, or a moment will arrive where a response is expected immediately. The instinct will be to defer or hedge. Neither will serve you. What comes out under pressure often turns out to be accurate enough.',
- action: 'When it happens, answer with what you actually think — not the most diplomatic version.',
+ action: 'When it happens, answer with what you actually think, not the most diplomatic version.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'You will be put on the spot today before you feel ready. What comes out under pressure is often accurate enough.',
  },
  {
  id: 'C002',
  teaser: 'Something you\'ve been putting off will come looking for you today.',
- full: 'It won\'t wait anymore. The conversation, the task, the decision — whatever it is — will surface itself. The timing won\'t be yours to choose. Whether you\'re ready or not, it\'s arriving today.',
+ full: 'It won\'t wait anymore. The conversation, the task, the decision, whatever it is, will surface itself. The timing won\'t be yours to choose. Whether you\'re ready or not, it\'s arriving today.',
  action: 'Get ahead of it in the first two hours if you can. On your terms is better than theirs.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'Something you\'ve been putting off will come looking for you today. Get ahead of it if you can.',
@@ -30,7 +30,7 @@ export const career = [
  {
  id: 'C004',
  teaser: 'Someone will notice what you\'ve been doing. The audience won\'t be who you expected.',
- full: 'Visibility will come from unexpected angles. Someone you weren\'t performing for has been watching. The attention will arrive in some form today — a mention, a reference, a direct acknowledgment.',
+ full: 'Visibility will come from unexpected angles. Someone you weren\'t performing for has been watching. The attention will arrive in some form today, a mention, a reference, a direct acknowledgment.',
  action: 'Don\'t minimize it when it comes. Receive it cleanly.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'Someone will notice what you\'ve been doing today. The audience was never who you expected.',
@@ -38,7 +38,7 @@ export const career = [
  {
  id: 'C005',
  teaser: 'A decision you thought was settled will get reopened today.',
- full: 'Something that felt closed — agreed, filed, done — will get pulled back out. Someone has a new angle, new information, or changed their mind. Frustrating as it is, the reopening will be useful.',
+ full: 'Something that felt closed, agreed, filed, done, will get pulled back out. Someone has a new angle, new information, or changed their mind. Frustrating as it is, the reopening will be useful.',
  action: 'Approach it with fresh eyes instead of defending the original position.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'A decision you thought was settled will get reopened today. The second look will be useful.',
@@ -46,7 +46,7 @@ export const career = [
  {
  id: 'C006',
  teaser: 'You\'ll need to speak up about something today, and the timing will feel off.',
- full: 'There will be a moment where something should be said — a concern, a correction, a piece of information the room doesn\'t have. The moment won\'t feel convenient. It never does.',
+ full: 'There will be a moment where something should be said, a concern, a correction, a piece of information the room doesn\'t have. The moment won\'t feel convenient. It never does.',
  action: 'Say it anyway. The moment passes permanently.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'You\'ll need to speak up about something today. The timing won\'t feel right. Say it anyway.',
@@ -54,7 +54,7 @@ export const career = [
  {
  id: 'C007',
  teaser: 'Something you built or delivered weeks ago will resurface in a conversation today.',
- full: 'Past work comes back in two directions — either it earns you something, or it creates a conversation you weren\'t expecting. Today it resurfaces. The quality of what you delivered then is the quality of what speaks for you now.',
+ full: 'Past work comes back in two directions, either it earns you something, or it creates a conversation you weren\'t expecting. Today it resurfaces. The quality of what you delivered then is the quality of what speaks for you now.',
  action: 'Review it briefly before any meeting today in case it comes up.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'Something you built weeks ago will resurface today. The quality of past work is what speaks for you now.',
@@ -70,7 +70,7 @@ export const career = [
  {
  id: 'C009',
  teaser: 'An opportunity will appear today with a shorter window than you\'d prefer.',
- full: 'It will have a visible expiration. Something opens up — a gap, a request, an unexpected invitation — and the hesitation window is measurably narrow. Deciding slowly here is the same as deciding no.',
+ full: 'It will have a visible expiration. Something opens up, a gap, a request, an unexpected invitation, and the hesitation window is measurably narrow. Deciding slowly here is the same as deciding no.',
  action: 'When it appears, give yourself 10 minutes to decide. Don\'t carry it past today.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'An opportunity will appear today with a shorter window than you\'d prefer. Slow is no.',
@@ -78,7 +78,7 @@ export const career = [
  {
  id: 'C010',
  teaser: 'A conversation about your role or direction will happen unexpectedly today.',
- full: 'Not a formal review — more like an informal exchange that becomes real quickly. Someone will ask a direct question about what you want or where you\'re headed. Having an honest answer matters more than a polished one.',
+ full: 'Not a formal review, more like an informal exchange that becomes real quickly. Someone will ask a direct question about what you want or where you\'re headed. Having an honest answer matters more than a polished one.',
  action: 'Know what your honest answer is before the day begins.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'A conversation about your direction will happen unexpectedly today. Your honest answer matters more than a polished one.',
@@ -94,7 +94,7 @@ export const career = [
  {
  id: 'C012',
  teaser: 'A gap in something you delivered will surface today.',
- full: 'Something you thought was complete enough will be looked at more closely. A question will come in, or a gap will be pointed out. This isn\'t a failure — it\'s an opportunity to respond well under scrutiny.',
+ full: 'Something you thought was complete enough will be looked at more closely. A question will come in, or a gap will be pointed out. This isn\'t a failure, it\'s an opportunity to respond well under scrutiny.',
  action: 'Address it quickly and without defensiveness. The recovery is what people remember.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'A gap in something you delivered will surface today. The recovery is what people remember.',
@@ -102,7 +102,7 @@ export const career = [
  {
  id: 'C013',
  teaser: 'Someone you will have underestimated will surprise you today.',
- full: 'A person you categorized — as less capable, less invested, or less relevant — will do something that doesn\'t fit the category. It\'s worth updating your model rather than explaining it away.',
+ full: 'A person you categorized, as less capable, less invested, or less relevant, will do something that doesn\'t fit the category. It\'s worth updating your model rather than explaining it away.',
  action: 'Let the surprise revise your read of them. The old model was costing you something.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'Someone you will have underestimated will surprise you today. Let it revise your model.',
@@ -110,7 +110,7 @@ export const career = [
  {
  id: 'C014',
  teaser: 'A move you\'ve been delaying will have a narrowing window from here.',
- full: 'The circumstances that make this move viable are not going to stay static. Something is changing — people are leaving, priorities are shifting, the window is closing. The urgency isn\'t artificial.',
+ full: 'The circumstances that make this move viable are not going to stay static. Something is changing, people are leaving, priorities are shifting, the window is closing. The urgency isn\'t artificial.',
  action: 'Take one concrete step toward this today. Not next week.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'A move you\'ve been delaying will have a narrowing window from here. One step, today.',
@@ -119,14 +119,14 @@ export const career = [
  id: 'C015',
  teaser: 'Someone has been taking credit for something adjacent to your work. Today pushes it further.',
  full: 'There\'s been a gradual pattern of something yours being attributed elsewhere. Today something happens that makes the attribution more visible, more public, or more entrenched. It\'s easier to correct now than later.',
- action: 'Establish clear authorship today — in writing if possible.',
+ action: 'Establish clear authorship today, in writing if possible.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'Someone has been taking credit for something adjacent to your work. Establish authorship today.',
  },
  {
  id: 'C016',
  teaser: 'Your current pace will hit its wall this week if nothing changes.',
- full: 'The load is above what can be sustained at this quality level. Something will slip — not because you don\'t care, but because physics. The time to adjust is before the slip, not after.',
+ full: 'The load is above what can be sustained at this quality level. Something will slip, not because you don\'t care, but because physics. The time to adjust is before the slip, not after.',
  action: 'Remove one thing from this week\'s plate. Not tomorrow.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'Your current pace will hit its wall this week. The time to adjust is before something slips, not after.',
@@ -134,15 +134,15 @@ export const career = [
  {
  id: 'C017',
  teaser: 'A skill gap you\'ve been navigating around is about to become visible.',
- full: 'You\'ve been routing around it — delegating the part you don\'t know, avoiding situations where it would show up. Something today will bring it closer to the surface than your usual workarounds can manage.',
+ full: 'You\'ve been routing around it, delegating the part you don\'t know, avoiding situations where it would show up. Something today will bring it closer to the surface than your usual workarounds can manage.',
  action: 'Spend 30 minutes doing something about it directly today.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'A skill gap you\'ve been navigating around is about to become visible. Address it before it shows up.',
  },
  {
  id: 'C018',
- teaser: 'The answer you\'ve been circling is available — you just haven\'t asked the question.',
- full: 'You\'ve been reasoning around this for longer than necessary. The information exists — with a person, in a document, in an obvious place you haven\'t checked. The gap is a conversation, not a knowledge problem.',
+ teaser: 'The answer you\'ve been circling is available, you just haven\'t asked the question.',
+ full: 'You\'ve been reasoning around this for longer than necessary. The information exists, with a person, in a document, in an obvious place you haven\'t checked. The gap is a conversation, not a knowledge problem.',
  action: 'Ask the question today. Directly.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'The answer you\'ve been circling is available. You just haven\'t asked the question yet.',
@@ -150,7 +150,7 @@ export const career = [
  {
  id: 'C019',
  teaser: 'The first two hours of your morning today will set the tone for the rest of the day.',
- full: 'Not metaphorically — literally. What you do in the window before the day fills with other people\'s agendas determines how the day lands. Starting on your terms produces measurably different outcomes than starting on incoming.',
+ full: 'Not metaphorically, literally. What you do in the window before the day fills with other people\'s agendas determines how the day lands. Starting on your terms produces measurably different outcomes than starting on incoming.',
  action: 'Do your most important thing first, before email or messages.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'The first two hours of your morning will set the tone for the rest of the day. Start on your terms.',
@@ -158,7 +158,7 @@ export const career = [
  {
  id: 'C020',
  teaser: 'Someone is waiting on something from you. Their patience is not as intact as you\'re assuming.',
- full: 'There\'s a deliverable, a response, or a decision they\'re holding for. They haven\'t pushed — yet. But the gap between “they haven\'t said anything” and “they\'re fine” is wider than you\'re tracking.',
+ full: 'There\'s a deliverable, a response, or a decision they\'re holding for. They haven\'t pushed, yet. But the gap between “they haven\'t said anything” and “they\'re fine” is wider than you\'re tracking.',
  action: 'Give them a clear update or delivery today.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'Someone is waiting on something from you. Their patience is not as intact as you\'re assuming.',
@@ -166,7 +166,7 @@ export const career = [
  {
  id: 'C021',
  teaser: 'Your reputation is slightly ahead of where your work currently is.',
- full: 'There\'s a gap forming between the expectation you\'ve set and the output you\'re currently delivering. Most people can\'t see it yet. But the gap doesn\'t close by itself — and the longer it grows the harder the correction.',
+ full: 'There\'s a gap forming between the expectation you\'ve set and the output you\'re currently delivering. Most people can\'t see it yet. But the gap doesn\'t close by itself, and the longer it grows the harder the correction.',
  action: 'Choose one piece of work today and take it to a higher standard.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'Your reputation is slightly ahead of your current output. The gap doesn\'t close on its own.',
@@ -174,7 +174,7 @@ export const career = [
  {
  id: 'C022',
  teaser: 'A decision you\'ve been deferring will be made by default if you wait much longer.',
- full: 'Situations move forward whether you decide or not. What you\'re treating as a pause is actually an abdication — the decision will be made, just not by you. Letting it happen by default usually means worse outcomes than choosing.',
+ full: 'Situations move forward whether you decide or not. What you\'re treating as a pause is actually an abdication, the decision will be made, just not by you. Letting it happen by default usually means worse outcomes than choosing.',
  action: 'Make the call today. Imperfect is fine.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'A decision you\'ve been deferring will be made by default if you wait. Imperfect and chosen beats perfect and missed.',
@@ -182,7 +182,7 @@ export const career = [
  {
  id: 'C023',
  teaser: 'The project in your head is better than the one currently underway. Today is why.',
- full: 'Something will happen today — a meeting, a deliverable, an exchange — that will show you exactly where the current execution has drifted from the intent. The drift is correctable, but someone has to name it.',
+ full: 'Something will happen today, a meeting, a deliverable, an exchange, that will show you exactly where the current execution has drifted from the intent. The drift is correctable, but someone has to name it.',
  action: 'Realign execution to the original intent in one visible way today.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'The project in your head is better than the one underway. The drift is correctable if someone names it.',
@@ -190,7 +190,7 @@ export const career = [
  {
  id: 'C024',
  teaser: 'Someone who has been underestimating you will see something different today.',
- full: 'They had a limited read of you — based on one piece of work, one interaction, or a second-hand impression. Today you\'ll do something, say something, or be present in a way that doesn\'t fit that model.',
+ full: 'They had a limited read of you, based on one piece of work, one interaction, or a second-hand impression. Today you\'ll do something, say something, or be present in a way that doesn\'t fit that model.',
  action: 'Do the work at the level you\'re actually capable of. Let it speak.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'Someone who has been underestimating you will see something different today. Let the work speak.',
@@ -198,7 +198,7 @@ export const career = [
  {
  id: 'C025',
  teaser: 'A professional relationship that has gone quiet will require attention soon.',
- full: 'A connection you\'ve let drift to low maintenance is about to need something — from you or from it. Either way, the dormancy is about to end. The question is whether you reach out first or get reached.',
+ full: 'A connection you\'ve let drift to low maintenance is about to need something, from you or from it. Either way, the dormancy is about to end. The question is whether you reach out first or get reached.',
  action: 'Reach out before they have to.',
  timing: 'Pay attention to this before the day gets complicated.',
  shareSnippet: 'A professional relationship that has gone quiet will require attention soon. Reach out before they have to.',
@@ -230,7 +230,7 @@ export const career = [
  {
  id: 'C029',
  teaser: 'Ambiguity in a current scope will cause a larger problem next week if you leave it.',
- full: 'Two parties are operating on different assumptions about what\'s expected. Both have accepted the ambiguity because naming it feels awkward. It will surface eventually — better on your terms than someone else\'s.',
+ full: 'Two parties are operating on different assumptions about what\'s expected. Both have accepted the ambiguity because naming it feels awkward. It will surface eventually, better on your terms than someone else\'s.',
  action: 'Clarify one assumption in writing today.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'Ambiguity in a current scope will cause a larger problem next week. Clarify it today on your terms.',
@@ -238,7 +238,7 @@ export const career = [
  {
  id: 'C030',
  teaser: 'You\'ll find yourself measuring against someone whose output doesn\'t reflect their actual position.',
- full: 'The comparison will be misleading — you\'ll be benchmarking against their visible surface, which doesn\'t show what\'s actually underneath their numbers. You\'re comparing your behind-the-scenes to their front-of-house.',
+ full: 'The comparison will be misleading, you\'ll be benchmarking against their visible surface, which doesn\'t show what\'s actually underneath their numbers. You\'re comparing your behind-the-scenes to their front-of-house.',
  action: 'Stop measuring against this person. Measure against your own last position.',
  timing: 'This shows up when you are least distracted.',
  shareSnippet: 'The comparison you\'re making measures the wrong things. Your behind-the-scenes vs. their front-of-house.',
@@ -278,7 +278,7 @@ export const career = [
  {
  id: 'C035',
  teaser: 'Someone needs clearer direction from you and hasn\'t been able to ask for it.',
- full: 'They\'re moving forward with assumptions because the explicit direction wasn\'t given. This isn\'t their failure — it\'s a gap in what was communicated. The ambiguity from your side is creating slow-moving cost on theirs.',
+ full: 'They\'re moving forward with assumptions because the explicit direction wasn\'t given. This isn\'t their failure, it\'s a gap in what was communicated. The ambiguity from your side is creating slow-moving cost on theirs.',
  action: 'Proactively provide direction before they have to stop and ask.',
  timing: 'The signal is strongest in unguarded moments.',
  shareSnippet: 'Someone needs clearer direction from you and hasn\'t been able to ask for it.',
@@ -294,7 +294,7 @@ export const career = [
  {
  id: 'C037',
  teaser: 'A peer\'s observation from recently is more useful than you treated it at the time.',
- full: 'Someone said something that didn\'t land well in the moment — a critique, a comparison, an uncomfortable truth. You deflected or minimized it. The accurate part of it is still sitting there.',
+ full: 'Someone said something that didn\'t land well in the moment, a critique, a comparison, an uncomfortable truth. You deflected or minimized it. The accurate part of it is still sitting there.',
  action: 'Revisit it without the defensiveness and extract the useful part.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'A peer\'s observation from recently is more useful than you treated it. The accurate part is still there.',
@@ -309,8 +309,8 @@ export const career = [
  },
  {
  id: 'C039',
- teaser: 'A creative block will clear if you produce something today — not if you wait.',
- full: 'The block doesn\'t end when conditions improve. It ends when you produce something — even bad, even rough. Output generates momentum that thinking about output never does.',
+ teaser: 'A creative block will clear if you produce something today, not if you wait.',
+ full: 'The block doesn\'t end when conditions improve. It ends when you produce something, even bad, even rough. Output generates momentum that thinking about output never does.',
  action: 'Produce something today. Low quality is fine. Moving is the only metric.',
  timing: 'Notice this in the first conversation that matters today.',
  shareSnippet: 'A creative block clears when you produce something, not when you wait for the right moment.',
@@ -318,7 +318,7 @@ export const career = [
  {
  id: 'C040',
  teaser: 'Someone in a position to influence your trajectory is forming an opinion about your work right now.',
- full: 'There\'s a window where a decision-maker or influential person is looking at something in your orbit — your work, your behavior, your outputs. The impression formed in this window has a longer half-life than usual.',
+ full: 'There\'s a window where a decision-maker or influential person is looking at something in your orbit, your work, your behavior, your outputs. The impression formed in this window has a longer half-life than usual.',
  action: 'Make what\'s visible today representative of your actual standard.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'Someone who can influence your trajectory is forming an opinion right now. Make what\'s visible count.',
@@ -358,7 +358,7 @@ export const career = [
  {
  id: 'C045',
  teaser: 'One good question asked of the right person today will do more than another month of independent solving.',
- full: 'You\'ve been approaching this as a problem to solve alone. It isn\'t. The information exists somewhere outside your own reasoning — with a person, in an accessible place you haven\'t gone. The bottleneck is a conversation, not more thinking.',
+ full: 'You\'ve been approaching this as a problem to solve alone. It isn\'t. The information exists somewhere outside your own reasoning, with a person, in an accessible place you haven\'t gone. The bottleneck is a conversation, not more thinking.',
  action: 'Identify the right person and ask the question today.',
  timing: 'You will feel this most before you sleep.',
  shareSnippet: 'One good question to the right person will do more than another month of solving in isolation.',
@@ -366,10 +366,10 @@ export const career = [
  {
  id: 'C046',
  teaser: 'You\'re in the right place but the wrong function today.',
- full: 'The environment works, the context is right, the people are aligned — but what you\'re spending your time on is constraining the output you\'re actually capable of. The place is fine. The specific task allocation isn\'t.',
+ full: 'The environment works, the context is right, the people are aligned, but what you\'re spending your time on is constraining the output you\'re actually capable of. The place is fine. The specific task allocation isn\'t.',
  action: 'Identify where your highest leverage is and redirect some time there.',
  timing: 'This shows up when you are least distracted.',
- shareSnippet: 'You\'re in the right place but the wrong function. The environment is fine — the task allocation isn\'t.',
+ shareSnippet: 'You\'re in the right place but the wrong function. The environment is fine, the task allocation isn\'t.',
  },
  {
  id: 'C047',
@@ -383,7 +383,7 @@ export const career = [
  id: 'C048',
  teaser: 'Recognition you\'ve been expecting hasn\'t arrived. Don\'t let it erode the work.',
  full: 'The acknowledgment was warranted and is delayed. That gap is real and worth noting. But the response to it can\'t be letting the quality slip retroactively. The work was good. Keep that true.',
- action: 'Make sure the right person knows about the work — once, directly.',
+ action: 'Make sure the right person knows about the work, once, directly.',
  timing: 'By tonight, this will be clearer.',
  shareSnippet: 'Recognition you\'ve been expecting hasn\'t arrived. Make sure the right person knows about the work.',
  },
@@ -398,7 +398,7 @@ export const career = [
  {
  id: 'C050',
  teaser: 'Something murky will clarify in the next few hours, not in the next few weeks.',
- full: 'You\'ve been waiting on clarity that keeps feeling like it\'s further away than it is. The fog is close to lifting — not from outside information arriving, but from the processing finishing. Don\'t make the decision before it clears.',
+ full: 'You\'ve been waiting on clarity that keeps feeling like it\'s further away than it is. The fog is close to lifting, not from outside information arriving, but from the processing finishing. Don\'t make the decision before it clears.',
  action: 'Wait for the clarity window before acting. When it comes, move quickly.',
  timing: 'This surfaces by evening.',
  shareSnippet: 'Something murky will clarify in the next few hours. Wait for the window, then move.',
@@ -414,7 +414,7 @@ export const career = [
  {
  id: 'C052',
  teaser: 'Something you did on instinct will turn out to have been the right call.',
- full: 'A decision you made without complete information — one that felt uncertain or even reckless at the time — will be vindicated. The instinct was calibrated better than the analysis that came after it.',
+ full: 'A decision you made without complete information, one that felt uncertain or even reckless at the time, will be vindicated. The instinct was calibrated better than the analysis that came after it.',
  action: 'Trust the instinct that\'s currently in question. It\'s right.',
  timing: 'Watch how this plays out after noon.',
  shareSnippet: 'Something you did on instinct will turn out to have been the right call. The instinct was calibrated better than the analysis.',

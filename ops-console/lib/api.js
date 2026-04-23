@@ -53,6 +53,45 @@ export const backend = {
   async clearToday() {
     return request('/api/backend/ops/predictions/regenerate', { method: 'POST' });
   },
+  async getRuns(limit = 5) {
+    return request(`/api/backend/ops/runs?limit=${limit}`);
+  },
+  async getRuleBucket() {
+    return request('/api/backend/ops/rule-bucket');
+  },
+  async bumpRuleBucket() {
+    return request('/api/backend/ops/rule-bucket', { method: 'POST' });
+  },
+  async getHero() {
+    return request('/api/backend/ops/hero-image');
+  },
+  async setHero({ url, alt, enabled }) {
+    return request('/api/backend/ops/hero-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, alt, enabled }),
+    });
+  },
+  async clearHero() {
+    return request('/api/backend/ops/hero-image', { method: 'DELETE' });
+  },
+  async getPush() {
+    return request('/api/backend/ops/push');
+  },
+  async setPushSchedule({ hour, minute, enabled, title, body }) {
+    return request('/api/backend/ops/push/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hour, minute, enabled, title, body }),
+    });
+  },
+  async sendPushNow({ title, body }) {
+    return request('/api/backend/ops/push/send-now', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body }),
+    });
+  },
 };
 
 export const worker = {

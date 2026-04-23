@@ -20,6 +20,7 @@ const PredictionsContext = createContext(null);
 
 export function PredictionsProvider({ children }) {
   const [predictions, setPredictions] = useState(null);
+  const [heroImage, setHeroImage] = useState(null);
   const [unlocked, setUnlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isFirstEver, setIsFirstEver] = useState(false);
@@ -45,7 +46,8 @@ export function PredictionsProvider({ children }) {
         shouldShowDay4Banner(),
       ]);
 
-      setPredictions(preds);
+      setPredictions(preds.predictions || null);
+      setHeroImage(preds.heroImage || null);
       setUnlocked(unlockedState);
       setIsFirstEver(firstEver);
       setStreak(streakDays);
@@ -98,9 +100,11 @@ export function PredictionsProvider({ children }) {
     <PredictionsContext.Provider
       value={{
         predictions,
+        heroImage,
         unlocked,
         loading,
         refreshUnlock,
+        refresh: load,
         freeCategory,
         isFirstEver,
         dismissFirstEver,

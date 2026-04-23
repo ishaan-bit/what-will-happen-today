@@ -5,6 +5,7 @@
  */
 
 import { Platform } from 'react-native';
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -16,6 +17,7 @@ import { PredictionsProvider, usePredictions } from '@/hooks/usePredictions';
 import { BillingProvider } from '@/hooks/useBilling';
 import { initAnalytics } from '@/services/analyticsService';
 import { initCrashMonitoring } from '@/services/crashService';
+import { registerForPushNotificationsAsync } from '@/services/pushService';
 
 // Initialize monitoring as early as possible
 initCrashMonitoring();
@@ -45,6 +47,10 @@ function BillingBridge({ children }) {
 }
 
 function AppInner() {
+  useEffect(() => {
+    registerForPushNotificationsAsync().catch(() => null);
+  }, []);
+
   return (
     <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
       <Stack.Screen name="index" />

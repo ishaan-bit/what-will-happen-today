@@ -1,5 +1,5 @@
 /**
- * Free Category & Hook Line — daily deterministic rotation.
+ * Free Category & Hook Line, daily deterministic rotation.
  *
  * One category is free each day, rotating unpredictably using the date seed.
  * The hook line changes daily to keep the header fresh.
@@ -63,7 +63,7 @@ const VIBE_POOL = [
 
 const MOMENT_POOL = [
   'Late afternoon',
-  'Between 6–9 PM',
+  'Between 6, 9 PM',
   'When you least expect it',
   'Early evening',
   'Before lunch',
