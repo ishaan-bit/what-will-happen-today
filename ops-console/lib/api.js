@@ -65,11 +65,11 @@ export const backend = {
   async getHero() {
     return request('/api/backend/ops/hero-image');
   },
-  async setHero({ url, alt, enabled }) {
+  async setHero({ url, enabled }) {
     return request('/api/backend/ops/hero-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, alt, enabled }),
+      body: JSON.stringify({ url, enabled }),
     });
   },
   async clearHero() {

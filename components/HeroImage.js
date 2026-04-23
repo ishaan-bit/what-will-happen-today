@@ -17,12 +17,12 @@ const SCREEN_W = Dimensions.get('window').width;
 const IMG_WIDTH = SCREEN_W - spacing.lg * 2;
 const IMG_HEIGHT = Math.round(IMG_WIDTH * 1.25); // 4:5 portrait
 
-export function HeroImage({ source, alt }) {
+export function HeroImage({ source }) {
   const [failed, setFailed] = useState(false);
   if (!source || failed) return null;
 
   return (
-    <View style={styles.wrap} accessibilityLabel={alt || 'Tarot reader'}>
+    <View style={styles.wrap} accessible={false}>
       <View style={styles.frame}>
         <Image
           source={typeof source === 'string' ? { uri: source } : source}

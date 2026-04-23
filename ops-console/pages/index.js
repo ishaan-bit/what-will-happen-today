@@ -5,6 +5,38 @@ import {
   DEFAULT_BACKEND_URL, DEFAULT_WORKER_URL,
 } from '../lib/api.js';
 
+/**
+ * Resize a user-picked image File into a JPEG data URL.
+ * Constrains the longest edge to maxEdge and uses the given quality.
+ * Runs entirely in the browser, no upload yet.
+ */
+async function resizeImageToDataUrl(file, maxEdge = 1024, quality = 0.85) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(new Error('read_failed'));
+    fr.readAsDataURL(file);
+  });
+  const img = await new Promise((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error('image_decode_failed'));
+    i.src = dataUrl;
+  });
+  const longest = Math.max(img.width, img.height);
+  const scale = longest > maxEdge ? maxEdge / longest : 1;
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#07080f';
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', quality);
+}
+
 function Login({ onSubmit, bootstrapErr }) {
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
   const [opsKey, setOpsKey] = useState('');
@@ -115,7 +147,8 @@ function Dashboard({ creds, onLogout }) {
   const [runs, setRuns] = useState(null);
   const [ruleBucket, setRuleBucket] = useState(null);
   const [hero, setHero] = useState(null);
-  const [heroDraft, setHeroDraft] = useState({ url: '', alt: '' });
+  const [heroDraft, setHeroDraft] = useState({ url: '' });
+  const [heroUploading, setHeroUploading] = useState(false);
   const [push, setPush] = useState(null);
   const [pushDraft, setPushDraft] = useState({ hour: 8, minute: 0, enabled: true, title: '', body: '' });
   const [pushTestDraft, setPushTestDraft] = useState({ title: '', body: '' });
@@ -140,7 +173,7 @@ function Dashboard({ creds, onLogout }) {
       setRuns(r?.runs || []);
       setRuleBucket(rb?.ruleBucket || '0');
       setHero(h?.heroImage || null);
-      if (h?.heroImage) setHeroDraft({ url: h.heroImage.url, alt: h.heroImage.alt || '' });
+      if (h?.heroImage) setHeroDraft({ url: h.heroImage.url });
       if (p?.ok) {
         setPush(p);
         setPushDraft({
@@ -221,10 +254,10 @@ function Dashboard({ creds, onLogout }) {
   }
 
   async function saveHero() {
-    if (!heroDraft.url) { showToast('URL required', 'error'); return; }
+    if (!heroDraft.url) { showToast('Pick an image first', 'error'); return; }
     setBusyAction('hero');
     try {
-      const r = await backend.setHero({ url: heroDraft.url, alt: heroDraft.alt, enabled: true });
+      const r = await backend.setHero({ url: heroDraft.url, enabled: true });
       setHero(r.heroImage);
       showToast('Hero image updated.');
     } catch (err) {
@@ -240,12 +273,28 @@ function Dashboard({ creds, onLogout }) {
     try {
       await backend.clearHero();
       setHero(null);
-      setHeroDraft({ url: '', alt: '' });
+      setHeroDraft({ url: '' });
       showToast('Hero image removed.');
     } catch (err) {
       showToast(`Hero remove failed: ${err.message}`, 'error');
     } finally {
       setBusyAction(null);
+    }
+  }
+
+  async function onHeroFilePicked(file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { showToast('Pick an image file', 'error'); return; }
+    setHeroUploading(true);
+    try {
+      const dataUrl = await resizeImageToDataUrl(file, 1024, 0.85);
+      setHeroDraft({ url: dataUrl });
+      const sizeKB = Math.round((dataUrl.length * 0.75) / 1024);
+      showToast(`Image ready (~${sizeKB} KB). Click Publish to push live.`);
+    } catch (err) {
+      showToast(`Image processing failed: ${err.message}`, 'error');
+    } finally {
+      setHeroUploading(false);
     }
   }
 
@@ -522,30 +571,43 @@ function Dashboard({ creds, onLogout }) {
 
       <Card title="Hero Image (top of UI)">
         <div style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
-          Optional. If set, appears at the top of the daily reading. Leave empty
-          to hide the section entirely.
+          Optional. Pick an image from your device. It will be resized to a 4:5 portrait
+          (max 1024px wide, JPEG ~85% quality) and pushed live. Leave empty to hide the section.
         </div>
         <div style={{ display: 'grid', gap: 10 }}>
-          <label>
-            <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Image URL (https or data:image/...)</div>
+          <label
+            style={{
+              display: 'inline-block', padding: '10px 14px', cursor: 'pointer',
+              border: '1px dashed #2a2a35', borderRadius: 8, color: '#ccc',
+              background: '#0f0f17', textAlign: 'center',
+            }}
+          >
+            {heroUploading ? 'Processing image…' : (heroDraft.url ? 'Pick a different image' : 'Choose image from device')}
             <input
-              value={heroDraft.url}
-              onChange={(e) => setHeroDraft((d) => ({ ...d, url: e.target.value }))}
-              placeholder="https://your-cdn/tarot-girl.webp"
-              style={{ width: '100%' }}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => onHeroFilePicked(e.target.files?.[0])}
             />
           </label>
-          <label>
-            <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Alt text</div>
-            <input
-              value={heroDraft.alt}
-              onChange={(e) => setHeroDraft((d) => ({ ...d, alt: e.target.value }))}
-              placeholder="Tarot reader dealing cards"
-              style={{ width: '100%' }}
-            />
-          </label>
+          {heroDraft.url && (
+            <div style={{
+              padding: 10, background: '#0f0f17',
+              border: '1px solid #1f1f2a', borderRadius: 8,
+            }}>
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>Preview</div>
+              <img
+                src={heroDraft.url}
+                alt=""
+                style={{
+                  width: '100%', maxHeight: 400, objectFit: 'cover',
+                  borderRadius: 6, border: '1px solid #2a2a35',
+                }}
+              />
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="primary" disabled={busyAction === 'hero'} onClick={saveHero}>
+            <button className="primary" disabled={busyAction === 'hero' || heroUploading || !heroDraft.url} onClick={saveHero}>
               {hero ? 'Update' : 'Publish'}
             </button>
             {hero && (
@@ -554,15 +616,15 @@ function Dashboard({ creds, onLogout }) {
               </button>
             )}
           </div>
-          {hero && (
+          {hero && hero.url !== heroDraft.url && (
             <div style={{
               marginTop: 8, padding: 10, background: '#0f0f17',
               border: '1px solid #1f1f2a', borderRadius: 8,
             }}>
-              <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>Live preview</div>
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>Currently live</div>
               <img
                 src={hero.url}
-                alt={hero.alt}
+                alt=""
                 style={{
                   width: '100%', maxHeight: 400, objectFit: 'cover',
                   borderRadius: 6, border: '1px solid #2a2a35',
@@ -573,19 +635,6 @@ function Dashboard({ creds, onLogout }) {
               </div>
             </div>
           )}
-          <details style={{ marginTop: 6, fontSize: 12, color: '#aaa' }}>
-            <summary style={{ cursor: 'pointer', color: '#ccc' }}>Image guidelines for the tarot-girl artwork</summary>
-            <ul style={{ paddingLeft: 18, marginTop: 8, lineHeight: 1.6 }}>
-              <li><strong>Aspect ratio:</strong> 4:5 portrait (e.g. 1024 x 1280 or 1200 x 1500).</li>
-              <li><strong>Background:</strong> deep navy / near-black (#07080f) so it blends with the cosmic UI. Avoid bright whites.</li>
-              <li><strong>Subject framing:</strong> waist-up of a young woman dealing tarot cards on a velvet table; cards visible in the lower third.</li>
-              <li><strong>Palette:</strong> warm gold (#c9a96e), deep purples, candle warmth. Light source from the cards.</li>
-              <li><strong>Mood:</strong> mystic, slightly cinematic, screenshot-worthy. Not cartoon, not stock.</li>
-              <li><strong>Edges:</strong> soft vignette, no hard borders. The UI adds a top + bottom gradient mask automatically.</li>
-              <li><strong>File format:</strong> WebP or JPG, under 200 KB. Compress aggressively, mobile bandwidth matters.</li>
-              <li><strong>Hosting:</strong> upload to any image CDN (Vercel Blob, Cloudinary, Imgur direct link) and paste the URL.</li>
-            </ul>
-          </details>
         </div>
       </Card>
 

@@ -144,7 +144,7 @@ export default function HomeScreen() {
         <DayHeader unlocked={unlocked} streak={streak} />
 
         {/* Optional hero image, only renders when ops console publishes one */}
-        <HeroImage source={heroImage?.url} alt={heroImage?.alt} />
+        <HeroImage source={heroImage?.url} />
 
         {/* Free-window day badge, Day 1/2/3 of 3 */}
         {!unlocked && inFreeWindow && (

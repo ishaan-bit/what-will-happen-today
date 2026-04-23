@@ -49,7 +49,7 @@ function getTodayKey() {
   return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
 }
 
-async function ollamaChat({ messages, model, temperature = 0.85, maxTokens = 350 }) {
+async function ollamaChat({ messages, model, temperature = 0.85, maxTokens = 800 }) {
   const base = OLLAMA_API_URL.replace(/\/v1\/?$/, '');
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -115,6 +115,7 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
 /**
  * Pull the first balanced JSON object out of arbitrary model output.
  * Handles markdown fences, trailing commentary, multiple objects, etc.
+ * Falls back to closing any unfinished string + braces if the model got cut off.
  */
 function extractJsonObject(raw) {
   if (!raw) return null;
@@ -124,6 +125,7 @@ function extractJsonObject(raw) {
   let depth = 0;
   let inString = false;
   let escape = false;
+  let lastBalancedEnd = -1;
   for (let i = start; i < text.length; i++) {
     const ch = text[i];
     if (inString) {
@@ -137,15 +139,31 @@ function extractJsonObject(raw) {
     else if (ch === '}') {
       depth--;
       if (depth === 0) {
+        lastBalancedEnd = i;
         const slice = text.slice(start, i + 1);
         try { return JSON.parse(slice); }
         catch {
-          // Try lenient repair: drop trailing commas
           try { return JSON.parse(slice.replace(/,(\s*[}\]])/g, '$1')); }
-          catch { return null; }
+          catch { /* keep scanning */ }
         }
       }
     }
+  }
+  // Repair attempt: model got truncated mid-string or mid-object.
+  // Close the open string (if any), then close any open braces.
+  if (depth > 0 || inString) {
+    let repaired = text.slice(start);
+    // Trim trailing whitespace/junk
+    repaired = repaired.replace(/[\s,]+$/, '');
+    if (inString) repaired += '"';
+    // Strip a trailing partial key like ', "action' or ', "action":'
+    repaired = repaired.replace(/,\s*"[^"]*"\s*:?\s*$/, '');
+    repaired = repaired.replace(/,\s*"[^"]*$/, '');
+    repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+    while ((repaired.match(/{/g) || []).length > (repaired.match(/}/g) || []).length) {
+      repaired += '}';
+    }
+    try { return JSON.parse(repaired); } catch { /* fall through */ }
   }
   return null;
 }
