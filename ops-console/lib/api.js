@@ -108,6 +108,13 @@ export const backend = {
       body: JSON.stringify({ title, body }),
     });
   },
+  async requestPushTest({ note } = {}) {
+    return request('/api/backend/ops/push-test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: note || '' }),
+    });
+  },
 };
 
 export const worker = {

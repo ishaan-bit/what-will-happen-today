@@ -353,6 +353,19 @@ function Dashboard({ creds, onLogout }) {
     }
   }
 
+  async function runPushTestRegistration() {
+    setBusyAction('pushTestReg');
+    try {
+      await backend.requestPushTest({ note: 'ops console' });
+      showToast('Requested. Devices that are open (or opened within 10 min) will retry registration; watch the trace below.');
+      setTimeout(refreshBackend, 3000);
+    } catch (err) {
+      showToast(`Request failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   const todayReady = backendStatus?.data?.today?.ready;
   const activeJob = workerStatus?.data?.activeJob;
   const isJobRunning = activeJob?.status === 'running';
@@ -854,9 +867,18 @@ function Dashboard({ creds, onLogout }) {
           )}
 
           <hr style={{ border: 'none', borderTop: '1px solid #1f1f2a', margin: '12px 0' }} />
-          <div style={{ fontSize: 12, color: '#aaa', marginBottom: 6 }}>
-            Registration trace from devices (last 30 steps)
-            {(!pushDebug || pushDebug.length === 0) && <span style={{ color: '#666' }}> — nothing yet. Open the app or hit “Test push registration” in Settings.</span>}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8 }}>
+            <div style={{ fontSize: 12, color: '#aaa' }}>
+              Registration trace from devices (last 30 steps)
+              {(!pushDebug || pushDebug.length === 0) && <span style={{ color: '#666' }}> — nothing yet. Click the button to trigger a test on any open app.</span>}
+            </div>
+            <button
+              disabled={busyAction === 'pushTestReg'}
+              onClick={runPushTestRegistration}
+              title="Ask every open app to re-run its FCM registration. Watch the trace populate below within ~45s."
+            >
+              {busyAction === 'pushTestReg' ? 'Requesting…' : 'Run test registration'}
+            </button>
           </div>
           {pushDebug && pushDebug.length > 0 && (
             <div style={{ display: 'grid', gap: 2, maxHeight: 280, overflowY: 'auto', background: '#0a0a12', padding: 8, borderRadius: 6, fontFamily: 'monospace', fontSize: 11 }}>

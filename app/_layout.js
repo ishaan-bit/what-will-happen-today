@@ -4,8 +4,8 @@
  * error boundary, then application providers.
  */
 
-import { Platform } from 'react-native';
-import { useEffect } from 'react';
+import { Platform, AppState } from 'react-native';
+import { useEffect, useRef } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -47,8 +47,50 @@ function BillingBridge({ children }) {
 }
 
 function AppInner() {
+  const lastTestAtRef = useRef(0);
+
   useEffect(() => {
     registerForPushNotificationsAsync().catch(() => null);
+
+    // Poll for ops-requested push test. When ops console hits
+    // /api/ops/push-test, the backend sets a timestamp. We poll and run
+    // a forced registration if we see a newer timestamp than last handled.
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+    let cancelled = false;
+
+    const checkCommand = async () => {
+      if (cancelled || !apiUrl) return;
+      try {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(`${apiUrl}/api/push/test-command`, { signal: controller.signal });
+        clearTimeout(t);
+        if (!res.ok) return;
+        const data = await res.json();
+        const at = Number(data?.at || 0);
+        if (at > 0 && at > lastTestAtRef.current) {
+          lastTestAtRef.current = at;
+          registerForPushNotificationsAsync(true).catch(() => null);
+        }
+      } catch {
+        // silent — next poll will retry
+      }
+    };
+
+    // Check immediately on mount
+    checkCommand();
+    // Then every 45s while app is open
+    const interval = setInterval(checkCommand, 45_000);
+    // Also check whenever app returns to foreground
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') checkCommand();
+    });
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      sub.remove();
+    };
   }, []);
 
   return (

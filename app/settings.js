@@ -105,23 +105,6 @@ export default function SettingsScreen() {
     Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=What%20Will%20Happen%20Today%20support`);
   }, []);
 
-  const handleTestPush = useCallback(async () => {
-    tap();
-    try {
-      const r = await registerForPushNotificationsAsync(true);
-      if (r?.ok) {
-        Alert.alert('Push registered', `Token saved on backend.\nReason: ${r.reason}`);
-      } else {
-        Alert.alert(
-          'Push not registered',
-          `Reason: ${r?.reason || 'unknown'}${r?.error ? `\nError: ${r.error}` : ''}`,
-        );
-      }
-    } catch (err) {
-      Alert.alert('Push test failed', err?.message || 'Unknown error');
-    }
-  }, []);
-
   const Row = ({ label, value, onPress, dim, right }) => (
     <TouchableOpacity
       activeOpacity={onPress ? 0.7 : 1}
@@ -177,7 +160,6 @@ export default function SettingsScreen() {
               />
             }
           />
-          <Row label="Test push registration" onPress={handleTestPush} />
         </View>
 
         <Text style={styles.sectionLabel}>UNLOCK</Text>
