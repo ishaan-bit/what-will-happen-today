@@ -1,9 +1,10 @@
 name: Deploy Backend to Vercel
 
-# Disabled auto-trigger: backend is deployed manually via `vercel --prod` from
-# the workspace because the GH secret VERCEL_TOKEN is expired. Keep
-# workflow_dispatch so it can be run on demand if the token is renewed.
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
   workflow_dispatch:
 
 jobs:
@@ -28,11 +29,6 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BACKEND }}
-        # GitHub Secrets to add in repo settings:
-        #   VERCEL_TOKEN  = vca_6RcL5aUZjSTpaTRsXNpC8C2geMp5vlMGNFK8RkvZeZRT23k8uH3vetEy
-        #   VERCEL_ORG_ID = team_nkUMuU8uMmlsspbZHcrOdBqC
-        #   VERCEL_PROJECT_ID_BACKEND = prj_Jtu0EAeUvinUaCnw2Uc76DVTAjZu
-        #   EXPO_TOKEN = (from expo.dev account settings)
         run: |
           cd backend
           vercel pull --yes --environment=production --token=$VERCEL_TOKEN
