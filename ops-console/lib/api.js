@@ -75,6 +75,9 @@ export const backend = {
   async getUsers() {
     return request('/api/backend/ops/users');
   },
+  async getPushDebug() {
+    return request('/api/backend/ops/push-debug');
+  },
   async getHero() {
     return request('/api/backend/ops/hero-image');
   },

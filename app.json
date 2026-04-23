@@ -3,7 +3,7 @@
     "name": "What Will Happen Today",
     "slug": "wwht",
     "scheme": "wwht",
-    "version": "1.6.2",
+    "version": "1.6.3",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -48,12 +48,13 @@
     ],
     "android": {
       "package": "com.wwht.app",
-      "versionCode": 15,
+      "versionCode": 16,
       "permissions": [
         "ACCESS_NETWORK_STATE",
         "com.android.vending.BILLING",
         "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",

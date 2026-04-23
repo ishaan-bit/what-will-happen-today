@@ -148,6 +148,7 @@ function Dashboard({ creds, onLogout }) {
   const [ruleBucket, setRuleBucket] = useState(null);
   const [engineMode, setEngineMode] = useState(null);
   const [users, setUsers] = useState(null);
+  const [pushDebug, setPushDebug] = useState(null);
   const [variantCount, setVariantCount] = useState(3);
   const [hero, setHero] = useState(null);
   const [heroDraft, setHeroDraft] = useState({ url: '' });
@@ -163,7 +164,7 @@ function Dashboard({ creds, onLogout }) {
 
   const refreshBackend = useCallback(async () => {
     try {
-      const [s, t, r, rb, h, p, em, u] = await Promise.all([
+      const [s, t, r, rb, h, p, em, u, pd] = await Promise.all([
         backend.status(),
         backend.getToday().catch(() => null),
         backend.getRuns(5).catch(() => null),
@@ -172,6 +173,7 @@ function Dashboard({ creds, onLogout }) {
         backend.getPush().catch(() => null),
         backend.getEngineMode().catch(() => null),
         backend.getUsers().catch(() => null),
+        backend.getPushDebug().catch(() => null),
       ]);
       setBackendStatus({ ok: true, data: s });
       setToday(t);
@@ -179,6 +181,7 @@ function Dashboard({ creds, onLogout }) {
       setRuleBucket(rb?.ruleBucket || '0');
       setEngineMode(em?.engineMode || rb?.engineMode || 'llm');
       setUsers(u?.ok ? u : null);
+      setPushDebug(pd?.ok ? pd.log : null);
       setHero(h?.heroImage || null);
       if (h?.heroImage) setHeroDraft({ url: h.heroImage.url });
       if (p?.ok) {
@@ -847,6 +850,25 @@ function Dashboard({ creds, onLogout }) {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          <hr style={{ border: 'none', borderTop: '1px solid #1f1f2a', margin: '12px 0' }} />
+          <div style={{ fontSize: 12, color: '#aaa', marginBottom: 6 }}>
+            Registration trace from devices (last 30 steps)
+            {(!pushDebug || pushDebug.length === 0) && <span style={{ color: '#666' }}> — nothing yet. Open the app or hit “Test push registration” in Settings.</span>}
+          </div>
+          {pushDebug && pushDebug.length > 0 && (
+            <div style={{ display: 'grid', gap: 2, maxHeight: 280, overflowY: 'auto', background: '#0a0a12', padding: 8, borderRadius: 6, fontFamily: 'monospace', fontSize: 11 }}>
+              {pushDebug.map((d, i) => (
+                <div key={i} style={{ color: d.ok ? '#7be07b' : '#ff8aa0', display: 'flex', gap: 8 }}>
+                  <span style={{ color: '#666', flexShrink: 0 }}>{d.at?.slice(11, 19)}</span>
+                  <span style={{ width: 110, flexShrink: 0 }}>{d.step}</span>
+                  <span style={{ color: '#888', width: 60, flexShrink: 0 }}>{d.platform} v{d.appVersion}</span>
+                  <span style={{ color: '#888', width: 80, flexShrink: 0 }} title={d.installId}>{(d.installId || '').slice(0, 8)}</span>
+                  <span style={{ flex: 1, wordBreak: 'break-all' }}>{d.info}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>

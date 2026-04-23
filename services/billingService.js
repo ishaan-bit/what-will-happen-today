@@ -18,7 +18,7 @@ import {
   purchaseErrorListener,
   purchaseUpdatedListener,
 } from 'react-native-iap';
-import { setUnlockToday, setUnlockAll } from '@/services/storageService';
+import { setUnlockToday, setUnlockAll, getInstallSalt } from '@/services/storageService';
 
 export const PRODUCT_DAILY = 'daily_unlock_v1';
 export const PRODUCT_FULL = 'full_unlock_v1';
@@ -26,6 +26,40 @@ export const ALL_SKUS = [PRODUCT_DAILY, PRODUCT_FULL];
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1500;
+const VERIFY_TIMEOUT_MS = 6000;
+
+/**
+ * Verify a Play purchase with our backend (which calls Google Play
+ * Developer API via the linked service account). Returns true if the
+ * backend confirms the purchase OR if verification is unavailable —
+ * we never block a paying user because of a server hiccup.
+ */
+async function verifyWithBackend({ productId, purchaseToken }) {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (!apiUrl) return true; // no backend configured – trust client
+  try {
+    let installId = '';
+    try { installId = await getInstallSalt(); } catch {}
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS);
+    const response = await fetch(`${apiUrl}/api/billing/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId, purchaseToken, installId }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!response.ok) return true; // server error – fall back to grant
+    const data = await response.json().catch(() => null);
+    if (!data) return true;
+    // Explicit "valid: false" with a real verify result -> reject.
+    // Anything else (verify_unavailable / verify_error) -> grant grace unlock.
+    if (data.valid === false && !data.reason) return false;
+    return true;
+  } catch {
+    return true;
+  }
+}
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -49,6 +83,15 @@ export async function initBilling(onPurchaseComplete) {
       if (!purchaseToken) return;
 
       try {
+        // Server-side receipt validation against Google Play Developer API.
+        // verifyWithBackend grants on infra failure so paying users are never blocked.
+        const verified = await verifyWithBackend({ productId, purchaseToken });
+        if (!verified) {
+          console.warn('[Billing] backend rejected purchase', productId);
+          // Do NOT finishTransaction — leave it pending so Google retries / refunds.
+          return;
+        }
+
         await finishTransaction({ purchase, isConsumable: true });
 
         if (productId === PRODUCT_DAILY) {
