@@ -72,6 +72,9 @@ export const backend = {
       body: JSON.stringify({ mode }),
     });
   },
+  async getUsers() {
+    return request('/api/backend/ops/users');
+  },
   async getHero() {
     return request('/api/backend/ops/hero-image');
   },

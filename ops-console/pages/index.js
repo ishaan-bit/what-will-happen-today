@@ -147,6 +147,7 @@ function Dashboard({ creds, onLogout }) {
   const [runs, setRuns] = useState(null);
   const [ruleBucket, setRuleBucket] = useState(null);
   const [engineMode, setEngineMode] = useState(null);
+  const [users, setUsers] = useState(null);
   const [variantCount, setVariantCount] = useState(3);
   const [hero, setHero] = useState(null);
   const [heroDraft, setHeroDraft] = useState({ url: '' });
@@ -162,7 +163,7 @@ function Dashboard({ creds, onLogout }) {
 
   const refreshBackend = useCallback(async () => {
     try {
-      const [s, t, r, rb, h, p, em] = await Promise.all([
+      const [s, t, r, rb, h, p, em, u] = await Promise.all([
         backend.status(),
         backend.getToday().catch(() => null),
         backend.getRuns(5).catch(() => null),
@@ -170,12 +171,14 @@ function Dashboard({ creds, onLogout }) {
         backend.getHero().catch(() => null),
         backend.getPush().catch(() => null),
         backend.getEngineMode().catch(() => null),
+        backend.getUsers().catch(() => null),
       ]);
       setBackendStatus({ ok: true, data: s });
       setToday(t);
       setRuns(r?.runs || []);
       setRuleBucket(rb?.ruleBucket || '0');
       setEngineMode(em?.engineMode || rb?.engineMode || 'llm');
+      setUsers(u?.ok ? u : null);
       setHero(h?.heroImage || null);
       if (h?.heroImage) setHeroDraft({ url: h.heroImage.url });
       if (p?.ok) {
@@ -373,6 +376,55 @@ function Dashboard({ creds, onLogout }) {
           color: toast.kind === 'error' ? '#ff8aa0' : '#8ab4ff',
         }}>{toast.msg}</div>
       )}
+
+      <Card
+        title="Users"
+        action={
+          users && (
+            <span style={{ fontSize: 11, color: '#888' }}>
+              push tokens: <strong style={{ color: '#ccc' }}>{users.pushTokens}</strong>
+            </span>
+          )
+        }
+      >
+        {!users && <div style={{ color: '#666', fontSize: 13 }}>Loading…</div>}
+        {users && (
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total installs</div>
+                <div style={{ fontSize: 28, fontWeight: 600, color: '#fff' }}>{users.total.toLocaleString()}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Active today</div>
+                <div style={{ fontSize: 28, fontWeight: 600, color: '#7be07b' }}>{users.dau.toLocaleString()}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Push opt-in</div>
+                <div style={{ fontSize: 28, fontWeight: 600, color: '#7bb6ff' }}>{users.pushTokens.toLocaleString()}</div>
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>Last 7 days (DAU)</div>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 60 }}>
+                {[...users.last7].reverse().map((d) => {
+                  const max = Math.max(1, ...users.last7.map((x) => x.count));
+                  const h = Math.round((d.count / max) * 56) + 4;
+                  return (
+                    <div key={d.date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                      <div style={{ height: h, width: '100%', background: '#3b6cd6', borderRadius: 3 }} title={`${d.date}: ${d.count}`} />
+                      <div style={{ fontSize: 9, color: '#666' }}>{d.date.slice(6)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: '#666' }}>
+              Counts use HyperLogLog (≈1% error). Each install pings the daily endpoint with an anonymous hash on app open.
+            </div>
+          </div>
+        )}
+      </Card>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <Card

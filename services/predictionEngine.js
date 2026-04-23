@@ -85,10 +85,16 @@ export async function fetchRemotePayload() {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
   if (!apiUrl) return null;
   try {
+    // Send install id (anonymous hash) so backend can count distinct installs.
+    let installId = '';
+    try { installId = await getInstallSalt(); } catch {}
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS);
     const response = await fetch(`${apiUrl}/api/predictions/daily`, {
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(installId ? { 'X-Install-Id': installId } : {}),
+      },
       signal: controller.signal,
     });
     clearTimeout(timeout);

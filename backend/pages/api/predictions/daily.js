@@ -28,6 +28,22 @@ export default async function handler(req, res) {
     const redis = getRedis();
     const dateKey = getTodayKey();
 
+    // Track unique installs (HyperLogLog — tiny memory, ~1% error)
+    // Client sends X-Install-Id header (the installSalt). No PII.
+    const installId = (req.headers['x-install-id'] || '').toString().slice(0, 64);
+    if (installId) {
+      try {
+        await Promise.all([
+          redis.pfadd('wwht:installs:total', installId),
+          redis.pfadd(`wwht:installs:dau:${dateKey}`, installId),
+          // Keep DAU keys for ~8 days then auto-expire
+          redis.expire(`wwht:installs:dau:${dateKey}`, 8 * 24 * 60 * 60),
+        ]);
+      } catch {
+        // Non-critical
+      }
+    }
+
     const [raw, ruleBucket, heroRaw, engineModeRaw] = await Promise.all([
       redis.get(`wwht:predictions:${dateKey}`),
       redis.get('wwht:ruleBucket'),
