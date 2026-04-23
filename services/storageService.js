@@ -19,6 +19,8 @@ const KEYS = {
   INSTALL_SALT: 'wwht:installSalt',
   // Last-seen server-side rule bucket (bumped from ops console to force re-pick)
   LAST_RULE_BUCKET: 'wwht:lastRuleBucket',
+  // Last-seen engine mode ('llm' | 'rule') — used to invalidate cache when ops flips it
+  LAST_ENGINE_MODE: 'wwht:lastEngineMode',
   // 30-day full unlock — purchasedAt timestamp (ms)
   UNLOCK_ALL_AT: 'wwht:unlockAllAt',
   // Push notification user preference (default true)
@@ -397,6 +399,22 @@ export async function getLastRuleBucket() {
 export async function setLastRuleBucket(bucket) {
   try {
     await AsyncStorage.setItem(KEYS.LAST_RULE_BUCKET, String(bucket || '0'));
+  } catch {
+    // Non-critical
+  }
+}
+
+export async function getLastEngineMode() {
+  try {
+    return (await AsyncStorage.getItem(KEYS.LAST_ENGINE_MODE)) || 'llm';
+  } catch {
+    return 'llm';
+  }
+}
+
+export async function setLastEngineMode(mode) {
+  try {
+    await AsyncStorage.setItem(KEYS.LAST_ENGINE_MODE, mode === 'rule' ? 'rule' : 'llm');
   } catch {
     // Non-critical
   }

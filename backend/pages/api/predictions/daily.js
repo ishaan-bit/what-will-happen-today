@@ -28,10 +28,11 @@ export default async function handler(req, res) {
     const redis = getRedis();
     const dateKey = getTodayKey();
 
-    const [raw, ruleBucket, heroRaw] = await Promise.all([
+    const [raw, ruleBucket, heroRaw, engineModeRaw] = await Promise.all([
       redis.get(`wwht:predictions:${dateKey}`),
       redis.get('wwht:ruleBucket'),
       redis.get('wwht:heroImage'),
+      redis.get('wwht:engineMode'),
     ]);
 
     let data = null;
@@ -58,11 +59,18 @@ export default async function handler(req, res) {
     res.setHeader('CDN-Cache-Control', 'no-store');
     res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
 
+    // Engine mode controls which source the client renders.
+    //   'llm'  -> show LLM payload when present (fallback to rule per-category)
+    //   'rule' -> show rule-based picks only, ignore LLM payload entirely
+    // Defaults to 'llm' for backwards compatibility.
+    const engineMode = engineModeRaw === 'rule' ? 'rule' : 'llm';
+
     return res.status(200).json({
       data,
       dateKey,
       generatedAt,
       ruleBucket: ruleBucket ? String(ruleBucket) : '0',
+      engineMode,
       heroImage,
     });
   } catch (err) {

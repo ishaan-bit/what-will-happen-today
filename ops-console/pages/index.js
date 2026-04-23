@@ -146,6 +146,7 @@ function Dashboard({ creds, onLogout }) {
   const [toast, setToast] = useState(null);
   const [runs, setRuns] = useState(null);
   const [ruleBucket, setRuleBucket] = useState(null);
+  const [engineMode, setEngineMode] = useState(null);
   const [variantCount, setVariantCount] = useState(3);
   const [hero, setHero] = useState(null);
   const [heroDraft, setHeroDraft] = useState({ url: '' });
@@ -161,18 +162,20 @@ function Dashboard({ creds, onLogout }) {
 
   const refreshBackend = useCallback(async () => {
     try {
-      const [s, t, r, rb, h, p] = await Promise.all([
+      const [s, t, r, rb, h, p, em] = await Promise.all([
         backend.status(),
         backend.getToday().catch(() => null),
         backend.getRuns(5).catch(() => null),
         backend.getRuleBucket().catch(() => null),
         backend.getHero().catch(() => null),
         backend.getPush().catch(() => null),
+        backend.getEngineMode().catch(() => null),
       ]);
       setBackendStatus({ ok: true, data: s });
       setToday(t);
       setRuns(r?.runs || []);
       setRuleBucket(rb?.ruleBucket || '0');
+      setEngineMode(em?.engineMode || rb?.engineMode || 'llm');
       setHero(h?.heroImage || null);
       if (h?.heroImage) setHeroDraft({ url: h.heroImage.url });
       if (p?.ok) {
@@ -247,9 +250,23 @@ function Dashboard({ creds, onLogout }) {
     try {
       const r = await backend.bumpRuleBucket();
       setRuleBucket(r.ruleBucket);
-      showToast(`Rule bucket bumped to ${r.ruleBucket}. All clients will repick.`);
+      setEngineMode(r.engineMode || 'rule');
+      showToast(`Rule bucket bumped to ${r.ruleBucket}. Engine mode → RULE. Clients will repick.`);
     } catch (err) {
       showToast(`Bump failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function setMode(mode) {
+    setBusyAction(`mode-${mode}`);
+    try {
+      const r = await backend.setEngineMode(mode);
+      setEngineMode(r.engineMode);
+      showToast(`Engine mode set to ${r.engineMode.toUpperCase()}. Clients will switch on next refresh.`);
+    } catch (err) {
+      showToast(`Mode change failed: ${err.message}`, 'error');
     } finally {
       setBusyAction(null);
     }
@@ -582,24 +599,43 @@ function Dashboard({ creds, onLogout }) {
 
       <Card
         title="Rule-Based Engine"
-        action={<span style={{ fontSize: 11, color: '#888' }}>bucket: <strong style={{ color: '#ccc' }}>{ruleBucket || '0'}</strong></span>}
+        action={
+          <span style={{ fontSize: 11, color: '#888' }}>
+            mode: <strong style={{ color: engineMode === 'rule' ? '#7be07b' : '#7bb6ff' }}>{(engineMode || 'llm').toUpperCase()}</strong>
+            {' · '}bucket: <strong style={{ color: '#ccc' }}>{ruleBucket || '0'}</strong>
+          </span>
+        }
       >
         <div style={{ fontSize: 13, color: '#ccc', marginBottom: 10, lineHeight: 1.5 }}>
-          Each install already sees a different rule-based pick because of its private install salt.
-          Bumping the rule bucket rotates every install to its <em>next</em> deterministic pick on next app open
-          — and also rotates which LLM variant they see (when variants &gt; 1).
+          The app renders <strong>one</strong> source at a time, controlled by the engine mode flag.
+          <br />• <strong>LLM mode:</strong> generated variants are shown (set automatically on successful generation).
+          <br />• <strong>RULE mode:</strong> rule-based picks are shown, varied per install via salt + bucket (set automatically when you bump the bucket).
         </div>
         <div style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
-          Number of distinct rule-based variations available per category: <strong style={{ color: '#ccc' }}>68</strong>
-          {' '}(love / career / money / mood). Bump cycles all installs through these.
+          Rule pool: <strong style={{ color: '#ccc' }}>68</strong> entries per category.
+          Bumping the bucket rotates every install to its next deterministic pick AND switches mode → RULE.
         </div>
-        <button
-          className="primary"
-          disabled={busyAction === 'bumpRule'}
-          onClick={bumpRule}
-        >
-          {busyAction === 'bumpRule' ? 'Bumping…' : 'Bump rule bucket (refresh UI for everyone)'}
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            className="primary"
+            disabled={busyAction === 'bumpRule'}
+            onClick={bumpRule}
+          >
+            {busyAction === 'bumpRule' ? 'Bumping…' : 'Bump rule bucket (→ RULE mode)'}
+          </button>
+          <button
+            disabled={busyAction === 'mode-llm' || engineMode === 'llm'}
+            onClick={() => setMode('llm')}
+          >
+            {busyAction === 'mode-llm' ? '…' : 'Force LLM mode'}
+          </button>
+          <button
+            disabled={busyAction === 'mode-rule' || engineMode === 'rule'}
+            onClick={() => setMode('rule')}
+          >
+            {busyAction === 'mode-rule' ? '…' : 'Force RULE mode'}
+          </button>
+        </div>
       </Card>
 
       <Card title="Hero Image (top of UI)">

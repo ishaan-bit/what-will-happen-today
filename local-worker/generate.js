@@ -286,6 +286,8 @@ export async function generateAll({ force = false, model, variantCount = 1 } = {
   };
 
   await redis.set(cacheKey, JSON.stringify(payload), { ex: 36 * 60 * 60 });
+  // A successful generation means LLM is the active source until ops bumps the rule bucket.
+  try { await redis.set('wwht:engineMode', 'llm'); } catch {}
   console.log(`[gen] stored ${Object.keys(results).length}/4 categories for ${dateKey} (variants=${variants})`);
   return payload;
 }

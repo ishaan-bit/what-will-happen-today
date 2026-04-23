@@ -21,12 +21,28 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const v = await redis.get('wwht:ruleBucket');
-      return res.status(200).json({ ok: true, ruleBucket: v ? String(v) : '0' });
+      const [v, mode] = await Promise.all([
+        redis.get('wwht:ruleBucket'),
+        redis.get('wwht:engineMode'),
+      ]);
+      return res.status(200).json({
+        ok: true,
+        ruleBucket: v ? String(v) : '0',
+        engineMode: mode === 'rule' ? 'rule' : 'llm',
+      });
     }
     if (req.method === 'POST') {
-      const next = await redis.incr('wwht:ruleBucket');
-      return res.status(200).json({ ok: true, ruleBucket: String(next) });
+      // Bumping the bucket implies the operator wants the rule engine to
+      // become the active source. Flip mode to 'rule' atomically.
+      const [next] = await Promise.all([
+        redis.incr('wwht:ruleBucket'),
+        redis.set('wwht:engineMode', 'rule'),
+      ]);
+      return res.status(200).json({
+        ok: true,
+        ruleBucket: String(next),
+        engineMode: 'rule',
+      });
     }
     return res.status(405).json({ error: 'method_not_allowed' });
   } catch (err) {

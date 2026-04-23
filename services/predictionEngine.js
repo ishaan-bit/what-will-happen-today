@@ -12,6 +12,8 @@ import {
   getInstallSalt,
   getLastRuleBucket,
   setLastRuleBucket,
+  getLastEngineMode,
+  setLastEngineMode,
 } from '@/services/storageService';
 
 const POOLS = { love, career, money, mood };
@@ -100,6 +102,18 @@ export async function fetchRemotePayload() {
 export async function getPredictions() {
   const remote = await fetchRemotePayload();
   const ruleBucket = remote?.ruleBucket ?? null;
+  // Server-controlled mode: 'rule' means render rule-based picks only,
+  // 'llm' means prefer LLM payload when present. Default to 'llm' if missing.
+  const engineMode = remote?.engineMode === 'rule' ? 'rule' : 'llm';
+
+  // If the engine mode has flipped since we last rendered, drop cached
+  // predictions so the user sees the new source immediately.
+  const lastMode = await getLastEngineMode();
+  if (lastMode !== engineMode) {
+    await clearCachedPredictions();
+    await setLastEngineMode(engineMode);
+  }
+
   const local = await getTodaysPredictions(ruleBucket);
 
   const [installSalt, lastBucket] = await Promise.all([
@@ -108,6 +122,17 @@ export async function getPredictions() {
   ]);
   const bucket = ruleBucket != null ? String(ruleBucket) : lastBucket;
   const dateKey = remote?.dateKey || getTodayKey();
+
+  // Rule mode: ignore LLM payload entirely, return rule picks (already
+  // varied per-user via installSalt|bucket inside getTodaysPredictions).
+  if (engineMode === 'rule') {
+    return {
+      predictions: local,
+      heroImage: remote?.heroImage || null,
+      llmGeneratedAt: null,
+      engineMode,
+    };
+  }
 
   const remoteData = remote?.data || null;
   const merged = {};
@@ -129,5 +154,6 @@ export async function getPredictions() {
     predictions: merged,
     heroImage: remote?.heroImage || null,
     llmGeneratedAt: remote?.generatedAt || null,
+    engineMode,
   };
 }

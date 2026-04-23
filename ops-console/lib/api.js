@@ -62,6 +62,16 @@ export const backend = {
   async bumpRuleBucket() {
     return request('/api/backend/ops/rule-bucket', { method: 'POST' });
   },
+  async getEngineMode() {
+    return request('/api/backend/ops/engine-mode');
+  },
+  async setEngineMode(mode) {
+    return request('/api/backend/ops/engine-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+    });
+  },
   async getHero() {
     return request('/api/backend/ops/hero-image');
   },
