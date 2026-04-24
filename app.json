@@ -48,7 +48,7 @@
     ],
     "android": {
       "package": "com.wwht.app",
-      "versionCode": 21,
+      "versionCode": 32,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "ACCESS_NETWORK_STATE",
