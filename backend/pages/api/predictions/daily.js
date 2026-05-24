@@ -68,6 +68,11 @@ export default async function handler(req, res) {
       }
       if (heroImage && (!heroImage.url || heroImage.enabled === false)) {
         heroImage = null;
+      } else if (heroImage) {
+        heroImage = {
+          ...heroImage,
+          revision: heroImage.revision || heroImage.updatedAt || null,
+        };
       }
     }
 
@@ -85,9 +90,13 @@ export default async function handler(req, res) {
       data,
       dateKey,
       generatedAt,
+      readingUpdatedAt: generatedAt,
+      contentRevision: generatedAt || dateKey,
       ruleBucket: ruleBucket ? String(ruleBucket) : '0',
       engineMode,
       heroImage,
+      heroImageUpdatedAt: heroImage?.updatedAt || null,
+      heroImageRevision: heroImage?.revision || heroImage?.updatedAt || null,
     });
   } catch (err) {
     console.error('[/api/predictions/daily]', err);

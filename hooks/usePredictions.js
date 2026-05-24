@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { AppState } from 'react-native';
 import { getPredictions } from '@/services/predictionEngine';
 import {
   isUnlocked,
@@ -32,50 +33,74 @@ export function PredictionsProvider({ children }) {
   // Deterministic from today's date — no async needed
   const freeCategory = getDailyFreeCategory();
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ silent = false, lifecycle = true } = {}) => {
+    if (!silent) setLoading(true);
     try {
-      const [preds, unlockedState, firstOpen, firstEver, streakDays, day, freeWin, day4] = await Promise.all([
-        getPredictions(),
-        isUnlocked(),
-        isFirstOpenToday(),
-        isFirstEverOpen(),
-        bumpStreak(),
-        getDayNumber(),
-        isInFreeWindow(),
-        shouldShowDay4Banner(),
-      ]);
+      const tasks = [getPredictions(), isUnlocked()];
+      if (lifecycle) {
+        tasks.push(
+          isFirstOpenToday(),
+          isFirstEverOpen(),
+          bumpStreak(),
+          getDayNumber(),
+          isInFreeWindow(),
+          shouldShowDay4Banner(),
+        );
+      }
+      const results = await Promise.all(tasks);
+      const [preds, unlockedState] = results;
 
       setPredictions(preds.predictions || null);
       setHeroImage(preds.heroImage || null);
       setUnlocked(unlockedState);
-      setIsFirstEver(firstEver);
-      setStreak(streakDays);
-      setDayNumber(day);
-      setInFreeWindow(freeWin);
-      setShowDay4(day4);
 
-      if (firstOpen) {
-        await setLastOpened();
-        track(Events.APP_OPEN, { free_category: freeCategory, day_number: day });
+      if (lifecycle) {
+        const [, , firstOpen, firstEver, streakDays, day, freeWin, day4] = results;
+        setIsFirstEver(firstEver);
+        setStreak(streakDays);
+        setDayNumber(day);
+        setInFreeWindow(freeWin);
+        setShowDay4(day4);
+
+        if (firstOpen) {
+          await setLastOpened();
+          track(Events.APP_OPEN, { free_category: freeCategory, day_number: day });
+        }
+
+        track(Events.DAILY_SCREEN_VIEW, {
+          free_category: freeCategory,
+          first_ever: firstEver,
+          streak: streakDays,
+          day_number: day,
+          in_free_window: freeWin,
+        });
       }
-
-      track(Events.DAILY_SCREEN_VIEW, {
-        free_category: freeCategory,
-        first_ever: firstEver,
-        streak: streakDays,
-        day_number: day,
-        in_free_window: freeWin,
-      });
     } catch (err) {
       console.warn('[usePredictions] load error:', err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [freeCategory]);
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  // Silently refresh content (hero image, LLM payload, ruleBucket, engineMode)
+  // whenever the app returns to foreground so ops-console updates are picked
+  // up without requiring an app restart.
+  const lastForegroundAtRef = useRef(Date.now());
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      const now = Date.now();
+      // Throttle: only refresh if backgrounded for >5s (avoids spam on quick
+      // OS sheets like permission prompts / share dialogs).
+      if (now - lastForegroundAtRef.current < 5000) return;
+      lastForegroundAtRef.current = now;
+      load({ silent: true, lifecycle: false });
+    });
+    return () => sub.remove();
   }, [load]);
 
   /** Called after a successful purchase to refresh unlock state. */
@@ -104,7 +129,7 @@ export function PredictionsProvider({ children }) {
         unlocked,
         loading,
         refreshUnlock,
-        refresh: load,
+        refresh: () => load({ silent: true, lifecycle: false }),
         freeCategory,
         isFirstEver,
         dismissFirstEver,

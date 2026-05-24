@@ -7,7 +7,7 @@
  *   - Maintains a 4:5 aspect ratio with subtle gold border + radial glow
  *     so any uploaded artwork blends into the dark cosmic backdrop.
  */
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Image, StyleSheet, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { palette, radius, spacing } from '@/utils/theme';
@@ -17,15 +17,31 @@ const SCREEN_W = Dimensions.get('window').width;
 const IMG_WIDTH = SCREEN_W - spacing.lg * 2;
 const IMG_HEIGHT = Math.round(IMG_WIDTH * 1.25); // 4:5 portrait
 
-export function HeroImage({ source }) {
+function withVersion(source, version) {
+  if (!source || typeof source !== 'string' || !version) return source;
+  if (!/^https?:\/\//i.test(source)) return source;
+
+  const [base, fragment] = source.split('#');
+  const separator = base.includes('?') ? '&' : '?';
+  const versioned = `${base}${separator}v=${encodeURIComponent(String(version))}`;
+  return fragment ? `${versioned}#${fragment}` : versioned;
+}
+
+export function HeroImage({ source, version }) {
   const [failed, setFailed] = useState(false);
-  if (!source || failed) return null;
+  const versionedSource = useMemo(() => withVersion(source, version), [source, version]);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [versionedSource]);
+
+  if (!versionedSource || failed) return null;
 
   return (
     <View style={styles.wrap} accessible={false}>
       <View style={styles.frame}>
         <Image
-          source={typeof source === 'string' ? { uri: source } : source}
+          source={typeof versionedSource === 'string' ? { uri: versionedSource } : versionedSource}
           style={styles.image}
           resizeMode="cover"
           onError={() => setFailed(true)}

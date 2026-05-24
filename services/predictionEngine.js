@@ -93,6 +93,8 @@ export async function fetchRemotePayload() {
     const response = await fetch(`${apiUrl}/api/predictions/daily`, {
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
         ...(installId ? { 'X-Install-Id': installId } : {}),
       },
       signal: controller.signal,

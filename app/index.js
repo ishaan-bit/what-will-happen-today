@@ -20,7 +20,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { ScreenShell } from '@/components/ScreenShell';
 import { DayHeader } from '@/components/DayHeader';
 import { SignalCard } from '@/components/SignalCard';
@@ -47,6 +47,7 @@ export default function HomeScreen() {
     unlocked,
     loading,
     refreshUnlock,
+    refresh,
     freeCategory,
     streak,
     dayNumber,
@@ -57,6 +58,8 @@ export default function HomeScreen() {
   } = usePredictions();
   const [paywallCategory, setPaywallCategory] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const lastFocusRefreshAt = useRef(0);
+  const hasFocusedOnce = useRef(false);
 
   useEffect(() => {
     if (!loading) SplashScreen.hideAsync().catch(() => null);
@@ -83,9 +86,24 @@ export default function HomeScreen() {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refreshUnlock();
+    // Refresh both billing state and remote content (hero image, LLM payload,
+    // ruleBucket, engineMode) so ops-console updates show up without a restart.
+    await Promise.all([refreshUnlock(), refresh()]);
     setRefreshing(false);
-  }, [refreshUnlock]);
+  }, [refreshUnlock, refresh]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasFocusedOnce.current) {
+        hasFocusedOnce.current = true;
+        return;
+      }
+      const now = Date.now();
+      if (now - lastFocusRefreshAt.current < 5000) return;
+      lastFocusRefreshAt.current = now;
+      refresh();
+    }, [refresh])
+  );
 
   const handleDismissDay4 = useCallback(() => {
     unlockHaptic();
@@ -144,7 +162,10 @@ export default function HomeScreen() {
         <DayHeader unlocked={unlocked} streak={streak} />
 
         {/* Optional hero image, only renders when ops console publishes one */}
-        <HeroImage source={heroImage?.url} />
+        <HeroImage
+          source={heroImage?.url}
+          version={heroImage?.revision || heroImage?.updatedAt}
+        />
 
         {/* Free-window day badge, Day 1/2/3 of 3 */}
         {!unlocked && inFreeWindow && (

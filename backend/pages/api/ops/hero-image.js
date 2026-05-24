@@ -44,10 +44,18 @@ export default async function handler(req, res) {
       if (!/^(https?:|data:image\/)/i.test(url)) {
         return res.status(400).json({ error: 'invalid_url' });
       }
+      const raw = await redis.get(KEY);
+      let previous = null;
+      if (raw) {
+        try { previous = typeof raw === 'string' ? JSON.parse(raw) : raw; }
+        catch { previous = null; }
+      }
+      const revision = Number(previous?.revision || 0) + 1;
       const value = {
         url,
         alt: (body.alt || 'Tarot reader').toString().slice(0, 120),
         enabled: body.enabled !== false,
+        revision,
         updatedAt: new Date().toISOString(),
       };
       await redis.set(KEY, JSON.stringify(value));
