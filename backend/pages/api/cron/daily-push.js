@@ -1,15 +1,19 @@
 /**
  * GET /api/cron/daily-push
  *
- * Vercel cron pings this every 5 minutes. We check the configured schedule
- * (Asia/Kolkata) and fire push notifications once per day at the requested
- * HH:MM, +/- the cron interval.
+ * Vercel Hobby cron pings this once per day (configured in vercel.json
+ * for 03:30 UTC = 09:00 IST). On Hobby we cannot run the cron more than
+ * once per day, so the operator-configured HH:MM in the ops console is
+ * informational only — actual fire time is the cron schedule.
+ *
+ * If it's enabled and we haven't sent today, send now. Use ?force=1
+ * (still gated by CRON_SECRET) for ad-hoc verification.
  *
  * Auth: Vercel sends ?key= or Authorization: Bearer <CRON_SECRET>.
  */
 import {
   getRedis, TOKEN_SET_KEY, SCHEDULE_KEY, LAST_SENT_PREFIX, SEND_LOG_KEY,
-  sendExpoPush, pruneTokens, getDateKeyInTz, getCurrentHhMm,
+  sendExpoPush, pruneTokens, getDateKeyInTz,
 } from '@/lib/push';
 
 function authorized(req) {
@@ -26,24 +30,28 @@ export default async function handler(req, res) {
 
   try {
     const redis = getRedis();
+    const force = req.query.force === '1' || req.query.force === 'true';
     const schedRaw = await redis.get(SCHEDULE_KEY);
-    if (!schedRaw) return res.status(200).json({ ok: true, skipped: 'no_schedule' });
-    const sched = typeof schedRaw === 'string' ? JSON.parse(schedRaw) : schedRaw;
-    if (!sched.enabled) return res.status(200).json({ ok: true, skipped: 'disabled' });
+    if (!schedRaw && !force) return res.status(200).json({ ok: true, skipped: 'no_schedule' });
+    const sched = schedRaw
+      ? (typeof schedRaw === 'string' ? JSON.parse(schedRaw) : schedRaw)
+      : {};
+    if (!force && sched.enabled === false) {
+      return res.status(200).json({ ok: true, skipped: 'disabled' });
+    }
 
     const tz = sched.tz || 'Asia/Kolkata';
     const dateKey = getDateKeyInTz(tz);
 
-    // On Vercel Hobby the cron fires once per day (configured in vercel.json
-    // for ~08:00 IST). We don't enforce a HH:MM window here — if it's
-    // enabled and we haven't sent today, send now.
     const sentKey = LAST_SENT_PREFIX + dateKey;
     const already = await redis.get(sentKey);
-    if (already) return res.status(200).json({ ok: true, skipped: 'already_sent', dateKey });
+    if (already && !force) {
+      return res.status(200).json({ ok: true, skipped: 'already_sent', dateKey });
+    }
 
     const tokens = await redis.smembers(TOKEN_SET_KEY);
     if (!tokens || tokens.length === 0) {
-      await redis.set(sentKey, 'no_tokens', { ex: 36 * 60 * 60 });
+      // Don't burn the day's sentinel on transient empty-token state.
       return res.status(200).json({ ok: true, sent: 0, message: 'no_tokens' });
     }
 

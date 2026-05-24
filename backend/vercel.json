@@ -8,6 +8,6 @@
     }
   },
   "crons": [
-    { "path": "/api/cron/daily-push", "schedule": "30 2 * * *" }
+    { "path": "/api/cron/daily-push", "schedule": "30 3 * * *" }
   ]
 }
