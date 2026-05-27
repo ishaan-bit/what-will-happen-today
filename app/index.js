@@ -20,6 +20,7 @@ import { PaywallSheet } from '@/components/PaywallSheet';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { StarsBackground } from '@/components/StarsBackground';
 import { HeroImage } from '@/components/HeroImage';
+import { SafeBannerAd } from '@/components/SafeBannerAd';
 import { usePredictions } from '@/hooks/usePredictions';
 import { useBilling } from '@/hooks/useBilling';
 import { PRODUCT_DAILY, PRODUCT_FULL } from '@/services/billingService';
@@ -474,6 +475,7 @@ export default function HomeScreen() {
     || 'Today has a reader';
   const heroCta = currentHero?.cta || currentHero?.CTA || 'Let her draw your first signal';
   const shuffleCtaText = canShuffleHero ? 'Draw another reader' : "Today's readers are complete";
+  const hideBannerAd = paywall !== null || isPaidEntitled;
 
   return (
     <ScreenShell>
@@ -546,6 +548,8 @@ export default function HomeScreen() {
         </View>
 
         <TodaysSky vibe={vibe} moment={moment} watchFor={watchFor} />
+
+        <SafeBannerAd hidden={hideBannerAd} />
 
         {loading && !predictions ? (
           <>
