@@ -1089,13 +1089,16 @@ function Dashboard({ creds, onLogout }) {
                 <input
                   value={heroPoolImageDraft.title}
                   onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, title: e.target.value }))}
-                  placeholder="Internal title"
+                  placeholder="Internal title (ops only)"
                 />
                 <input
                   value={heroPoolImageDraft.readerMood}
                   onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, readerMood: e.target.value }))}
-                  placeholder="The Mirror"
+                  placeholder="Reader label / mood"
                 />
+              </div>
+              <div style={{ color: '#777', fontSize: 11 }}>
+                Internal title is for ops/admin identification. Reader label, headline, and CTA are visible in the app.
               </div>
               <input
                 value={heroPoolImageDraft.headline}
@@ -1106,7 +1109,7 @@ function Dashboard({ creds, onLogout }) {
               <input
                 value={heroPoolImageDraft.cta}
                 onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, cta: e.target.value }))}
-                placeholder="CTA copy"
+                placeholder="CTA button text"
                 style={{ width: '100%' }}
               />
               <input

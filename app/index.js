@@ -8,8 +8,11 @@ import {
   TouchableOpacity,
   Alert,
   InteractionManager,
+  Animated,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { router, useFocusEffect } from 'expo-router';
@@ -80,14 +83,33 @@ function normalizeHero(hero) {
 function isHumanReadableHeroText(value) {
   const text = String(value || '').trim();
   if (text.length < 3) return false;
+  if (/^https?:\/\//i.test(text)) return false;
+  if (/^\/?api\/hero-batch\/image\?/i.test(text)) return false;
   if (/^hero\s+\d+$/i.test(text)) return false;
   if (/^batch hero\s+\d+$/i.test(text)) return false;
-  if (/^asset_[a-z0-9]+$/i.test(text)) return false;
-  if (/\.(jpe?g|png|webp|gif)$/i.test(text)) return false;
+  if (/^(asset|hero|img|image|file)[_-][a-z0-9_-]+$/i.test(text)) return false;
+  if (/^[a-z0-9]+[-_][a-z0-9_-]*\d[a-z0-9_-]*$/i.test(text) && !/\s/.test(text)) return false;
+  if (/\.(jpe?g|png|webp|gif|heic)(\?.*)?$/i.test(text)) return false;
+  if (/^[\w.-]+[\\/][\w./-]+$/i.test(text)) return false;
+  if (/^[a-z0-9_-]+\.(jpe?g|png|webp|gif|heic)$/i.test(text)) return false;
   if (/^[0-9a-f]{8}[-\s][0-9a-f]{4}[-\s][0-9a-f]{4}[-\s][0-9a-f]{4}[-\s][0-9a-f]{12}$/i.test(text)) return false;
   if (/^[0-9a-f\s-]{16,}$/i.test(text)) return false;
+  if (/^[a-z0-9_-]{24,}$/i.test(text) && !/\s/.test(text)) return false;
   const letters = text.match(/[a-z]/gi) || [];
   return letters.length >= 3;
+}
+
+function normalizeHeroCopy(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function isGenericHeroFallbackHeadline(value, readerMood) {
+  const text = normalizeHeroCopy(value).toLowerCase().replace(/[.!?]+$/, '');
+  const mood = normalizeHeroCopy(readerMood).toLowerCase();
+  if (!text) return true;
+  if (text === 'today has a reader') return true;
+  if (text === 'the mirror is waiting') return true;
+  return !!mood && text === `${mood} is waiting`;
 }
 
 export default function HomeScreen() {
@@ -110,6 +132,7 @@ export default function HomeScreen() {
   } = usePredictions();
 
   const { getPrice, buyDaily, buyFull, purchasing } = useBilling();
+  const { width } = useWindowDimensions();
   const [paywall, setPaywall] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const lastFocusRefreshAt = useRef(0);
@@ -119,6 +142,7 @@ export default function HomeScreen() {
   const signalLayoutsRef = useRef({});
   const pendingSignalFocusRef = useRef(null);
   const highlightTimerRef = useRef(null);
+  const heroFade = useRef(new Animated.Value(1)).current;
   const [highlightedCategory, setHighlightedCategory] = useState(null);
 
   useEffect(() => {
@@ -148,6 +172,7 @@ export default function HomeScreen() {
     const currentId = heroShuffleState?.currentHeroId || defaultHeroId;
     return heroImages.find((img) => img.id === currentId) || heroImages[0] || heroImage || null;
   }, [heroImages, heroImage, heroShuffleState?.currentHeroId, defaultHeroId]);
+  const currentHeroVisualKey = currentHero?.id || currentHero?.url || null;
   const heroPoolRevision = heroPool?.revision || heroPool?.updatedAt || 'legacy';
 
   const maxHeroImages = Math.min(
@@ -168,6 +193,16 @@ export default function HomeScreen() {
     if (heroShuffleState.currentHeroId === currentHero.id) return;
     setCurrentHeroForToday(currentHero.id, heroPoolRevision).then(refreshRevealState).catch(() => null);
   }, [currentHero?.id, heroShuffleState, heroPoolRevision, refreshRevealState]);
+
+  useEffect(() => {
+    if (!currentHeroVisualKey) return;
+    heroFade.setValue(0.72);
+    Animated.timing(heroFade, {
+      toValue: 1,
+      duration: 260,
+      useNativeDriver: true,
+    }).start();
+  }, [currentHeroVisualKey, heroFade]);
 
   useEffect(() => {
     if (!currentHero?.id || lastHeroImpressionRef.current === currentHero.id) return;
@@ -395,7 +430,7 @@ export default function HomeScreen() {
   const changeHero = useCallback(async (source) => {
     const next = getNextHero();
     if (!next) {
-      Alert.alert("Today's hero set is complete.", 'You have seen the available readers for today.');
+      Alert.alert("Today's reader images are complete.", 'You have seen the available readers for today.');
       return;
     }
     await recordHeroShuffle(next.id, source, heroPoolRevision);
@@ -418,7 +453,7 @@ export default function HomeScreen() {
     }));
 
     if (!canShuffleHero) {
-      Alert.alert("Today's hero set is complete.", 'You have seen the available readers for today.');
+      Alert.alert("Today's reader images are complete.", 'You have seen the available readers for today.');
       return;
     }
 
@@ -428,8 +463,8 @@ export default function HomeScreen() {
     }
 
     Alert.alert(
-      'Watch an ad to draw another reader.',
-      `You can draw ${heroShuffleRemaining} more reader${heroShuffleRemaining === 1 ? '' : 's'} today.`,
+      'Watch an ad to show another reader image.',
+      `You can change the reader image ${heroShuffleRemaining} more time${heroShuffleRemaining === 1 ? '' : 's'} today.`,
       [
         { text: 'Not now', style: 'cancel' },
         {
@@ -446,7 +481,7 @@ export default function HomeScreen() {
                 ad_placement: 'hero_shuffle',
                 reason: result.reason || 'not_rewarded',
               }));
-              Alert.alert('Ad unavailable', 'No reader was drawn. Please try again.');
+              Alert.alert('Ad unavailable', 'The reader image did not change. Please try again.');
               return;
             }
             track(Events.HERO_SHUFFLE_AD_COMPLETED, heroAnalyticsProps(currentHero, {
@@ -465,16 +500,18 @@ export default function HomeScreen() {
   const moment = getDailyMoment();
   const watchFor = getDailyWatchFor();
   const heroTitle = isHumanReadableHeroText(currentHero?.title || currentHero?.name)
-    ? (currentHero?.title || currentHero?.name)
+    ? normalizeHeroCopy(currentHero?.title || currentHero?.name)
     : null;
   const heroMood = isHumanReadableHeroText(currentHero?.readerMood)
-    ? currentHero.readerMood
-    : (heroTitle || "Today's reader");
-  const heroHeadline = currentHero?.headline
-    || heroTitle
-    || 'Today has a reader';
+    ? normalizeHeroCopy(currentHero.readerMood)
+    : (heroTitle || "TODAY'S READER");
+  const heroHeadline = isHumanReadableHeroText(currentHero?.headline)
+      && !isGenericHeroFallbackHeadline(currentHero?.headline, currentHero?.readerMood)
+    ? normalizeHeroCopy(currentHero.headline)
+    : 'Your reader is ready.';
   const heroCta = currentHero?.cta || currentHero?.CTA || 'Let her draw your first signal';
-  const shuffleCtaText = canShuffleHero ? 'Draw another reader' : "Today's readers are complete";
+  const activeShuffleCtaText = width < 360 ? 'Change reader image' : 'Show another reader image';
+  const shuffleCtaText = canShuffleHero ? activeShuffleCtaText : "Today's reader images are complete";
   const hideBannerAd = paywall !== null || isPaidEntitled;
 
   return (
@@ -513,11 +550,13 @@ export default function HomeScreen() {
       >
         <DayHeader unlocked={unlocked} streak={streak} />
 
-        <HeroImage
-          source={currentHero?.url}
-          version={heroPool?.revision || currentHero?.revision || currentHero?.updatedAt}
-          fallbackEnabled={monetizationConfig.fallbackHeroEnabled}
-        />
+        <Animated.View style={{ opacity: heroFade }}>
+          <HeroImage
+            source={currentHero?.url}
+            version={heroPool?.revision || currentHero?.revision || currentHero?.updatedAt}
+            fallbackEnabled={monetizationConfig.fallbackHeroEnabled}
+          />
+        </Animated.View>
 
         <View style={styles.readerBlock}>
           <Text style={styles.readerMood}>{heroMood}</Text>
@@ -543,8 +582,14 @@ export default function HomeScreen() {
             disabled={purchasing}
             style={[styles.shuffleCta, !canShuffleHero && styles.shuffleCtaDisabled]}
           >
+            {canShuffleHero ? (
+              <Feather name="shuffle" size={13} color={palette.textMuted} style={styles.shuffleIcon} />
+            ) : null}
             <Text style={styles.shuffleCtaText}>{shuffleCtaText}</Text>
           </TouchableOpacity>
+          {canShuffleHero ? (
+            <Text style={styles.shuffleHint}>You have more reader images for today.</Text>
+          ) : null}
         </View>
 
         <TodaysSky vibe={vibe} moment={moment} watchFor={watchFor} />
@@ -726,14 +771,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.glassBorder,
     backgroundColor: 'rgba(255,255,255,0.025)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   shuffleCtaDisabled: {
     opacity: 0.55,
+  },
+  shuffleIcon: {
+    marginRight: spacing.xs,
+    opacity: 0.78,
   },
   shuffleCtaText: {
     ...type.caption,
     color: palette.textSub,
     fontWeight: '700',
+    textAlign: 'center',
+  },
+  shuffleHint: {
+    ...type.caption,
+    color: palette.textMuted,
+    fontSize: 11,
+    marginTop: spacing.xs,
+    opacity: 0.72,
+    textAlign: 'center',
   },
   waitingBlock: {
     borderWidth: 1,
