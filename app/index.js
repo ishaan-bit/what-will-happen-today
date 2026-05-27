@@ -76,6 +76,19 @@ function normalizeHero(hero) {
   };
 }
 
+function isHumanReadableHeroText(value) {
+  const text = String(value || '').trim();
+  if (text.length < 3) return false;
+  if (/^hero\s+\d+$/i.test(text)) return false;
+  if (/^batch hero\s+\d+$/i.test(text)) return false;
+  if (/^asset_[a-z0-9]+$/i.test(text)) return false;
+  if (/\.(jpe?g|png|webp|gif)$/i.test(text)) return false;
+  if (/^[0-9a-f]{8}[-\s][0-9a-f]{4}[-\s][0-9a-f]{4}[-\s][0-9a-f]{4}[-\s][0-9a-f]{12}$/i.test(text)) return false;
+  if (/^[0-9a-f\s-]{16,}$/i.test(text)) return false;
+  const letters = text.match(/[a-z]/gi) || [];
+  return letters.length >= 3;
+}
+
 export default function HomeScreen() {
   const {
     predictions,
@@ -450,10 +463,16 @@ export default function HomeScreen() {
   const vibe = getDailyVibe();
   const moment = getDailyMoment();
   const watchFor = getDailyWatchFor();
-  const heroTitle = currentHero?.title || currentHero?.name || null;
-  const heroHeadline = currentHero?.headline || 'Today has a reader';
-  const heroMood = currentHero?.readerMood || 'The Mirror';
-  const heroCta = currentHero?.cta || 'Let her draw your first signal';
+  const heroTitle = isHumanReadableHeroText(currentHero?.title || currentHero?.name)
+    ? (currentHero?.title || currentHero?.name)
+    : null;
+  const heroMood = isHumanReadableHeroText(currentHero?.readerMood)
+    ? currentHero.readerMood
+    : (heroTitle || "Today's reader");
+  const heroHeadline = currentHero?.headline
+    || heroTitle
+    || 'Today has a reader';
+  const heroCta = currentHero?.cta || currentHero?.CTA || 'Let her draw your first signal';
   const shuffleCtaText = canShuffleHero ? 'Draw another reader' : "Today's readers are complete";
 
   return (
@@ -499,9 +518,6 @@ export default function HomeScreen() {
         />
 
         <View style={styles.readerBlock}>
-          {heroTitle ? (
-            <Text style={styles.readerTitle}>{heroTitle}</Text>
-          ) : null}
           <Text style={styles.readerMood}>{heroMood}</Text>
           <Text style={styles.readerHeadline}>{heroHeadline}</Text>
           {currentHero?.tags?.length ? (
