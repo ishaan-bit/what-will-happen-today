@@ -36,6 +36,9 @@ export default async function handler(req, res) {
   try {
     const redis = getRedis();
     const dateKey = getTodayKey();
+    const isDebug = process.env.DEBUG_HERO_POOL === 'true';
+
+    if (isDebug) console.log(`[/api/predictions/daily] START: dateKey=${dateKey}`);
 
     // Track unique installs (HyperLogLog — tiny memory, ~1% error)
     // Client sends X-Install-Id header (the installSalt). No PII.
@@ -53,14 +56,31 @@ export default async function handler(req, res) {
       }
     }
 
+    const legacyHeroKey = LEGACY_HERO_KEY;
+    const heroPoolRedisKey = heroPoolKey(dateKey);
+
+    if (isDebug) console.log(`[/api/predictions/daily] Redis keys:`, {
+      legacy: legacyHeroKey,
+      pool: heroPoolRedisKey,
+    });
+
     const [raw, ruleBucket, heroRaw, heroPoolRaw, engineModeRaw, monetizationRaw] = await Promise.all([
       redis.get(`wwht:predictions:${dateKey}`),
       redis.get('wwht:ruleBucket'),
-      redis.get(LEGACY_HERO_KEY),
-      redis.get(heroPoolKey(dateKey)),
+      redis.get(legacyHeroKey),
+      redis.get(heroPoolRedisKey),
       redis.get('wwht:engineMode'),
       redis.get('wwht:monetizationConfig'),
     ]);
+
+    if (isDebug) {
+      console.log(`[/api/predictions/daily] Redis fetch results:`, {
+        hasPredictions: !!raw,
+        hasBucket: !!ruleBucket,
+        hasLegacyHero: !!heroRaw,
+        hasHeroPool: !!heroPoolRaw,
+      });
+    }
 
     let data = null;
     let generatedAt = null;
@@ -70,14 +90,44 @@ export default async function handler(req, res) {
       generatedAt = parsed.generatedAt || null;
     }
 
-    const storedHeroPool = getServableHeroPool(parseStoredJson(heroPoolRaw));
+    const rawStoredHeroPool = parseStoredJson(heroPoolRaw);
+    const rawBatchCount = Array.isArray(rawStoredHeroPool?.images) ? rawStoredHeroPool.images.length : 0;
+    const storedHeroPool = getServableHeroPool(rawStoredHeroPool);
     const legacyHeroPool = getServableHeroPool(legacyHeroAsPool(parseStoredJson(heroRaw), dateKey), { allowData: true });
-    const heroPool = assignDailyHeroSet(storedHeroPool, {
+
+    if (isDebug) {
+      console.log(`[/api/predictions/daily] Pool status:`, {
+        storedPoolImages: storedHeroPool?.images?.length || 0,
+        legacyPoolImages: legacyHeroPool?.images?.length || 0,
+        storedPoolNull: storedHeroPool === null,
+        legacyPoolNull: legacyHeroPool === null,
+      });
+    }
+
+    const assignedBatchHeroPool = storedHeroPool ? assignDailyHeroSet(storedHeroPool, {
       installId,
       dateKey,
       count: 4,
-      fallbackHero: legacyHeroPool,
-    }) || legacyHeroPool || null;
+      fallbackHero: null,
+    }) : null;
+    const heroSource = assignedBatchHeroPool ? 'batch' : (legacyHeroPool ? 'legacy' : 'none');
+    const fallbackReason = assignedBatchHeroPool
+      ? null
+      : (rawBatchCount > 0 ? 'no_servable_batch_items' : 'no_batch_pool');
+    const heroPool = assignedBatchHeroPool
+      ? { ...assignedBatchHeroPool, source: 'batch' }
+      : (legacyHeroPool ? { ...legacyHeroPool, source: 'legacy' } : null);
+
+    if (isDebug) {
+      console.log(`[/api/predictions/daily] FINAL HERO DECISION:`, {
+        hasAssignedPool: !!assignedBatchHeroPool,
+        usedLegacyFallback: heroSource === 'legacy',
+        heroPoolImages: heroPool?.images?.length || 0,
+        heroSource,
+        fallbackReason,
+      });
+    }
+
     // Backcompat: existing production app builds read only `heroImage`.
     // Keep that field tied to the legacy one-hero system. New builds read
     // the additive `heroPool` field for daily batch/assignment.
@@ -97,6 +147,20 @@ export default async function handler(req, res) {
     // Defaults to 'llm' for backwards compatibility.
     const engineMode = engineModeRaw === 'rule' ? 'rule' : 'llm';
 
+    if (isDebug) console.log(`[/api/predictions/daily] RESPONSE:`, {
+      heroImagePresent: !!heroImage,
+      heroPoolPresent: !!heroPool,
+      heroPoolImageCount: heroPool?.images?.length || 0,
+    });
+
+    const heroDiagnostics = (process.env.NODE_ENV === 'development' || isDebug) ? {
+      dateKey,
+      rawBatchCount,
+      servableBatchCount: storedHeroPool?.images?.length || 0,
+      heroSource,
+      fallbackReason,
+    } : undefined;
+
     return res.status(200).json({
       data,
       dateKey,
@@ -107,9 +171,11 @@ export default async function handler(req, res) {
       engineMode,
       heroImage,
       heroPool,
+      heroBatchRevision: assignedBatchHeroPool?.revision || storedHeroPool?.revision || null,
       monetizationConfig,
       heroImageUpdatedAt: heroImage?.updatedAt || null,
       heroImageRevision: heroImage?.revision || heroImage?.updatedAt || null,
+      ...(heroDiagnostics ? { heroDiagnostics } : {}),
     });
   } catch (err) {
     console.error('[/api/predictions/daily]', err);

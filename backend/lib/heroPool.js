@@ -37,6 +37,20 @@ function cleanText(value, fallback = '', max = 160) {
   return String(value || fallback).trim().slice(0, max);
 }
 
+function hasOwn(input, key) {
+  return Object.prototype.hasOwnProperty.call(input || {}, key);
+}
+
+function normalizeBooleanFlag(value, fallback = true) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (value === true || value === 1) return true;
+  if (value === false || value === 0) return false;
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', 'on', '1', 'yes'].includes(normalized)) return true;
+  if (['false', 'off', '0', 'no'].includes(normalized)) return false;
+  return fallback;
+}
+
 function cleanTags(tags) {
   const list = Array.isArray(tags)
     ? tags
@@ -49,17 +63,82 @@ function cleanTags(tags) {
     .slice(0, 16))];
 }
 
+function getBackendBaseUrl() {
+  const raw = process.env.APP_BASE_URL
+    || process.env.EXPO_PUBLIC_API_URL
+    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+  return String(raw || '').trim().replace(/\/$/, '');
+}
+
+function getInputImageUrl(input = {}) {
+  if (hasOwn(input, 'imageUrl')) return input.imageUrl;
+  if (hasOwn(input, 'url')) return input.url;
+  if (hasOwn(input, 'uri')) return input.uri;
+  if (hasOwn(input, 'src')) return input.src;
+  return '';
+}
+
+function normalizeImageUrl(value) {
+  const raw = cleanText(value, '', 2000);
+  if (!raw) return '';
+  if (/^\/api\/hero-batch\/image\?/i.test(raw)) {
+    const base = getBackendBaseUrl();
+    return base ? `${base}${raw}` : raw;
+  }
+  return raw;
+}
+
+function isBackendHeroBatchUrl(url) {
+  const raw = String(url || '').trim();
+  if (/^\/api\/hero-batch\/image\?[^#\s]+/i.test(raw)) return !!getBackendBaseUrl();
+  if (!/^https?:\/\//i.test(raw)) return false;
+  try {
+    const parsed = new URL(raw);
+    return parsed.pathname === '/api/hero-batch/image'
+      && parsed.searchParams.has('date')
+      && parsed.searchParams.has('id');
+  } catch {
+    return false;
+  }
+}
+
 function isPublicImageUrl(url) {
-  return /^https?:\/\/.+/i.test(String(url || '').trim());
+  const raw = String(url || '').trim();
+  if (isBackendHeroBatchUrl(raw)) return true;
+  return /^https?:\/\/.+/i.test(raw);
 }
 
 function isLegacyHeroUrl(url) {
   return isPublicImageUrl(url) || /^data:image\//i.test(String(url || '').trim());
 }
 
+// Diagnostic logging helper; logs to console only in development.
+function logDiagnostic(context, message, data = {}) {
+  if (process.env.NODE_ENV === 'development' || process.env.DEBUG_HERO_POOL === 'true') {
+    const sanitized = { ...data };
+    if (sanitized.url && sanitized.url.length > 100) sanitized.url = sanitized.url.substring(0, 100) + '...';
+    console.log(`[HeroPool.${context}]`, message, sanitized);
+  }
+}
+
 export function normalizeHeroImage(input = {}, index = 0, dateKey = getTodayKey(), { allowData = false } = {}) {
-  const url = cleanText(input.url, '', allowData ? 4_000_000 : 2000);
-  if (!(allowData ? isLegacyHeroUrl(url) : isPublicImageUrl(url))) return null;
+  const url = allowData
+    ? cleanText(getInputImageUrl(input), '', 4_000_000)
+    : normalizeImageUrl(getInputImageUrl(input));
+  const inputTitle = input.title || input.name || `Hero ${index + 1}`;
+  const isValidUrl = allowData ? isLegacyHeroUrl(url) : isPublicImageUrl(url);
+  if (!isValidUrl) {
+    logDiagnostic('normalizeHeroImage', `REJECTED: Invalid URL format for "${inputTitle}"`, {
+      index,
+      title: inputTitle,
+      urlPrefix: url ? url.substring(0, 50) : '(empty)',
+      urlLength: url.length,
+      allowData,
+      hasHttps: url.startsWith('https'),
+      hasHttp: url.startsWith('http'),
+    });
+    return null;
+  }
 
   const id = cleanText(input.id, `hero_${dateKey}_${index + 1}_${hashString(url).slice(0, 6)}`, 80)
     .replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -67,24 +146,32 @@ export function normalizeHeroImage(input = {}, index = 0, dateKey = getTodayKey(
   const weight = Math.max(0, Math.min(1000, parseInt(input.weight, 10) || 1));
   const title = cleanText(input.title || input.name, `Hero ${index + 1}`, 100);
   const readerMood = cleanText(input.readerMood, 'The Mirror', 80);
+  const active = normalizeBooleanFlag(input.active, true);
+  const enabled = normalizeBooleanFlag(input.enabled, true);
+  const storeSafe = normalizeBooleanFlag(input.storeSafe, true);
+  const cta = cleanText(input.cta || input.CTA || input.ctaCopy, 'Let her draw your first signal', 120);
+  const isDefault = normalizeBooleanFlag(input.isDefault ?? input.default, false);
 
   return {
     id,
     url,
+    imageUrl: url,
     title,
     name: title,
-    active: input.active !== false && input.enabled !== false,
-    enabled: input.active !== false && input.enabled !== false,
-    storeSafe: input.storeSafe !== false,
+    active,
+    enabled,
+    storeSafe,
     dateKey,
     campaign: cleanText(input.campaign || input.assignment, '', 80),
     tags: cleanTags(input.tags),
     readerMood,
     headline: cleanText(input.headline, `${readerMood} is waiting`, 140),
-    cta: cleanText(input.cta || input.ctaCopy, 'Let her draw your first signal', 120),
+    cta,
+    ...(hasOwn(input, 'CTA') ? { CTA: cta } : {}),
     weight,
     priority: weight,
-    isDefault: input.isDefault === true || input.default === true,
+    isDefault,
+    default: isDefault,
     alt: cleanText(input.alt, title, 120),
     updatedAt: input.updatedAt || new Date().toISOString(),
   };
@@ -92,10 +179,18 @@ export function normalizeHeroImage(input = {}, index = 0, dateKey = getTodayKey(
 
 export function normalizeHeroPool(input = {}, previous = null) {
   const dateKey = normalizeDateKey(input.dateKey || input.date || previous?.dateKey);
-  const images = (Array.isArray(input.images) ? input.images : [])
+  const inputImages = Array.isArray(input.images) ? input.images : [];
+  const normalized = inputImages
     .map((item, index) => normalizeHeroImage(item, index, dateKey))
     .filter(Boolean);
 
+  logDiagnostic('normalizeHeroPool', `Pool normalized for ${dateKey}`, {
+    inputCount: inputImages.length,
+    normalizedCount: normalized.length,
+    droppedByNormalization: inputImages.length - normalized.length,
+  });
+
+  const images = normalized;
   const defaultIndex = images.findIndex((img) => img.isDefault);
   if (defaultIndex < 0 && images.length > 0) images[0].isDefault = true;
   if (defaultIndex >= 0) {
@@ -128,22 +223,84 @@ export function parseStoredJson(raw) {
 }
 
 export function getServableHeroPool(pool, { allowData = false } = {}) {
-  if (!pool || !Array.isArray(pool.images)) return null;
-  const images = pool.images
-    .filter((img) => {
-      const validUrl = allowData ? isLegacyHeroUrl(img.url) : isPublicImageUrl(img.url);
-      return img && img.active !== false && img.enabled !== false && img.storeSafe !== false && validUrl;
-    })
+  if (!pool || !Array.isArray(pool.images)) {
+    logDiagnostic('getServableHeroPool', 'NULL POOL: No images array', { poolExists: !!pool, hasImages: pool?.images !== undefined });
+    return null;
+  }
+
+  const inputCount = pool.images.length;
+  const normalizedImages = pool.images.map((img) => {
+    if (!img) return img;
+    const url = allowData
+      ? cleanText(getInputImageUrl(img), '', 4_000_000)
+      : normalizeImageUrl(getInputImageUrl(img));
+    const cta = cleanText(img.cta || img.CTA || img.ctaCopy, 'Let her draw your first signal', 120);
+    return {
+      ...img,
+      url,
+      imageUrl: url,
+      active: normalizeBooleanFlag(img.active, true),
+      enabled: normalizeBooleanFlag(img.enabled, true),
+      storeSafe: normalizeBooleanFlag(img.storeSafe, true),
+      isDefault: normalizeBooleanFlag(img.isDefault ?? img.default, false),
+      default: normalizeBooleanFlag(img.isDefault ?? img.default, false),
+      cta,
+      ...(hasOwn(img, 'CTA') ? { CTA: cta } : {}),
+    };
+  });
+  const filtered = normalizedImages.filter((img) => {
+    const validUrl = allowData ? isLegacyHeroUrl(img?.url) : isPublicImageUrl(img?.url);
+    const activeOk = normalizeBooleanFlag(img?.active, true);
+    const enabledOk = normalizeBooleanFlag(img?.enabled, true);
+    const safeOk = normalizeBooleanFlag(img?.storeSafe, true);
+    const urlOk = validUrl;
+    const passes = img && activeOk && enabledOk && safeOk && urlOk;
+
+    if (!passes) {
+      logDiagnostic('getServableHeroPool', `DROPPED: "${img?.title || img?.name || '?'}"`, {
+        id: img?.id,
+        title: img?.title || img?.name,
+        active: img?.active,
+        enabled: img?.enabled,
+        storeSafe: img?.storeSafe,
+        urlPrefix: img?.url ? img.url.substring(0, 50) : '(missing)',
+        urlOk,
+        activeOk,
+        enabledOk,
+        safeOk,
+        reason: !img ? 'null_image' : !urlOk ? 'invalid_url' : !activeOk ? 'active_false' : !enabledOk ? 'enabled_false' : !safeOk ? 'storeSafe_false' : 'unknown',
+      });
+    } else {
+      logDiagnostic('getServableHeroPool', `PASS: "${img?.title || img?.name}"`, {
+        id: img?.id,
+        active: img?.active,
+        enabled: img?.enabled,
+        storeSafe: img?.storeSafe,
+      });
+    }
+    return passes;
+  })
     .sort((a, b) => {
       if (a.isDefault && !b.isDefault) return -1;
       if (!a.isDefault && b.isDefault) return 1;
       return Number(b.weight || 1) - Number(a.weight || 1);
     });
-  if (images.length === 0) return null;
+
+  logDiagnostic('getServableHeroPool', `Filter complete for ${pool.dateKey}`, {
+    inputCount,
+    filteredCount: filtered.length,
+    dropped: inputCount - filtered.length,
+  });
+
+  if (filtered.length === 0) {
+    logDiagnostic('getServableHeroPool', `EMPTY RESULT: All ${inputCount} images dropped`, { dateKey: pool.dateKey });
+    return null;
+  }
+
   return {
     ...pool,
-    images,
-    defaultHeroId: images.find((img) => img.isDefault)?.id || images[0].id,
+    images: filtered,
+    defaultHeroId: filtered.find((img) => img.isDefault)?.id || filtered[0].id,
     revision: pool.revision || pool.updatedAt || null,
   };
 }

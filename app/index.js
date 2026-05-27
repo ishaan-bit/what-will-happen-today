@@ -7,6 +7,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  InteractionManager,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -60,6 +61,21 @@ function cardAnalyticsProps(category, index, prediction, extra = {}) {
   };
 }
 
+function getHeroUrl(hero) {
+  return hero?.imageUrl || hero?.url || hero?.uri || hero?.src || null;
+}
+
+function normalizeHero(hero) {
+  const url = getHeroUrl(hero);
+  if (!hero || !url) return null;
+  return {
+    ...hero,
+    url,
+    imageUrl: url,
+    cta: hero.cta || hero.CTA || hero.ctaCopy || null,
+  };
+}
+
 export default function HomeScreen() {
   const {
     predictions,
@@ -85,6 +101,11 @@ export default function HomeScreen() {
   const lastFocusRefreshAt = useRef(0);
   const hasFocusedOnce = useRef(false);
   const lastHeroImpressionRef = useRef(null);
+  const scrollRef = useRef(null);
+  const signalLayoutsRef = useRef({});
+  const pendingSignalFocusRef = useRef(null);
+  const highlightTimerRef = useRef(null);
+  const [highlightedCategory, setHighlightedCategory] = useState(null);
 
   useEffect(() => {
     if (!loading) SplashScreen.hideAsync().catch(() => null);
@@ -104,8 +125,8 @@ export default function HomeScreen() {
 
   const heroImages = useMemo(() => {
     const poolImages = Array.isArray(heroPool?.images) ? heroPool.images : [];
-    if (poolImages.length) return poolImages;
-    return heroImage?.url ? [heroImage] : [];
+    const source = poolImages.length ? poolImages : (getHeroUrl(heroImage) ? [heroImage] : []);
+    return source.map(normalizeHero).filter(Boolean);
   }, [heroPool, heroImage]);
 
   const defaultHeroId = heroPool?.defaultHeroId || heroImages[0]?.id || null;
@@ -143,6 +164,24 @@ export default function HomeScreen() {
     }));
   }, [currentHero, dayNumber, isPaidEntitled]);
 
+  useEffect(() => {
+    if (typeof __DEV__ === 'undefined' || !__DEV__) return;
+    const selectedUrl = getHeroUrl(currentHero);
+    console.log('[hero:selected]', {
+      requestedDateKey: heroPool?.dateKey || null,
+      heroSource: heroPool?.source || (heroPool?.images?.length ? 'batch' : (heroImage ? 'legacy' : 'none')),
+      heroPoolCount: heroPool?.images?.length || 0,
+      assignedHeroesCount: heroImages.length,
+      selectedHeroId: currentHero?.id || null,
+      selectedHeroImageUrlPrefix: selectedUrl ? selectedUrl.slice(0, 96) : null,
+      selectedHeroTitle: currentHero?.title || null,
+      selectedHeroHeadline: currentHero?.headline || null,
+      selectedHeroCTA: currentHero?.cta || currentHero?.CTA || null,
+      fallbackUsed: heroPool?.source === 'legacy' || !heroPool?.images?.length,
+      fallbackReason: heroPool?.source === 'legacy' ? 'legacy_hero_fallback' : (heroPool?.images?.length ? null : 'no_assigned_batch_hero'),
+    });
+  }, [currentHero, heroPool, heroImage, heroImages.length]);
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([refreshUnlock(), refreshRevealState(), refresh()]);
@@ -179,6 +218,40 @@ export default function HomeScreen() {
     });
   }, [dayNumber, isPaidEntitled]);
 
+  const scrollToSignal = useCallback((category) => {
+    const y = signalLayoutsRef.current[category];
+    if (typeof y !== 'number') return false;
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - 24), animated: true });
+    pendingSignalFocusRef.current = null;
+    return true;
+  }, []);
+
+  const requestSignalFocus = useCallback((category) => {
+    if (!category) return;
+    pendingSignalFocusRef.current = category;
+    setHighlightedCategory(category);
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => {
+      setHighlightedCategory(null);
+      if (pendingSignalFocusRef.current === category) pendingSignalFocusRef.current = null;
+    }, 1700);
+    InteractionManager.runAfterInteractions(() => {
+      if (scrollToSignal(category)) return;
+      setTimeout(() => scrollToSignal(category), 220);
+    });
+  }, [scrollToSignal]);
+
+  const handleSignalLayout = useCallback((category, event) => {
+    signalLayoutsRef.current[category] = event.nativeEvent.layout.y;
+    if (pendingSignalFocusRef.current === category) {
+      setTimeout(() => scrollToSignal(category), 40);
+    }
+  }, [scrollToSignal]);
+
+  useEffect(() => () => {
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+  }, []);
+
   const handleBuyDaily = useCallback(async () => {
     tap();
     await buyDaily();
@@ -202,12 +275,13 @@ export default function HomeScreen() {
     await refreshRevealState();
     if (result.granted) {
       unlockHaptic();
+      requestSignalFocus(firstCategory);
       track(Events.FREE_SIGNAL_REVEALED, cardAnalyticsProps(firstCategory, 0, predictions[firstCategory], {
         user_day_number: dayNumber,
         is_paid_entitled: isPaidEntitled,
       }));
     }
-  }, [predictions, firstCategory, dayNumber, isPaidEntitled, refreshRevealState]);
+  }, [predictions, firstCategory, dayNumber, isPaidEntitled, refreshRevealState, requestSignalFocus]);
 
   const grantSignalWithAd = useCallback(async (category, index) => {
     if (!monetizationConfig.rewardedAdsEnabled) {
@@ -231,12 +305,13 @@ export default function HomeScreen() {
     await grantSignalReveal(category, 'ad');
     await refreshRevealState();
     unlockHaptic();
+    requestSignalFocus(category);
     track(Events.LOCKED_SIGNAL_AD_COMPLETED, cardAnalyticsProps(category, index, predictions?.[category], {
       ad_placement: 'locked_signal',
       user_day_number: dayNumber,
       is_paid_entitled: isPaidEntitled,
     }));
-  }, [monetizationConfig.rewardedAdsEnabled, predictions, dayNumber, isPaidEntitled, refreshRevealState]);
+  }, [monetizationConfig.rewardedAdsEnabled, predictions, dayNumber, isPaidEntitled, refreshRevealState, requestSignalFocus]);
 
   const handleSignalAdPress = useCallback((category, index) => {
     track(Events.LOCKED_SIGNAL_TAP, cardAnalyticsProps(category, index, predictions?.[category], {
@@ -275,12 +350,13 @@ export default function HomeScreen() {
     await grantDeeperMeaning(category, 'ad');
     await refreshRevealState();
     unlockHaptic();
+    requestSignalFocus(category);
     track(Events.DEEPER_MEANING_AD_COMPLETED, cardAnalyticsProps(category, index, predictions?.[category], {
       ad_placement: 'deeper_meaning',
       user_day_number: dayNumber,
       is_paid_entitled: isPaidEntitled,
     }));
-  }, [monetizationConfig.rewardedAdsEnabled, predictions, dayNumber, isPaidEntitled, refreshRevealState]);
+  }, [monetizationConfig.rewardedAdsEnabled, predictions, dayNumber, isPaidEntitled, refreshRevealState, requestSignalFocus]);
 
   const handleDeeperAdPress = useCallback((category, index) => {
     track(Events.DEEPER_MEANING_TAP, cardAnalyticsProps(category, index, predictions?.[category], {
@@ -338,8 +414,8 @@ export default function HomeScreen() {
     }
 
     Alert.alert(
-      "Watch an ad to change today's reader.",
-      `${heroShuffleRemaining} reader change${heroShuffleRemaining === 1 ? '' : 's'} left today.`,
+      'Watch an ad to draw another reader.',
+      `You can draw ${heroShuffleRemaining} more reader${heroShuffleRemaining === 1 ? '' : 's'} today.`,
       [
         { text: 'Not now', style: 'cancel' },
         {
@@ -356,7 +432,7 @@ export default function HomeScreen() {
                 ad_placement: 'hero_shuffle',
                 reason: result.reason || 'not_rewarded',
               }));
-              Alert.alert('Ad unavailable', 'No reader change was granted. Please try again.');
+              Alert.alert('Ad unavailable', 'No reader was drawn. Please try again.');
               return;
             }
             track(Events.HERO_SHUFFLE_AD_COMPLETED, heroAnalyticsProps(currentHero, {
@@ -374,9 +450,11 @@ export default function HomeScreen() {
   const vibe = getDailyVibe();
   const moment = getDailyMoment();
   const watchFor = getDailyWatchFor();
+  const heroTitle = currentHero?.title || currentHero?.name || null;
   const heroHeadline = currentHero?.headline || 'Today has a reader';
   const heroMood = currentHero?.readerMood || 'The Mirror';
   const heroCta = currentHero?.cta || 'Let her draw your first signal';
+  const shuffleCtaText = canShuffleHero ? 'Draw another reader' : "Today's readers are complete";
 
   return (
     <ScreenShell>
@@ -399,6 +477,7 @@ export default function HomeScreen() {
       </TouchableOpacity>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -420,6 +499,9 @@ export default function HomeScreen() {
         />
 
         <View style={styles.readerBlock}>
+          {heroTitle ? (
+            <Text style={styles.readerTitle}>{heroTitle}</Text>
+          ) : null}
           <Text style={styles.readerMood}>{heroMood}</Text>
           <Text style={styles.readerHeadline}>{heroHeadline}</Text>
           {currentHero?.tags?.length ? (
@@ -443,9 +525,7 @@ export default function HomeScreen() {
             disabled={purchasing}
             style={[styles.shuffleCta, !canShuffleHero && styles.shuffleCtaDisabled]}
           >
-            <Text style={styles.shuffleCtaText}>
-              Change today's reader{canShuffleHero ? ` · ${heroShuffleRemaining} left` : ''}
-            </Text>
+            <Text style={styles.shuffleCtaText}>{shuffleCtaText}</Text>
           </TouchableOpacity>
         </View>
 
@@ -480,24 +560,26 @@ export default function HomeScreen() {
               const isRevealed = isPaidEntitled || !!revealMap[cat];
               const isDeepUnlocked = isPaidEntitled || !!deeperMap[cat];
               return (
-                <SignalCard
-                  key={cat}
-                  category={cat}
-                  prediction={predictions?.[cat]}
-                  isFree={false}
-                  isUnlocked={isPaidEntitled}
-                  isRevealed={isRevealed}
-                  isDeepUnlocked={isDeepUnlocked}
-                  isPaidEntitled={isPaidEntitled}
-                  deeperEnabled={monetizationConfig.deeperMeaningEnabled}
-                  dailyPrice={dailyPrice}
-                  fullPrice={fullPrice}
-                  onUnlockPress={() => openPaywall(cat, 'locked_signal_header')}
-                  onWatchAdPress={() => handleSignalAdPress(cat, index)}
-                  onBuyDailyPress={handleBuyDaily}
-                  onBuyFullPress={handleBuyFull}
-                  onDeeperAdPress={() => handleDeeperAdPress(cat, index)}
-                />
+                <View key={cat} onLayout={(event) => handleSignalLayout(cat, event)}>
+                  <SignalCard
+                    category={cat}
+                    prediction={predictions?.[cat]}
+                    isFree={false}
+                    isUnlocked={isPaidEntitled}
+                    isRevealed={isRevealed}
+                    isDeepUnlocked={isDeepUnlocked}
+                    isPaidEntitled={isPaidEntitled}
+                    deeperEnabled={monetizationConfig.deeperMeaningEnabled}
+                    dailyPrice={dailyPrice}
+                    fullPrice={fullPrice}
+                    highlighted={highlightedCategory === cat}
+                    onUnlockPress={() => openPaywall(cat, 'locked_signal_header')}
+                    onWatchAdPress={() => handleSignalAdPress(cat, index)}
+                    onBuyDailyPress={handleBuyDaily}
+                    onBuyFullPress={handleBuyFull}
+                    onDeeperAdPress={() => handleDeeperAdPress(cat, index)}
+                  />
+                </View>
               );
             })}
 
@@ -573,6 +655,12 @@ const styles = StyleSheet.create({
     marginTop: -spacing.sm,
     marginBottom: spacing.lg,
     alignItems: 'center',
+  },
+  readerTitle: {
+    ...type.bodyMed,
+    color: palette.text,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
   },
   readerMood: {
     ...type.kicker,

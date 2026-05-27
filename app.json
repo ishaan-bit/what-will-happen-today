@@ -3,7 +3,7 @@
     "name": "What Will Happen Today",
     "slug": "wwht",
     "scheme": "wwht",
-    "version": "1.7.0",
+    "version": "1.7.1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -48,7 +48,7 @@
     ],
     "android": {
       "package": "com.wwht.app",
-      "versionCode": 35,
+      "versionCode": 36,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "ACCESS_NETWORK_STATE",

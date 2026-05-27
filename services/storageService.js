@@ -372,12 +372,13 @@ export async function recordHeroShuffle(heroId, source = 'ad', poolRevision = nu
   return state;
 }
 
-export async function getCachedHeroAssignment() {
+export async function getCachedHeroAssignment(expectedRevision = null) {
   try {
     const raw = await AsyncStorage.getItem(KEYS.HERO_ASSIGNMENT_CACHE);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed.dateKey !== getTodayKey()) return null;
+    if (expectedRevision && parsed.revision && String(parsed.revision) !== String(expectedRevision)) return null;
     return parsed.heroPool || null;
   } catch {
     return null;
@@ -393,6 +394,14 @@ export async function cacheHeroAssignment(heroPool) {
       heroPool,
       cachedAt: Date.now(),
     }));
+  } catch {
+    // Non-critical
+  }
+}
+
+export async function clearCachedHeroAssignment() {
+  try {
+    await AsyncStorage.removeItem(KEYS.HERO_ASSIGNMENT_CACHE);
   } catch {
     // Non-critical
   }

@@ -14,7 +14,7 @@
  *     1-frame opacity:0 flash on collapse).
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -54,6 +54,7 @@ export function SignalCard({
   onDeeperAdPress,
   dailyPrice = '₹29',
   fullPrice = '₹49',
+  highlighted = false,
 }) {
   const canRead = isFree || isUnlocked || isRevealed;
   const [expanded, setExpanded] = useState(false);
@@ -63,6 +64,24 @@ export function SignalCard({
   const continuity = getContinuityHint(category);
   const deeper = getDeeperMeaning(category, prediction);
   const revealAnim = useRef(new Animated.Value(0)).current;
+  const highlightAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!highlighted) return;
+    highlightAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(highlightAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(highlightAnim, {
+        toValue: 0,
+        duration: 1300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [highlighted, highlightAnim]);
 
   // ── Fallback shell — no prediction loaded yet (don't render an empty box) ──
   if (!prediction) {
@@ -149,6 +168,10 @@ export function SignalCard({
 
   return (
     <View style={[styles.card, { borderColor }]}>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.highlightOverlay, { opacity: highlightAnim }]}
+      />
       {/* Tarot corner sigils — always visible, very subtle */}
       <Text style={[styles.cornerSigilTL, { color: `${meta.color}55` }]}>✦</Text>
       <Text style={[styles.cornerSigilTR, { color: `${meta.color}55` }]}>✦</Text>
@@ -370,6 +393,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: spacing.md,
     minHeight: 96,
+  },
+  highlightOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,110,0.75)',
+    backgroundColor: 'rgba(201,169,110,0.10)',
   },
   shellCard: {
     opacity: 0.65,
