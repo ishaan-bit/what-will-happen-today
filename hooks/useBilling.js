@@ -24,6 +24,11 @@ export function BillingProvider({ children, onPurchaseComplete }) {
     (async () => {
       const result = await initBilling(async ({ productId }) => {
         track(Events.PURCHASE_SUCCESS, { productId });
+        if (productId === PRODUCT_DAILY) {
+          track(Events.PURCHASE_SUCCESS_29, { productId });
+        } else if (productId === PRODUCT_FULL) {
+          track(Events.PURCHASE_SUCCESS_49, { productId });
+        }
         if (onPurchaseComplete) onPurchaseComplete({ productId });
       });
       if (!mounted) return;
@@ -61,12 +66,14 @@ export function BillingProvider({ children, onPurchaseComplete }) {
   const buyDaily = useCallback(async () => {
     if (purchasing) return;
     if (!ensureReady()) return;
+    track(Events.PURCHASE_TAP_29, { productId: PRODUCT_DAILY });
     track(Events.PURCHASE_START, { productId: PRODUCT_DAILY });
     setPurchasing(true);
     try {
       await purchaseProduct(PRODUCT_DAILY);
     } catch (err) {
       if (err.message !== 'Purchase cancelled') {
+        track(Events.PURCHASE_FAILED_29, { productId: PRODUCT_DAILY, reason: err.message });
         track(Events.PURCHASE_FAIL, { productId: PRODUCT_DAILY, reason: err.message });
         Alert.alert('Purchase failed', err.message, [{ text: 'OK' }]);
       }
@@ -78,12 +85,14 @@ export function BillingProvider({ children, onPurchaseComplete }) {
   const buyFull = useCallback(async () => {
     if (purchasing) return;
     if (!ensureReady()) return;
+    track(Events.PURCHASE_TAP_49, { productId: PRODUCT_FULL });
     track(Events.PURCHASE_START, { productId: PRODUCT_FULL });
     setPurchasing(true);
     try {
       await purchaseProduct(PRODUCT_FULL);
     } catch (err) {
       if (err.message !== 'Purchase cancelled') {
+        track(Events.PURCHASE_FAILED_49, { productId: PRODUCT_FULL, reason: err.message });
         track(Events.PURCHASE_FAIL, { productId: PRODUCT_FULL, reason: err.message });
         Alert.alert('Purchase failed', err.message, [{ text: 'OK' }]);
       }

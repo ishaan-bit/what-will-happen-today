@@ -91,6 +91,38 @@ export const backend = {
   async clearHero() {
     return request('/api/backend/ops/hero-image', { method: 'DELETE' });
   },
+  async getHeroPool(dateKey) {
+    const qs = dateKey ? `?date=${encodeURIComponent(dateKey)}` : '';
+    return request(`/api/backend/ops/hero-pool${qs}`);
+  },
+  async setHeroPool(payload) {
+    return request('/api/backend/ops/hero-pool', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+  async clearHeroPool(dateKey) {
+    const qs = dateKey ? `?date=${encodeURIComponent(dateKey)}` : '';
+    return request(`/api/backend/ops/hero-pool${qs}`, { method: 'DELETE' });
+  },
+  async uploadHeroBatchImage({ dateKey, fileName, dataUrl }) {
+    return request('/api/backend/ops/hero-batch-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dateKey, fileName, dataUrl }),
+    });
+  },
+  async getMonetizationConfig() {
+    return request('/api/backend/ops/monetization-config');
+  },
+  async setMonetizationConfig(config) {
+    return request('/api/backend/ops/monetization-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+  },
   async getPush() {
     return request('/api/backend/ops/push');
   },

@@ -23,9 +23,16 @@ import { tap, unlock as unlockHaptic } from '@/utils/haptics';
 import { useBilling } from '@/hooks/useBilling';
 import { track, Events } from '@/services/analyticsService';
 
-const ENTRY_POINT = 'home_locked_card';
-
-export function PaywallSheet({ visible, onDismiss, entryCategory }) {
+export function PaywallSheet({
+  visible,
+  onDismiss,
+  entryCategory,
+  entryPoint = 'home_locked_card',
+  onRewardPress,
+  rewardLabel = 'Or reveal one more with an ad',
+  heading = 'The first signal found you.\nThe rest are still waiting.',
+  subheading = 'Reveal the hidden signals and the deeper meanings under them.',
+}) {
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(400)).current;
   const { purchasing, restoring, getPrice, buyDaily, buyFull, restore } = useBilling();
@@ -46,16 +53,16 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
 
   const handleDismiss = useCallback(() => {
     tap();
-    track(Events.PAYWALL_DISMISS, { entry_category: entryCategory });
+    track(Events.PAYWALL_DISMISS, { entry_category: entryCategory, paywall_entry_point: entryPoint });
     onDismiss?.();
-  }, [onDismiss, entryCategory]);
+  }, [onDismiss, entryCategory, entryPoint]);
 
   const handleBuyFull = useCallback(async () => {
     tap();
     track(Events.PAYWALL_OPTION_SELECT, {
       product_id: 'full_unlock_v1',
       entry_category: entryCategory,
-      paywall_entry_point: ENTRY_POINT,
+      paywall_entry_point: entryPoint,
     });
     try {
       await buyFull();
@@ -64,14 +71,14 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
     } catch (_) {
       // purchase cancelled or failed — handled by billing
     }
-  }, [buyFull, onDismiss, entryCategory]);
+  }, [buyFull, onDismiss, entryCategory, entryPoint]);
 
   const handleBuyDaily = useCallback(async () => {
     tap();
     track(Events.PAYWALL_OPTION_SELECT, {
       product_id: 'daily_unlock_v1',
       entry_category: entryCategory,
-      paywall_entry_point: ENTRY_POINT,
+      paywall_entry_point: entryPoint,
     });
     try {
       await buyDaily();
@@ -80,11 +87,11 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
     } catch (_) {
       // purchase cancelled or failed
     }
-  }, [buyDaily, onDismiss, entryCategory]);
+  }, [buyDaily, onDismiss, entryCategory, entryPoint]);
 
   const handleRestore = useCallback(async () => {
     tap();
-    track(Events.RESTORE_PURCHASE_TAP, { paywall_entry_point: ENTRY_POINT });
+    track(Events.RESTORE_PURCHASE_TAP, { paywall_entry_point: entryPoint });
     try {
       const restored = await restore();
       if (restored) {
@@ -92,7 +99,7 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
         onDismiss?.();
       }
     } catch (_) {}
-  }, [restore, onDismiss]);
+  }, [restore, onDismiss, entryPoint]);
 
   const entryCategoryMeta = entryCategory ? CATEGORY_META[entryCategory] : null;
 
@@ -133,10 +140,8 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
         ) : null}
 
         {/* Heading */}
-        <Text style={styles.heading}>One moment was revealed.{'\n'}The rest is still waiting.</Text>
-        <Text style={styles.subheading}>
-          Three events haven't happened yet today. See them before they do.
-        </Text>
+        <Text style={styles.heading}>{heading}</Text>
+        <Text style={styles.subheading}>{subheading}</Text>
 
         {/* Categories row */}
         <View style={styles.categoriesRow}>
@@ -149,6 +154,17 @@ export function PaywallSheet({ visible, onDismiss, entryCategory }) {
             </View>
           ))}
         </View>
+
+        {onRewardPress ? (
+          <TouchableOpacity
+            activeOpacity={0.82}
+            onPress={onRewardPress}
+            disabled={purchasing || restoring}
+            style={styles.rewardOption}
+          >
+            <Text style={styles.rewardOptionText}>{rewardLabel}</Text>
+          </TouchableOpacity>
+        ) : null}
 
         {/* PRIMARY: Full unlock */}
         <TouchableOpacity
@@ -344,6 +360,20 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface,
     padding: spacing.md,
     marginBottom: spacing.md,
+  },
+  rewardOption: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,110,0.35)',
+    backgroundColor: 'rgba(201,169,110,0.07)',
+    padding: spacing.md,
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  rewardOptionText: {
+    ...type.bodyMed,
+    color: palette.accent,
+    textAlign: 'center',
   },
   secondaryTitle: {
     ...type.bodyMed,

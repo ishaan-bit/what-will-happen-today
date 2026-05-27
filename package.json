@@ -28,6 +28,7 @@
     "react": "19.0.0",
     "react-native": "0.79.6",
     "react-native-gesture-handler": "~2.24.0",
+    "react-native-google-mobile-ads": "^16.3.3",
     "react-native-iap": "^12.15.0",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
@@ -35,7 +36,9 @@
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
-    "babel-plugin-module-resolver": "^5.0.2"
+    "@types/react": "~19.0.10",
+    "babel-plugin-module-resolver": "^5.0.2",
+    "typescript": "~5.8.3"
   },
   "overrides": {
     "react": "19.0.0",

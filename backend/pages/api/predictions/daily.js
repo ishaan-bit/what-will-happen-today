@@ -7,6 +7,15 @@
  */
 
 import { Redis } from '@upstash/redis';
+import { mergeMonetizationConfig } from '@/lib/monetization';
+import {
+  assignDailyHeroSet,
+  getServableHeroPool,
+  heroPoolKey,
+  LEGACY_HERO_KEY,
+  legacyHeroAsPool,
+  parseStoredJson,
+} from '@/lib/heroPool';
 
 let _redis = null;
 function getRedis() {
@@ -44,11 +53,13 @@ export default async function handler(req, res) {
       }
     }
 
-    const [raw, ruleBucket, heroRaw, engineModeRaw] = await Promise.all([
+    const [raw, ruleBucket, heroRaw, heroPoolRaw, engineModeRaw, monetizationRaw] = await Promise.all([
       redis.get(`wwht:predictions:${dateKey}`),
       redis.get('wwht:ruleBucket'),
-      redis.get('wwht:heroImage'),
+      redis.get(LEGACY_HERO_KEY),
+      redis.get(heroPoolKey(dateKey)),
       redis.get('wwht:engineMode'),
+      redis.get('wwht:monetizationConfig'),
     ]);
 
     let data = null;
@@ -59,22 +70,22 @@ export default async function handler(req, res) {
       generatedAt = parsed.generatedAt || null;
     }
 
-    let heroImage = null;
-    if (heroRaw) {
-      try {
-        heroImage = typeof heroRaw === 'string' ? JSON.parse(heroRaw) : heroRaw;
-      } catch {
-        heroImage = null;
-      }
-      if (heroImage && (!heroImage.url || heroImage.enabled === false)) {
-        heroImage = null;
-      } else if (heroImage) {
-        heroImage = {
-          ...heroImage,
-          revision: heroImage.revision || heroImage.updatedAt || null,
-        };
-      }
-    }
+    const storedHeroPool = getServableHeroPool(parseStoredJson(heroPoolRaw));
+    const legacyHeroPool = getServableHeroPool(legacyHeroAsPool(parseStoredJson(heroRaw), dateKey), { allowData: true });
+    const heroPool = assignDailyHeroSet(storedHeroPool, {
+      installId,
+      dateKey,
+      count: 4,
+      fallbackHero: legacyHeroPool,
+    }) || legacyHeroPool || null;
+    // Backcompat: existing production app builds read only `heroImage`.
+    // Keep that field tied to the legacy one-hero system. New builds read
+    // the additive `heroPool` field for daily batch/assignment.
+    const heroImage = legacyHeroPool?.images?.[0] || null;
+    const monetizationConfig = mergeMonetizationConfig(
+      parseStoredJson(monetizationRaw),
+      heroPool?.config || null,
+    );
 
     res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate');
     res.setHeader('CDN-Cache-Control', 'no-store');
@@ -95,6 +106,8 @@ export default async function handler(req, res) {
       ruleBucket: ruleBucket ? String(ruleBucket) : '0',
       engineMode,
       heroImage,
+      heroPool,
+      monetizationConfig,
       heroImageUpdatedAt: heroImage?.updatedAt || null,
       heroImageRevision: heroImage?.revision || heroImage?.updatedAt || null,
     });

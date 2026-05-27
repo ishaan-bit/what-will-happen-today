@@ -1,14 +1,4 @@
-/**
- * Home Screen — daily reading of 4 tarot-style signal cards.
- *
- * Lifecycle:
- *   - Days 1-3 (free window): all 4 cards open + "Day X of 3" badge.
- *   - Day 4 (one-time):       transition banner explains the shift.
- *   - Day 4+ (daily flow):    1 free signal + 3 locked teasers (₹29 / ₹49).
- *   - Unlocked:               all 4 readable.
- */
-
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   ScrollView,
   View,
@@ -16,6 +6,7 @@ import {
   StyleSheet,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -29,6 +20,16 @@ import { SkeletonCard } from '@/components/SkeletonCard';
 import { StarsBackground } from '@/components/StarsBackground';
 import { HeroImage } from '@/components/HeroImage';
 import { usePredictions } from '@/hooks/usePredictions';
+import { useBilling } from '@/hooks/useBilling';
+import { PRODUCT_DAILY, PRODUCT_FULL } from '@/services/billingService';
+import {
+  grantDeeperMeaning,
+  grantFreeSignal,
+  grantSignalReveal,
+  recordHeroShuffle,
+  setCurrentHeroForToday,
+} from '@/services/storageService';
+import { showRewardedAd } from '@/services/rewardedAdService';
 import {
   getCategoryOrder,
   getDailyVibe,
@@ -40,57 +41,113 @@ import { TodaysSky } from '@/components/TodaysSky';
 import { track, Events } from '@/services/analyticsService';
 import { tap, unlock as unlockHaptic } from '@/utils/haptics';
 
+function heroAnalyticsProps(hero, extra = {}) {
+  return {
+    hero_image_id: hero?.id || null,
+    hero_tags: hero?.tags || [],
+    readerMood: hero?.readerMood || null,
+    source_campaign: hero?.campaign || null,
+    ...extra,
+  };
+}
+
+function cardAnalyticsProps(category, index, prediction, extra = {}) {
+  return {
+    card_id: prediction?.id || category,
+    card_category: category,
+    card_position: index,
+    ...extra,
+  };
+}
+
 export default function HomeScreen() {
   const {
     predictions,
     heroImage,
+    heroPool,
+    monetizationConfig,
+    revealState,
+    heroShuffleState,
+    entitlement,
     unlocked,
     loading,
     refreshUnlock,
+    refreshRevealState,
     refresh,
     freeCategory,
     streak,
     dayNumber,
-    inFreeWindow,
-    freeWindowSize,
-    showDay4,
-    dismissDay4,
   } = usePredictions();
-  const [paywallCategory, setPaywallCategory] = useState(null);
+
+  const { getPrice, buyDaily, buyFull, purchasing } = useBilling();
+  const [paywall, setPaywall] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const lastFocusRefreshAt = useRef(0);
   const hasFocusedOnce = useRef(false);
+  const lastHeroImpressionRef = useRef(null);
 
   useEffect(() => {
     if (!loading) SplashScreen.hideAsync().catch(() => null);
   }, [loading]);
 
-  const prevUnlocked = useRef(unlocked);
-  useEffect(() => {
-    if (!prevUnlocked.current && unlocked && paywallCategory !== null) {
-      setPaywallCategory(null);
-    }
-    prevUnlocked.current = unlocked;
-  }, [unlocked, paywallCategory]);
+  const categoryOrder = useMemo(() => getCategoryOrder(freeCategory), [freeCategory]);
+  const dailyPrice = getPrice(PRODUCT_DAILY);
+  const fullPrice = getPrice(PRODUCT_FULL);
+  const isPaidEntitled = unlocked || entitlement?.active;
+  const revealMap = revealState?.revealedSignals || {};
+  const deeperMap = revealState?.deeperMeanings || {};
+  const freeSignalUsed = !!revealState?.freeSignalUsed || Object.keys(revealMap).length > 0;
+  const firstCategory = categoryOrder[0];
+  const revealedCount = isPaidEntitled ? categoryOrder.length : Object.keys(revealMap).length;
+  const lockedCount = Math.max(0, categoryOrder.length - revealedCount);
+  const hasAnyReveal = isPaidEntitled || freeSignalUsed;
+
+  const heroImages = useMemo(() => {
+    const poolImages = Array.isArray(heroPool?.images) ? heroPool.images : [];
+    if (poolImages.length) return poolImages;
+    return heroImage?.url ? [heroImage] : [];
+  }, [heroPool, heroImage]);
+
+  const defaultHeroId = heroPool?.defaultHeroId || heroImages[0]?.id || null;
+  const currentHero = useMemo(() => {
+    const currentId = heroShuffleState?.currentHeroId || defaultHeroId;
+    return heroImages.find((img) => img.id === currentId) || heroImages[0] || heroImage || null;
+  }, [heroImages, heroImage, heroShuffleState?.currentHeroId, defaultHeroId]);
+  const heroPoolRevision = heroPool?.revision || heroPool?.updatedAt || 'legacy';
+
+  const maxHeroImages = Math.min(
+    heroImages.length || 1,
+    monetizationConfig.maxHeroImagesPerDay || 5,
+  );
+  const maxHeroShuffles = Math.min(
+    monetizationConfig.maxHeroShufflesPerDay || 4,
+    Math.max(0, maxHeroImages - 1),
+  );
+  const seenHeroIds = heroShuffleState?.seenHeroIds || [];
+  const totalHeroShuffles = (heroShuffleState?.rewardedShuffles || 0) + (heroShuffleState?.paidShuffles || 0);
+  const heroShuffleRemaining = Math.max(0, maxHeroShuffles - totalHeroShuffles);
+  const canShuffleHero = heroImages.length > 1 && heroShuffleRemaining > 0 && seenHeroIds.length < maxHeroImages;
 
   useEffect(() => {
-    if (predictions && freeCategory) {
-      track(Events.FREE_CARD_IMPRESSION, { category: freeCategory });
-    }
-  }, [predictions, freeCategory]);
+    if (!currentHero?.id || !heroShuffleState) return;
+    if (heroShuffleState.currentHeroId === currentHero.id) return;
+    setCurrentHeroForToday(currentHero.id, heroPoolRevision).then(refreshRevealState).catch(() => null);
+  }, [currentHero?.id, heroShuffleState, heroPoolRevision, refreshRevealState]);
 
-  const handleUnlockPress = useCallback((category) => {
-    setPaywallCategory(category);
-    track(Events.PAYWALL_VIEW, { category, entry_point: 'home_locked_card' });
-  }, []);
+  useEffect(() => {
+    if (!currentHero?.id || lastHeroImpressionRef.current === currentHero.id) return;
+    lastHeroImpressionRef.current = currentHero.id;
+    track(Events.HERO_IMPRESSION, heroAnalyticsProps(currentHero, {
+      user_day_number: dayNumber,
+      is_paid_entitled: isPaidEntitled,
+    }));
+  }, [currentHero, dayNumber, isPaidEntitled]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Refresh both billing state and remote content (hero image, LLM payload,
-    // ruleBucket, engineMode) so ops-console updates show up without a restart.
-    await Promise.all([refreshUnlock(), refresh()]);
+    await Promise.all([refreshUnlock(), refreshRevealState(), refresh()]);
     setRefreshing(false);
-  }, [refreshUnlock, refresh]);
+  }, [refreshUnlock, refreshRevealState, refresh]);
 
   useFocusEffect(
     useCallback(() => {
@@ -102,32 +159,228 @@ export default function HomeScreen() {
       if (now - lastFocusRefreshAt.current < 5000) return;
       lastFocusRefreshAt.current = now;
       refresh();
-    }, [refresh])
+      refreshRevealState();
+      refreshUnlock();
+    }, [refresh, refreshRevealState, refreshUnlock])
   );
-
-  const handleDismissDay4 = useCallback(() => {
-    unlockHaptic();
-    track(Events.FIRST_TIME_PREVIEW_DISMISS, { context: 'day4_transition' });
-    dismissDay4();
-  }, [dismissDay4]);
 
   const handleSettings = useCallback(() => {
     tap();
     router.push('/settings');
   }, []);
 
-  const categoryOrder = getCategoryOrder(freeCategory);
+  const openPaywall = useCallback((category, entryPoint = 'home_locked_signal') => {
+    setPaywall({ category, entryPoint });
+    track(Events.PAYWALL_VIEWED, {
+      entry_category: category,
+      paywall_entry_point: entryPoint,
+      user_day_number: dayNumber,
+      is_paid_entitled: isPaidEntitled,
+    });
+  }, [dayNumber, isPaidEntitled]);
+
+  const handleBuyDaily = useCallback(async () => {
+    tap();
+    await buyDaily();
+    refreshUnlock();
+  }, [buyDaily, refreshUnlock]);
+
+  const handleBuyFull = useCallback(async () => {
+    tap();
+    await buyFull();
+    refreshUnlock();
+  }, [buyFull, refreshUnlock]);
+
+  const handleFirstSignal = useCallback(async () => {
+    if (!predictions || !firstCategory) return;
+    tap();
+    track(Events.FIRST_SIGNAL_CTA_TAP, cardAnalyticsProps(firstCategory, 0, predictions[firstCategory], {
+      user_day_number: dayNumber,
+      is_paid_entitled: isPaidEntitled,
+    }));
+    const result = await grantFreeSignal(firstCategory);
+    await refreshRevealState();
+    if (result.granted) {
+      unlockHaptic();
+      track(Events.FREE_SIGNAL_REVEALED, cardAnalyticsProps(firstCategory, 0, predictions[firstCategory], {
+        user_day_number: dayNumber,
+        is_paid_entitled: isPaidEntitled,
+      }));
+    }
+  }, [predictions, firstCategory, dayNumber, isPaidEntitled, refreshRevealState]);
+
+  const grantSignalWithAd = useCallback(async (category, index) => {
+    if (!monetizationConfig.rewardedAdsEnabled) {
+      Alert.alert('Ad unavailable', 'Try again in a little while, or unlock today.');
+      return;
+    }
+    track(Events.LOCKED_SIGNAL_AD_STARTED, cardAnalyticsProps(category, index, predictions?.[category], {
+      ad_placement: 'locked_signal',
+      user_day_number: dayNumber,
+      is_paid_entitled: isPaidEntitled,
+    }));
+    const result = await showRewardedAd({ placement: 'locked_signal', metadata: { category } });
+    if (!result.rewarded) {
+      track(Events.LOCKED_SIGNAL_AD_FAILED, cardAnalyticsProps(category, index, predictions?.[category], {
+        ad_placement: 'locked_signal',
+        reason: result.reason || 'not_rewarded',
+      }));
+      Alert.alert('Ad unavailable', 'No reward was granted. Please try again.');
+      return;
+    }
+    await grantSignalReveal(category, 'ad');
+    await refreshRevealState();
+    unlockHaptic();
+    track(Events.LOCKED_SIGNAL_AD_COMPLETED, cardAnalyticsProps(category, index, predictions?.[category], {
+      ad_placement: 'locked_signal',
+      user_day_number: dayNumber,
+      is_paid_entitled: isPaidEntitled,
+    }));
+  }, [monetizationConfig.rewardedAdsEnabled, predictions, dayNumber, isPaidEntitled, refreshRevealState]);
+
+  const handleSignalAdPress = useCallback((category, index) => {
+    track(Events.LOCKED_SIGNAL_TAP, cardAnalyticsProps(category, index, predictions?.[category], {
+      user_day_number: dayNumber,
+      is_paid_entitled: isPaidEntitled,
+    }));
+    Alert.alert(
+      'She can draw this one now.',
+      'Watch an ad to reveal exactly this signal.',
+      [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Watch ad', onPress: () => grantSignalWithAd(category, index) },
+      ],
+    );
+  }, [grantSignalWithAd, predictions, dayNumber, isPaidEntitled]);
+
+  const grantDeeperWithAd = useCallback(async (category, index) => {
+    if (!monetizationConfig.rewardedAdsEnabled) {
+      Alert.alert('Ad unavailable', 'Try again in a little while, or unlock today.');
+      return;
+    }
+    track(Events.DEEPER_MEANING_AD_STARTED, cardAnalyticsProps(category, index, predictions?.[category], {
+      ad_placement: 'deeper_meaning',
+      user_day_number: dayNumber,
+      is_paid_entitled: isPaidEntitled,
+    }));
+    const result = await showRewardedAd({ placement: 'deeper_meaning', metadata: { category } });
+    if (!result.rewarded) {
+      track(Events.DEEPER_MEANING_AD_FAILED, cardAnalyticsProps(category, index, predictions?.[category], {
+        ad_placement: 'deeper_meaning',
+        reason: result.reason || 'not_rewarded',
+      }));
+      Alert.alert('Ad unavailable', 'No reward was granted. Please try again.');
+      return;
+    }
+    await grantDeeperMeaning(category, 'ad');
+    await refreshRevealState();
+    unlockHaptic();
+    track(Events.DEEPER_MEANING_AD_COMPLETED, cardAnalyticsProps(category, index, predictions?.[category], {
+      ad_placement: 'deeper_meaning',
+      user_day_number: dayNumber,
+      is_paid_entitled: isPaidEntitled,
+    }));
+  }, [monetizationConfig.rewardedAdsEnabled, predictions, dayNumber, isPaidEntitled, refreshRevealState]);
+
+  const handleDeeperAdPress = useCallback((category, index) => {
+    track(Events.DEEPER_MEANING_TAP, cardAnalyticsProps(category, index, predictions?.[category], {
+      user_day_number: dayNumber,
+      is_paid_entitled: isPaidEntitled,
+    }));
+    Alert.alert(
+      "There's more under this card.",
+      'Watch an ad to unlock the deeper meaning.',
+      [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Watch ad', onPress: () => grantDeeperWithAd(category, index) },
+      ],
+    );
+  }, [grantDeeperWithAd, predictions, dayNumber, isPaidEntitled]);
+
+  const getNextHero = useCallback(() => {
+    const seen = new Set(seenHeroIds);
+    return heroImages.find((img) => img.id !== currentHero?.id && !seen.has(img.id)) || null;
+  }, [seenHeroIds, heroImages, currentHero?.id]);
+
+  const changeHero = useCallback(async (source) => {
+    const next = getNextHero();
+    if (!next) {
+      Alert.alert("Today's hero set is complete.", 'You have seen the available readers for today.');
+      return;
+    }
+    await recordHeroShuffle(next.id, source, heroPoolRevision);
+    await refreshRevealState();
+    unlockHaptic();
+    track(Events.HERO_IMAGE_CHANGED, heroAnalyticsProps(next, {
+      previous_hero_image_id: currentHero?.id || null,
+      user_day_number: dayNumber,
+      is_paid_entitled: isPaidEntitled,
+      ad_placement: source === 'ad' ? 'hero_shuffle' : null,
+    }));
+  }, [getNextHero, refreshRevealState, currentHero?.id, dayNumber, isPaidEntitled, heroPoolRevision]);
+
+  const handleHeroShuffle = useCallback(() => {
+    tap();
+    track(Events.HERO_SHUFFLE_TAP, heroAnalyticsProps(currentHero, {
+      user_day_number: dayNumber,
+      is_paid_entitled: isPaidEntitled,
+      remaining: heroShuffleRemaining,
+    }));
+
+    if (!canShuffleHero) {
+      Alert.alert("Today's hero set is complete.", 'You have seen the available readers for today.');
+      return;
+    }
+
+    if (isPaidEntitled) {
+      changeHero('paid');
+      return;
+    }
+
+    Alert.alert(
+      "Watch an ad to change today's reader.",
+      `${heroShuffleRemaining} reader change${heroShuffleRemaining === 1 ? '' : 's'} left today.`,
+      [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'Watch ad',
+          onPress: async () => {
+            track(Events.HERO_SHUFFLE_AD_STARTED, heroAnalyticsProps(currentHero, {
+              ad_placement: 'hero_shuffle',
+              user_day_number: dayNumber,
+              is_paid_entitled: isPaidEntitled,
+            }));
+            const result = await showRewardedAd({ placement: 'hero_shuffle', metadata: { heroId: currentHero?.id } });
+            if (!result.rewarded) {
+              track(Events.HERO_SHUFFLE_AD_FAILED, heroAnalyticsProps(currentHero, {
+                ad_placement: 'hero_shuffle',
+                reason: result.reason || 'not_rewarded',
+              }));
+              Alert.alert('Ad unavailable', 'No reader change was granted. Please try again.');
+              return;
+            }
+            track(Events.HERO_SHUFFLE_AD_COMPLETED, heroAnalyticsProps(currentHero, {
+              ad_placement: 'hero_shuffle',
+              user_day_number: dayNumber,
+              is_paid_entitled: isPaidEntitled,
+            }));
+            changeHero('ad');
+          },
+        },
+      ],
+    );
+  }, [currentHero, dayNumber, isPaidEntitled, heroShuffleRemaining, canShuffleHero, changeHero]);
+
   const vibe = getDailyVibe();
   const moment = getDailyMoment();
   const watchFor = getDailyWatchFor();
-
-  // Effective open state: unlocked OR still inside the 3-day free window
-  const showAll = unlocked || inFreeWindow;
+  const heroHeadline = currentHero?.headline || 'Today has a reader';
+  const heroMood = currentHero?.readerMood || 'The Mirror';
+  const heroCta = currentHero?.cta || 'Let her draw your first signal';
 
   return (
     <ScreenShell>
       <StatusBar style="light" translucent backgroundColor="transparent" />
-
       <StarsBackground />
 
       <LinearGradient
@@ -136,7 +389,6 @@ export default function HomeScreen() {
         pointerEvents="none"
       />
 
-      {/* Settings gear (top right) */}
       <TouchableOpacity
         onPress={handleSettings}
         style={styles.settingsBtn}
@@ -161,102 +413,102 @@ export default function HomeScreen() {
       >
         <DayHeader unlocked={unlocked} streak={streak} />
 
-        {/* Optional hero image, only renders when ops console publishes one */}
         <HeroImage
-          source={heroImage?.url}
-          version={heroImage?.revision || heroImage?.updatedAt}
+          source={currentHero?.url}
+          version={heroPool?.revision || currentHero?.revision || currentHero?.updatedAt}
+          fallbackEnabled={monetizationConfig.fallbackHeroEnabled}
         />
 
-        {/* Free-window day badge, Day 1/2/3 of 3 */}
-        {!unlocked && inFreeWindow && (
-          <View style={styles.freeBadge}>
-            <Text style={styles.freeBadgeText}>
-              {dayNumber === freeWindowSize
-                ? 'FINAL FREE DAY · ALL SIGNALS UNLOCKED'
-                : `DAY ${dayNumber} OF ${freeWindowSize} · ALL SIGNALS UNLOCKED`}
-            </Text>
-          </View>
-        )}
+        <View style={styles.readerBlock}>
+          <Text style={styles.readerMood}>{heroMood}</Text>
+          <Text style={styles.readerHeadline}>{heroHeadline}</Text>
+          {currentHero?.tags?.length ? (
+            <Text style={styles.readerTags}>{currentHero.tags.slice(0, 5).join(' · ')}</Text>
+          ) : null}
 
-        {/* Day-4 transition banner — one-time */}
-        {showDay4 && !unlocked && (
-          <View style={styles.day4Banner}>
-            <Text style={styles.day4Kicker}>✦ THE FREE WINDOW IS DONE ✦</Text>
-            <Text style={styles.day4Title}>Your first 3 days are complete.</Text>
-            <Text style={styles.day4Body}>
-              From today, one signal stays free.{'\n'}
-              The rest wait to be revealed.
-            </Text>
-            <TouchableOpacity activeOpacity={0.85} onPress={handleDismissDay4} style={styles.day4Btn}>
+          {!hasAnyReveal && !loading ? (
+            <TouchableOpacity activeOpacity={0.86} onPress={handleFirstSignal} style={styles.primaryCta}>
               <LinearGradient
-                colors={['rgba(201,169,110,0.22)', 'rgba(201,169,110,0.10)']}
-                style={styles.day4BtnGradient}
+                colors={['rgba(201,169,110,0.25)', 'rgba(201,169,110,0.10)']}
+                style={styles.primaryCtaGradient}
               >
-                <Text style={styles.day4BtnText}>See today's reading →</Text>
+                <Text style={styles.primaryCtaText}>{heroCta}</Text>
               </LinearGradient>
             </TouchableOpacity>
-          </View>
-        )}
+          ) : null}
+
+          <TouchableOpacity
+            activeOpacity={0.78}
+            onPress={handleHeroShuffle}
+            disabled={purchasing}
+            style={[styles.shuffleCta, !canShuffleHero && styles.shuffleCtaDisabled]}
+          >
+            <Text style={styles.shuffleCtaText}>
+              Change today's reader{canShuffleHero ? ` · ${heroShuffleRemaining} left` : ''}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <TodaysSky vibe={vibe} moment={moment} watchFor={watchFor} />
 
         {loading && !predictions ? (
           <>
-            <Text style={styles.loadingLabel}>DRAWING YOUR CARDS…</Text>
+            <Text style={styles.loadingLabel}>DRAWING YOUR SIGNALS...</Text>
             {[0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)}
           </>
-        ) : showAll ? (
-          // ────── Full reveal: free window OR unlocked ──────
+        ) : !hasAnyReveal ? (
+          <View style={styles.waitingBlock}>
+            <Text style={styles.waitingTitle}>The first signal is close.</Text>
+            <Text style={styles.waitingText}>
+              Let the reader draw one card for free today. The rest stay hidden until you choose.
+            </Text>
+          </View>
+        ) : (
           <>
             <Text style={styles.sectionLabel}>
-              {inFreeWindow ? "TODAY'S FOUR SIGNALS" : 'ALL FOUR SIGNALS UNLOCKED'}
+              {isPaidEntitled ? "TODAY'S FOUR SIGNALS" : "TODAY'S REVEALED SIGNALS"}
             </Text>
-            {categoryOrder.map((cat) => (
-              <SignalCard
-                key={cat}
-                category={cat}
-                prediction={predictions?.[cat]}
-                isFree={true}
-                isUnlocked={true}
-                onUnlockPress={() => handleUnlockPress(cat)}
-              />
-            ))}
-            {inFreeWindow && (
-              <Text style={styles.freeWindowFooter}>
-                After day {freeWindowSize}: ₹29 reveals today · ₹49 reveals 30 days
+            {!isPaidEntitled && (
+              <Text style={styles.sectionSub}>
+                {lockedCount === 3
+                  ? 'Three more signals are still hidden.'
+                  : `${lockedCount} more signal${lockedCount === 1 ? '' : 's'} still hidden.`}
               </Text>
             )}
-          </>
-        ) : (
-          // ────── Daily flow (returning users, day 4+) ──────
-          <>
-            <Text style={styles.sectionLabel}>TODAY'S REVEALED SIGNAL</Text>
-            <Text style={styles.sectionSub}>This one found you first.</Text>
-            <SignalCard
-              category={categoryOrder[0]}
-              prediction={predictions?.[categoryOrder[0]]}
-              isFree={!unlocked}
-              isUnlocked={unlocked}
-              onUnlockPress={() => handleUnlockPress(categoryOrder[0])}
-            />
 
-            <Text style={styles.sectionLabelDim}>THREE MORE WAITING TO UNFOLD</Text>
-            {[1, 2, 3].map((i) => (
-              <SignalCard
-                key={categoryOrder[i]}
-                category={categoryOrder[i]}
-                prediction={predictions?.[categoryOrder[i]]}
-                isFree={false}
-                isUnlocked={unlocked}
-                onUnlockPress={() => handleUnlockPress(categoryOrder[i])}
-              />
-            ))}
+            {categoryOrder.map((cat, index) => {
+              const isRevealed = isPaidEntitled || !!revealMap[cat];
+              const isDeepUnlocked = isPaidEntitled || !!deeperMap[cat];
+              return (
+                <SignalCard
+                  key={cat}
+                  category={cat}
+                  prediction={predictions?.[cat]}
+                  isFree={false}
+                  isUnlocked={isPaidEntitled}
+                  isRevealed={isRevealed}
+                  isDeepUnlocked={isDeepUnlocked}
+                  isPaidEntitled={isPaidEntitled}
+                  deeperEnabled={monetizationConfig.deeperMeaningEnabled}
+                  dailyPrice={dailyPrice}
+                  fullPrice={fullPrice}
+                  onUnlockPress={() => openPaywall(cat, 'locked_signal_header')}
+                  onWatchAdPress={() => handleSignalAdPress(cat, index)}
+                  onBuyDailyPress={handleBuyDaily}
+                  onBuyFullPress={handleBuyFull}
+                  onDeeperAdPress={() => handleDeeperAdPress(cat, index)}
+                />
+              );
+            })}
 
-            <View style={styles.footerBlock}>
-              <Text style={styles.footerNote}>
-                One signal revealed daily · ₹29 reveals today · ₹49 reveals 30 days
-              </Text>
-            </View>
+            {!isPaidEntitled && (
+              <View style={styles.footerBlock}>
+                <Text style={styles.footerTitle}>The first signal found you.</Text>
+                <Text style={styles.footerNote}>
+                  Reveal all today · {dailyPrice} · Open 30 days · {fullPrice}
+                </Text>
+              </View>
+            )}
           </>
         )}
 
@@ -264,9 +516,20 @@ export default function HomeScreen() {
       </ScrollView>
 
       <PaywallSheet
-        visible={paywallCategory !== null}
-        onDismiss={() => setPaywallCategory(null)}
-        entryCategory={paywallCategory}
+        visible={paywall !== null}
+        onDismiss={() => setPaywall(null)}
+        entryCategory={paywall?.category}
+        entryPoint={paywall?.entryPoint}
+        onRewardPress={
+          paywall?.category
+            ? () => {
+                const index = categoryOrder.indexOf(paywall.category);
+                setPaywall(null);
+                handleSignalAdPress(paywall.category, index);
+              }
+            : null
+        }
+        rewardLabel="Or reveal one more with an ad"
       />
     </ScreenShell>
   );
@@ -306,6 +569,83 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
   },
+  readerBlock: {
+    marginTop: -spacing.sm,
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+  },
+  readerMood: {
+    ...type.kicker,
+    color: palette.accent,
+    letterSpacing: 2.5,
+    marginBottom: spacing.xs,
+  },
+  readerHeadline: {
+    ...type.title,
+    color: palette.text,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  readerTags: {
+    ...type.caption,
+    color: palette.textMuted,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  primaryCta: {
+    alignSelf: 'stretch',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,110,0.45)',
+    overflow: 'hidden',
+    marginTop: spacing.sm,
+  },
+  primaryCtaGradient: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  primaryCtaText: {
+    ...type.bodyMed,
+    color: palette.accent,
+    textAlign: 'center',
+  },
+  shuffleCta: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: palette.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.025)',
+  },
+  shuffleCtaDisabled: {
+    opacity: 0.55,
+  },
+  shuffleCtaText: {
+    ...type.caption,
+    color: palette.textSub,
+    fontWeight: '700',
+  },
+  waitingBlock: {
+    borderWidth: 1,
+    borderColor: palette.glassBorder,
+    backgroundColor: palette.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  waitingTitle: {
+    ...type.heading,
+    color: palette.text,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  waitingText: {
+    ...type.caption,
+    color: palette.textSub,
+    textAlign: 'center',
+  },
   loadingLabel: {
     ...type.kicker,
     color: palette.accent,
@@ -326,91 +666,25 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginBottom: spacing.sm,
   },
-  sectionLabelDim: {
-    ...type.kicker,
-    color: palette.textMuted,
-    marginBottom: spacing.sm,
-    marginTop: spacing.lg,
-    letterSpacing: 2.5,
-  },
-  footerBlock: { alignItems: 'center', marginTop: spacing.md },
-  footerNote: {
-    ...type.caption,
-    color: palette.textDim,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.md,
-  },
-  bottomSpace: { height: spacing.xxl },
-  freeBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(201,169,110,0.45)',
-    backgroundColor: 'rgba(201,169,110,0.10)',
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
-    marginLeft: spacing.xs,
-  },
-  freeBadgeText: {
-    ...type.kicker,
-    color: palette.accent,
-    fontSize: 10,
-    letterSpacing: 1.6,
-  },
-  freeWindowFooter: {
-    ...type.caption,
-    color: palette.textDim,
-    textAlign: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  day4Banner: {
-    borderWidth: 1,
-    borderColor: 'rgba(201,169,110,0.40)',
-    backgroundColor: 'rgba(201,169,110,0.06)',
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
+  footerBlock: {
     alignItems: 'center',
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,110,0.18)',
+    backgroundColor: 'rgba(201,169,110,0.05)',
   },
-  day4Kicker: {
-    ...type.kicker,
-    color: palette.accent,
-    letterSpacing: 3,
-    marginBottom: spacing.xs,
-  },
-  day4Title: {
-    ...type.heading,
+  footerTitle: {
+    ...type.bodyMed,
     color: palette.text,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
-  day4Body: {
+  footerNote: {
     ...type.caption,
-    color: palette.textSub,
-    textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: spacing.sm,
-  },
-  day4Btn: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(201,169,110,0.45)',
-    overflow: 'hidden',
-    alignSelf: 'stretch',
-  },
-  day4BtnGradient: {
-    paddingVertical: spacing.sm + 2,
-    alignItems: 'center',
-  },
-  day4BtnText: {
-    ...type.bodyMed,
     color: palette.accent,
-    letterSpacing: 0.5,
+    textAlign: 'center',
   },
+  bottomSpace: { height: spacing.xxl },
 });

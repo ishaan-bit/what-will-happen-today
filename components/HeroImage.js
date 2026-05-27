@@ -12,6 +12,7 @@ import { View, Image, StyleSheet, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { palette, radius, spacing } from '@/utils/theme';
 
+const FALLBACK_HERO = require('../assets/splash.png');
 const SCREEN_W = Dimensions.get('window').width;
 // Slightly inset from the screen edges
 const IMG_WIDTH = SCREEN_W - spacing.lg * 2;
@@ -27,7 +28,7 @@ function withVersion(source, version) {
   return fragment ? `${versioned}#${fragment}` : versioned;
 }
 
-export function HeroImage({ source, version }) {
+export function HeroImage({ source, version, fallbackEnabled = false }) {
   const [failed, setFailed] = useState(false);
   const versionedSource = useMemo(() => withVersion(source, version), [source, version]);
 
@@ -35,15 +36,20 @@ export function HeroImage({ source, version }) {
     setFailed(false);
   }, [versionedSource]);
 
-  if (!versionedSource || failed) return null;
+  const shouldUseFallback = fallbackEnabled && (!versionedSource || failed);
+  if (!versionedSource && !shouldUseFallback) return null;
+  if (failed && !shouldUseFallback) return null;
+  const imageSource = shouldUseFallback
+    ? FALLBACK_HERO
+    : (typeof versionedSource === 'string' ? { uri: versionedSource } : versionedSource);
 
   return (
     <View style={styles.wrap} accessible={false}>
       <View style={styles.frame}>
         <Image
-          source={typeof versionedSource === 'string' ? { uri: versionedSource } : versionedSource}
+          source={imageSource}
           style={styles.image}
-          resizeMode="cover"
+          resizeMode={shouldUseFallback ? 'contain' : 'cover'}
           onError={() => setFailed(true)}
         />
         {/* Top + bottom gradient mask so the image blends into the dark UI */}

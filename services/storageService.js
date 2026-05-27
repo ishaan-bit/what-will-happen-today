@@ -25,6 +25,10 @@ const KEYS = {
   UNLOCK_ALL_AT: 'wwht:unlockAllAt',
   // Push notification user preference (default true)
   PUSH_ENABLED: 'wwht:pushEnabled',
+  // Monetization funnel state, scoped by local date inside the value
+  DAILY_REVEAL_STATE: 'wwht:dailyRevealState',
+  HERO_SHUFFLE_STATE: 'wwht:heroShuffleState',
+  HERO_ASSIGNMENT_CACHE: 'wwht:heroAssignmentCache',
 };
 
 // 30-day full-unlock window (₹49)
@@ -190,6 +194,208 @@ export async function setPushEnabled(enabled) {
 export async function isUnlocked() {
   const [today, all] = await Promise.all([getUnlockToday(), getUnlockAll()]);
   return today || all;
+}
+
+export async function getEntitlementInfo() {
+  const [today, full] = await Promise.all([getUnlockToday(), getUnlockAllInfo()]);
+  return {
+    active: today || full.active,
+    today,
+    thirtyDay: full.active,
+    purchasedAt: full.purchasedAt || 0,
+    expiresAt: full.expiresAt || 0,
+    daysRemaining: full.daysRemaining || 0,
+  };
+}
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Daily signal reveal state
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function emptyRevealState() {
+  return {
+    dateKey: getTodayKey(),
+    revealedSignals: {},
+    deeperMeanings: {},
+    freeSignalUsed: false,
+  };
+}
+
+export async function getDailyRevealState() {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.DAILY_REVEAL_STATE);
+    if (!raw) return emptyRevealState();
+    const parsed = JSON.parse(raw);
+    if (parsed.dateKey !== getTodayKey()) return emptyRevealState();
+    return {
+      ...emptyRevealState(),
+      ...parsed,
+      revealedSignals: parsed.revealedSignals || {},
+      deeperMeanings: parsed.deeperMeanings || {},
+    };
+  } catch {
+    return emptyRevealState();
+  }
+}
+
+async function saveDailyRevealState(next) {
+  try {
+    await AsyncStorage.setItem(KEYS.DAILY_REVEAL_STATE, JSON.stringify({
+      ...next,
+      dateKey: getTodayKey(),
+    }));
+  } catch {
+    // Non-critical
+  }
+}
+
+export async function grantSignalReveal(category, source = 'ad') {
+  const state = await getDailyRevealState();
+  const now = Date.now();
+  state.revealedSignals = {
+    ...(state.revealedSignals || {}),
+    [category]: {
+      source,
+      at: state.revealedSignals?.[category]?.at || now,
+    },
+  };
+  if (source === 'free') state.freeSignalUsed = true;
+  await saveDailyRevealState(state);
+  return state;
+}
+
+export async function grantFreeSignal(category) {
+  const state = await getDailyRevealState();
+  if (state.freeSignalUsed) return { state, granted: false };
+  await grantSignalReveal(category, 'free');
+  return { state: await getDailyRevealState(), granted: true };
+}
+
+export async function grantDeeperMeaning(category, source = 'ad') {
+  const state = await getDailyRevealState();
+  const now = Date.now();
+  state.deeperMeanings = {
+    ...(state.deeperMeanings || {}),
+    [category]: {
+      source,
+      at: state.deeperMeanings?.[category]?.at || now,
+    },
+  };
+  await saveDailyRevealState(state);
+  return state;
+}
+
+export async function getRevealedSignalCategories() {
+  const state = await getDailyRevealState();
+  return Object.keys(state.revealedSignals || {});
+}
+
+export async function resetDailyRevealStateForToday() {
+  const state = emptyRevealState();
+  await saveDailyRevealState(state);
+  return state;
+}
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Daily hero shuffle state
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function emptyHeroShuffleState() {
+  return {
+    dateKey: getTodayKey(),
+    poolRevision: null,
+    currentHeroId: null,
+    seenHeroIds: [],
+    rewardedShuffles: 0,
+    paidShuffles: 0,
+  };
+}
+
+export async function getHeroShuffleState() {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.HERO_SHUFFLE_STATE);
+    if (!raw) return emptyHeroShuffleState();
+    const parsed = JSON.parse(raw);
+    if (parsed.dateKey !== getTodayKey()) return emptyHeroShuffleState();
+    return {
+      ...emptyHeroShuffleState(),
+      ...parsed,
+      seenHeroIds: Array.isArray(parsed.seenHeroIds) ? parsed.seenHeroIds : [],
+    };
+  } catch {
+    return emptyHeroShuffleState();
+  }
+}
+
+async function saveHeroShuffleState(next) {
+  try {
+    await AsyncStorage.setItem(KEYS.HERO_SHUFFLE_STATE, JSON.stringify({
+      ...next,
+      dateKey: getTodayKey(),
+    }));
+  } catch {
+    // Non-critical
+  }
+}
+
+export async function setCurrentHeroForToday(heroId, poolRevision = null) {
+  const state = await getHeroShuffleState();
+  if (poolRevision && state.poolRevision && state.poolRevision !== poolRevision) {
+    Object.assign(state, emptyHeroShuffleState(), { poolRevision });
+  } else if (poolRevision) {
+    state.poolRevision = poolRevision;
+  }
+  const id = heroId || null;
+  state.currentHeroId = id;
+  if (id && !state.seenHeroIds.includes(id)) {
+    state.seenHeroIds = [...state.seenHeroIds, id];
+  }
+  await saveHeroShuffleState(state);
+  return state;
+}
+
+export async function recordHeroShuffle(heroId, source = 'ad', poolRevision = null) {
+  const state = await getHeroShuffleState();
+  if (poolRevision && state.poolRevision && state.poolRevision !== poolRevision) {
+    Object.assign(state, emptyHeroShuffleState(), { poolRevision });
+  } else if (poolRevision) {
+    state.poolRevision = poolRevision;
+  }
+  const id = heroId || null;
+  state.currentHeroId = id;
+  if (id && !state.seenHeroIds.includes(id)) {
+    state.seenHeroIds = [...state.seenHeroIds, id];
+  }
+  if (source === 'paid') state.paidShuffles = (state.paidShuffles || 0) + 1;
+  else state.rewardedShuffles = (state.rewardedShuffles || 0) + 1;
+  await saveHeroShuffleState(state);
+  return state;
+}
+
+export async function getCachedHeroAssignment() {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.HERO_ASSIGNMENT_CACHE);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed.dateKey !== getTodayKey()) return null;
+    return parsed.heroPool || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function cacheHeroAssignment(heroPool) {
+  try {
+    if (!heroPool?.images?.length) return;
+    await AsyncStorage.setItem(KEYS.HERO_ASSIGNMENT_CACHE, JSON.stringify({
+      dateKey: getTodayKey(),
+      revision: heroPool.revision || heroPool.updatedAt || null,
+      heroPool,
+      cachedAt: Date.now(),
+    }));
+  } catch {
+    // Non-critical
+  }
 }
 
 // ─────────────────────────────────────────────────────────────

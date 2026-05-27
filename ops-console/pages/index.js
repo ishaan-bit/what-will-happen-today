@@ -37,6 +37,32 @@ async function resizeImageToDataUrl(file, maxEdge = 1024, quality = 0.85) {
   return canvas.toDataURL('image/jpeg', quality);
 }
 
+function getTodayInputValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function toDateInputValue(value) {
+  const raw = String(value || '').trim();
+  if (/^\d{8}$/.test(raw)) {
+    return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+  }
+  return raw || getTodayInputValue();
+}
+
+const EMPTY_POOL_IMAGE = {
+  url: '',
+  title: '',
+  active: true,
+  storeSafe: true,
+  tags: 'love, mood, mystical, Indian',
+  readerMood: 'The Mirror',
+  headline: '',
+  cta: 'Let her draw your first signal',
+  weight: 1,
+  isDefault: false,
+};
+
 function Login({ onSubmit, bootstrapErr }) {
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
   const [opsKey, setOpsKey] = useState('');
@@ -153,6 +179,16 @@ function Dashboard({ creds, onLogout }) {
   const [hero, setHero] = useState(null);
   const [heroDraft, setHeroDraft] = useState({ url: '' });
   const [heroUploading, setHeroUploading] = useState(false);
+  const [heroPool, setHeroPool] = useState(null);
+  const [heroPoolDraft, setHeroPoolDraft] = useState({
+    dateKey: getTodayInputValue(),
+    maxHeroShufflesPerDay: 4,
+    maxHeroImagesPerDay: 5,
+    images: [],
+  });
+  const [heroPoolImageDraft, setHeroPoolImageDraft] = useState(EMPTY_POOL_IMAGE);
+  const [heroBatchUploading, setHeroBatchUploading] = useState(false);
+  const [monetizationConfig, setMonetizationConfig] = useState(null);
   const [push, setPush] = useState(null);
   const [pushDraft, setPushDraft] = useState({ hour: 8, minute: 0, enabled: true, title: '', body: '' });
   const [pushTestDraft, setPushTestDraft] = useState({ title: '', body: '' });
@@ -164,12 +200,14 @@ function Dashboard({ creds, onLogout }) {
 
   const refreshBackend = useCallback(async () => {
     try {
-      const [s, t, r, rb, h, p, em, u, pd] = await Promise.all([
+      const [s, t, r, rb, h, hp, mc, p, em, u, pd] = await Promise.all([
         backend.status(),
         backend.getToday().catch(() => null),
         backend.getRuns(5).catch(() => null),
         backend.getRuleBucket().catch(() => null),
         backend.getHero().catch(() => null),
+        backend.getHeroPool().catch(() => null),
+        backend.getMonetizationConfig().catch(() => null),
         backend.getPush().catch(() => null),
         backend.getEngineMode().catch(() => null),
         backend.getUsers().catch(() => null),
@@ -184,6 +222,16 @@ function Dashboard({ creds, onLogout }) {
       setPushDebug(pd?.ok ? pd.log : null);
       setHero(h?.heroImage || null);
       if (h?.heroImage) setHeroDraft({ url: h.heroImage.url });
+      setHeroPool(hp?.heroPool || null);
+      if (hp?.heroPool) {
+        setHeroPoolDraft({
+          dateKey: toDateInputValue(hp.heroPool.dateKey),
+          maxHeroShufflesPerDay: hp.heroPool.config?.maxHeroShufflesPerDay ?? 4,
+          maxHeroImagesPerDay: hp.heroPool.config?.maxHeroImagesPerDay ?? 5,
+          images: hp.heroPool.images || [],
+        });
+      }
+      if (mc?.config) setMonetizationConfig(mc.config);
       if (p?.ok) {
         setPush(p);
         setPushDraft({
@@ -320,6 +368,171 @@ function Dashboard({ creds, onLogout }) {
       showToast(`Image processing failed: ${err.message}`, 'error');
     } finally {
       setHeroUploading(false);
+    }
+  }
+
+  async function fetchHeroPoolForDraftDate() {
+    setBusyAction('heroPoolFetch');
+    try {
+      const r = await backend.getHeroPool(heroPoolDraft.dateKey);
+      setHeroPool(r.heroPool || null);
+      setHeroPoolDraft((d) => ({
+        ...d,
+        dateKey: toDateInputValue(r.heroPool?.dateKey || d.dateKey),
+        maxHeroShufflesPerDay: r.heroPool?.config?.maxHeroShufflesPerDay ?? d.maxHeroShufflesPerDay,
+        maxHeroImagesPerDay: r.heroPool?.config?.maxHeroImagesPerDay ?? d.maxHeroImagesPerDay,
+        images: r.heroPool?.images || [],
+      }));
+      showToast(r.heroPool ? 'Hero pool loaded.' : 'No hero pool stored for that date.');
+    } catch (err) {
+      showToast(`Hero pool fetch failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  function addHeroPoolImage() {
+    const url = (heroPoolImageDraft.url || '').trim();
+    if (!/^https?:\/\//i.test(url)) {
+      showToast('Use a public http(s) image URL for the daily pool.', 'error');
+      return;
+    }
+    const title = heroPoolImageDraft.title || `Hero ${heroPoolDraft.images.length + 1}`;
+    setHeroPoolDraft((d) => ({
+      ...d,
+      images: [
+        ...(heroPoolImageDraft.isDefault ? d.images.map((img) => ({ ...img, isDefault: false })) : d.images),
+        {
+          ...heroPoolImageDraft,
+          url,
+          title,
+          name: title,
+          tags: heroPoolImageDraft.tags.split(',').map((t) => t.trim()).filter(Boolean),
+          weight: parseInt(heroPoolImageDraft.weight, 10) || 1,
+          isDefault: d.images.length === 0 || heroPoolImageDraft.isDefault,
+        },
+      ],
+    }));
+    setHeroPoolImageDraft(EMPTY_POOL_IMAGE);
+  }
+
+  async function uploadHeroBatchFiles(fileList) {
+    const files = Array.from(fileList || []).filter((file) => file.type?.startsWith('image/'));
+    if (!files.length) {
+      showToast('Select image files first.', 'error');
+      return;
+    }
+    setHeroBatchUploading(true);
+    try {
+      const uploaded = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const dataUrl = await resizeImageToDataUrl(file, 900, 0.72);
+        const r = await backend.uploadHeroBatchImage({
+          dateKey: heroPoolDraft.dateKey,
+          fileName: file.name,
+          dataUrl,
+        });
+        const baseName = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+        uploaded.push({
+          url: r.url,
+          title: baseName || `Batch hero ${heroPoolDraft.images.length + uploaded.length + 1}`,
+          name: baseName || `Batch hero ${heroPoolDraft.images.length + uploaded.length + 1}`,
+          active: true,
+          storeSafe: true,
+          tags: [],
+          readerMood: 'The Mirror',
+          headline: '',
+          cta: 'Let her draw your first signal',
+          weight: 1,
+          isDefault: heroPoolDraft.images.length === 0 && uploaded.length === 0,
+          uploadedAssetId: r.id,
+          bytes: r.bytes,
+        });
+      }
+      setHeroPoolDraft((d) => ({
+        ...d,
+        images: [
+          ...d.images,
+          ...uploaded,
+        ].map((img, index, list) => ({
+          ...img,
+          isDefault: list.some((x) => x.isDefault) ? img.isDefault : index === 0,
+        })),
+      }));
+      showToast(`Uploaded ${uploaded.length} batch image${uploaded.length === 1 ? '' : 's'} into the draft. Click Publish daily pool to serve them.`);
+    } catch (err) {
+      showToast(`Batch upload failed: ${err.message}`, 'error');
+    } finally {
+      setHeroBatchUploading(false);
+    }
+  }
+
+  function removeHeroPoolImage(index) {
+    setHeroPoolDraft((d) => {
+      const images = d.images.filter((_, i) => i !== index);
+      if (images.length && !images.some((img) => img.isDefault)) images[0] = { ...images[0], isDefault: true };
+      return { ...d, images };
+    });
+  }
+
+  function setDefaultHeroPoolImage(index) {
+    setHeroPoolDraft((d) => ({
+      ...d,
+      images: d.images.map((img, i) => ({ ...img, isDefault: i === index })),
+    }));
+  }
+
+  async function saveHeroPool() {
+    if (!heroPoolDraft.images.length) {
+      showToast('Add at least one public hero image URL.', 'error');
+      return;
+    }
+    setBusyAction('heroPool');
+    try {
+      const r = await backend.setHeroPool(heroPoolDraft);
+      setHeroPool(r.heroPool);
+      setHeroPoolDraft((d) => ({
+        ...d,
+        dateKey: toDateInputValue(r.heroPool.dateKey),
+        images: r.heroPool.images || d.images,
+        maxHeroShufflesPerDay: r.heroPool.config?.maxHeroShufflesPerDay ?? d.maxHeroShufflesPerDay,
+        maxHeroImagesPerDay: r.heroPool.config?.maxHeroImagesPerDay ?? d.maxHeroImagesPerDay,
+      }));
+      showToast(`Daily hero pool saved (${r.heroPool.images.length} image${r.heroPool.images.length === 1 ? '' : 's'}).`);
+    } catch (err) {
+      showToast(`Hero pool save failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function clearHeroPool() {
+    if (!confirm(`Clear hero pool for ${heroPoolDraft.dateKey}?`)) return;
+    setBusyAction('heroPool');
+    try {
+      await backend.clearHeroPool(heroPoolDraft.dateKey);
+      setHeroPool(null);
+      setHeroPoolDraft((d) => ({ ...d, images: [] }));
+      showToast('Hero pool cleared.');
+    } catch (err) {
+      showToast(`Hero pool clear failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function saveMonetizationConfig() {
+    if (!monetizationConfig) return;
+    setBusyAction('monetizationConfig');
+    try {
+      const r = await backend.setMonetizationConfig(monetizationConfig);
+      setMonetizationConfig(r.config);
+      showToast('Monetization config saved.');
+    } catch (err) {
+      showToast(`Config save failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
     }
   }
 
@@ -774,6 +987,255 @@ function Dashboard({ creds, onLogout }) {
           )}
         </div>
       </Card>
+
+      <Card title="Daily Hero Batch">
+        <div style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
+          Additive batch layer. The old one-hero controls above still write only <code>wwht:heroImage</code>.
+          This section stores batch metadata under new daily keys and falls back to the one-hero image when no valid batch is available.
+        </div>
+        <div style={{ fontSize: 12, color: '#ffaa8a', marginBottom: 10 }}>
+          Local upload mode stores resized images in namespaced Redis asset keys and serves them through the backend. This is useful for small daily batches. For production scale, prefer public CDN/R2/S3 URLs.
+        </div>
+
+        <div style={{ display: 'grid', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <label>
+              <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Date</div>
+              <input
+                type="date"
+                value={heroPoolDraft.dateKey}
+                onChange={(e) => setHeroPoolDraft((d) => ({ ...d, dateKey: e.target.value }))}
+              />
+            </label>
+            <label>
+              <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Max rewarded shuffles/day</div>
+              <input
+                type="number"
+                min={0}
+                max={24}
+                value={heroPoolDraft.maxHeroShufflesPerDay}
+                onChange={(e) => setHeroPoolDraft((d) => ({ ...d, maxHeroShufflesPerDay: parseInt(e.target.value, 10) || 0 }))}
+                style={{ width: 120 }}
+              />
+            </label>
+            <label>
+              <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Max images/day</div>
+              <input
+                type="number"
+                min={1}
+                max={24}
+                value={heroPoolDraft.maxHeroImagesPerDay}
+                onChange={(e) => setHeroPoolDraft((d) => ({ ...d, maxHeroImagesPerDay: parseInt(e.target.value, 10) || 1 }))}
+                style={{ width: 120 }}
+              />
+            </label>
+            <button disabled={busyAction === 'heroPoolFetch'} onClick={fetchHeroPoolForDraftDate}>
+              Fetch date
+            </button>
+          </div>
+
+          <div style={{ padding: 12, background: '#0f0f17', border: '1px solid #1f1f2a', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 8 }}>Upload/select local images</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+              <label
+                style={{
+                  display: 'inline-block', padding: '10px 14px', cursor: heroBatchUploading ? 'default' : 'pointer',
+                  border: '1px dashed #2a2a35', borderRadius: 8, color: '#ccc',
+                  background: '#10101a',
+                }}
+              >
+                {heroBatchUploading ? 'Uploading...' : 'Select multiple images'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  disabled={heroBatchUploading}
+                  style={{ display: 'none' }}
+                  onChange={(e) => uploadHeroBatchFiles(e.target.files)}
+                />
+              </label>
+              <label
+                style={{
+                  display: 'inline-block', padding: '10px 14px', cursor: heroBatchUploading ? 'default' : 'pointer',
+                  border: '1px dashed #2a2a35', borderRadius: 8, color: '#ccc',
+                  background: '#10101a',
+                }}
+              >
+                {heroBatchUploading ? 'Uploading...' : 'Select folder'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  webkitdirectory=""
+                  directory=""
+                  disabled={heroBatchUploading}
+                  style={{ display: 'none' }}
+                  onChange={(e) => uploadHeroBatchFiles(e.target.files)}
+                />
+              </label>
+            </div>
+
+            <hr style={{ border: 'none', borderTop: '1px solid #1f1f2a', margin: '10px 0 12px' }} />
+
+            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 8 }}>Or register public image URL</div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              <input
+                value={heroPoolImageDraft.url}
+                onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, url: e.target.value }))}
+                placeholder="https://cdn.example.com/wwht/reader-01.jpg"
+                style={{ width: '100%' }}
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <input
+                  value={heroPoolImageDraft.title}
+                  onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, title: e.target.value }))}
+                  placeholder="Internal title"
+                />
+                <input
+                  value={heroPoolImageDraft.readerMood}
+                  onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, readerMood: e.target.value }))}
+                  placeholder="The Mirror"
+                />
+              </div>
+              <input
+                value={heroPoolImageDraft.headline}
+                onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, headline: e.target.value }))}
+                placeholder="Headline shown under hero"
+                style={{ width: '100%' }}
+              />
+              <input
+                value={heroPoolImageDraft.cta}
+                onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, cta: e.target.value }))}
+                placeholder="CTA copy"
+                style={{ width: '100%' }}
+              />
+              <input
+                value={heroPoolImageDraft.tags}
+                onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, tags: e.target.value }))}
+                placeholder="love, career, money, mood, intimate, mystical, Indian, dark, gold, mirror"
+                style={{ width: '100%' }}
+              />
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={heroPoolImageDraft.active}
+                    onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, active: e.target.checked }))}
+                  />
+                  <span style={{ fontSize: 12, color: '#ccc' }}>Active</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={heroPoolImageDraft.storeSafe}
+                    onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, storeSafe: e.target.checked }))}
+                  />
+                  <span style={{ fontSize: 12, color: '#ccc' }}>Store safe</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={heroPoolImageDraft.isDefault}
+                    onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, isDefault: e.target.checked }))}
+                  />
+                  <span style={{ fontSize: 12, color: '#ccc' }}>Default</span>
+                </label>
+                <label>
+                  <span style={{ fontSize: 12, color: '#aaa', marginRight: 6 }}>Weight</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={1000}
+                    value={heroPoolImageDraft.weight}
+                    onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, weight: e.target.value }))}
+                    style={{ width: 70 }}
+                  />
+                </label>
+                <button className="primary" onClick={addHeroPoolImage}>Add to pool</button>
+              </div>
+            </div>
+          </div>
+
+          {heroPoolDraft.images.length > 0 ? (
+            <div style={{ display: 'grid', gap: 8 }}>
+              {heroPoolDraft.images.map((img, index) => (
+                <div key={`${img.url}-${index}`} style={{ display: 'grid', gridTemplateColumns: '90px 1fr auto', gap: 10, alignItems: 'center', padding: 8, background: '#0f0f17', border: '1px solid #1f1f2a', borderRadius: 8 }}>
+                  <img src={img.url} alt="" style={{ width: 90, height: 112, objectFit: 'cover', borderRadius: 6, border: '1px solid #2a2a35' }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ color: '#ddd', fontSize: 13 }}>{img.title || img.name || `Hero ${index + 1}`} {img.isDefault ? <span style={{ color: '#c9a96e' }}>· default</span> : null}</div>
+                    <div style={{ color: '#aaa', fontSize: 12 }}>{img.readerMood} · weight {img.weight || 1}</div>
+                    <div style={{ color: '#777', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{img.url}</div>
+                    <div style={{ color: '#777', fontSize: 11 }}>{Array.isArray(img.tags) ? img.tags.join(', ') : img.tags}</div>
+                    {img.active === false || img.storeSafe === false ? (
+                      <div style={{ color: '#ffaa8a', fontSize: 11 }}>Not servable: {img.active === false ? 'inactive ' : ''}{img.storeSafe === false ? 'storeUnsafe' : ''}</div>
+                    ) : null}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <button disabled={img.isDefault} onClick={() => setDefaultHeroPoolImage(index)}>Default</button>
+                    <button className="danger" onClick={() => removeHeroPoolImage(index)}>Remove</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: '#777', fontSize: 12 }}>No images in this daily pool yet. Add around 12 public URLs, then publish.</div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="primary" disabled={busyAction === 'heroPool' || heroPoolDraft.images.length === 0} onClick={saveHeroPool}>
+              Publish daily pool
+            </button>
+            {heroPool && (
+              <button className="danger" disabled={busyAction === 'heroPool'} onClick={clearHeroPool}>
+                Clear pool
+              </button>
+            )}
+          </div>
+
+          {heroPool && (
+            <div style={{ color: '#666', fontSize: 11 }}>
+              Live pool: {heroPool.dateKey} · revision {heroPool.revision || 0} · updated {heroPool.updatedAt ? new Date(heroPool.updatedAt).toLocaleString() : 'unknown'}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {monetizationConfig && (
+        <Card title="Monetization Config">
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {['freeSignalsPerDay', 'lockedSignalsPerDay', 'maxHeroShufflesPerDay', 'maxHeroImagesPerDay'].map((key) => (
+                <label key={key}>
+                  <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>{key}</div>
+                  <input
+                    type="number"
+                    min={0}
+                    max={24}
+                    value={monetizationConfig[key]}
+                    onChange={(e) => setMonetizationConfig((d) => ({ ...d, [key]: parseInt(e.target.value, 10) || 0 }))}
+                    style={{ width: 120 }}
+                  />
+                </label>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+              {['deeperMeaningEnabled', 'rewardedAdsEnabled', 'todayUnlockEnabled', 'thirtyDayUnlockEnabled', 'fallbackHeroEnabled'].map((key) => (
+                <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={monetizationConfig[key] !== false}
+                    onChange={(e) => setMonetizationConfig((d) => ({ ...d, [key]: e.target.checked }))}
+                  />
+                  <span style={{ fontSize: 12, color: '#ccc' }}>{key}</span>
+                </label>
+              ))}
+            </div>
+            <button className="primary" disabled={busyAction === 'monetizationConfig'} onClick={saveMonetizationConfig}>
+              Save monetization config
+            </button>
+          </div>
+        </Card>
+      )}
 
       <Card
         title="Daily Push Notifications"

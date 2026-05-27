@@ -3,7 +3,7 @@
  *
  * Products:
  *   daily_unlock_v1   ₹29 – unlocks all categories for today only
- *   full_unlock_v1    ₹49 – unlocks permanently (stored locally)
+ *   full_unlock_v1    ₹49 – unlocks 30 days of full readings (stored locally)
  *
  * Uses react-native-iap with retry logic adapted from TriggerMap pattern.
  */
@@ -79,8 +79,11 @@ export async function initBilling(onPurchaseComplete) {
     await initConnection();
 
     purchaseUpdateSub = purchaseUpdatedListener(async (purchase) => {
-      const { productId, purchaseToken } = purchase;
+      const { productId, purchaseToken, purchaseStateAndroid } = purchase;
       if (!purchaseToken) return;
+      // Android pending purchases are not entitlements yet. Wait for Play to
+      // send a purchased update before finishing or granting access.
+      if (Number(purchaseStateAndroid) === 2) return;
 
       try {
         // Server-side receipt validation against Google Play Developer API.
@@ -172,7 +175,7 @@ export async function purchaseProduct(productId) {
       throw new Error('In-app purchases are not available in this build. Please install from Google Play.');
     }
     if (err.code === 'E_NETWORK_ERROR') {
-      throw new Error('Network issue — check your connection and try again.');
+      throw new Error('Network issue. Check your connection and try again.');
     }
     console.warn('[Billing] requestPurchase error:', err.code, err.message);
     throw new Error(err?.message || 'Purchase failed. Please try again.');

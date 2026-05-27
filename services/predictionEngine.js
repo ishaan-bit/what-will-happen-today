@@ -14,7 +14,10 @@ import {
   setLastRuleBucket,
   getLastEngineMode,
   setLastEngineMode,
+  getCachedHeroAssignment,
+  cacheHeroAssignment,
 } from '@/services/storageService';
+import { normalizeMonetizationConfig } from '@/services/monetizationConfig';
 
 const POOLS = { love, career, money, mood };
 
@@ -109,6 +112,12 @@ export async function fetchRemotePayload() {
 
 export async function getPredictions() {
   const remote = await fetchRemotePayload();
+  const remoteHeroPool = remote?.heroPool || null;
+  if (remoteHeroPool?.images?.length) {
+    await cacheHeroAssignment(remoteHeroPool);
+  }
+  const cachedHeroPool = remoteHeroPool || await getCachedHeroAssignment();
+  const effectiveHeroImage = remote?.heroImage || cachedHeroPool?.images?.[0] || null;
   const ruleBucket = remote?.ruleBucket ?? null;
   // Server-controlled mode: 'rule' means render rule-based picks only,
   // 'llm' means prefer LLM payload when present. Default to 'llm' if missing.
@@ -136,7 +145,9 @@ export async function getPredictions() {
   if (engineMode === 'rule') {
     return {
       predictions: local,
-      heroImage: remote?.heroImage || null,
+      heroImage: effectiveHeroImage,
+      heroPool: cachedHeroPool,
+      monetizationConfig: normalizeMonetizationConfig(remote?.monetizationConfig || {}),
       llmGeneratedAt: null,
       engineMode,
     };
@@ -160,7 +171,9 @@ export async function getPredictions() {
 
   return {
     predictions: merged,
-    heroImage: remote?.heroImage || null,
+    heroImage: effectiveHeroImage,
+    heroPool: cachedHeroPool,
+    monetizationConfig: normalizeMonetizationConfig(remote?.monetizationConfig || {}),
     llmGeneratedAt: remote?.generatedAt || null,
     engineMode,
   };

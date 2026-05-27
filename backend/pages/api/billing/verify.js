@@ -15,6 +15,7 @@
  */
 import { Redis } from '@upstash/redis';
 import { verifyConsumablePurchase, isVerificationConfigured } from '../../../lib/playVerify.js';
+import { recordVerifiedEntitlement } from '../../../lib/entitlements.js';
 
 const ALLOWED_PRODUCTS = new Set(['daily_unlock_v1', 'full_unlock_v1']);
 
@@ -46,7 +47,9 @@ export default async function handler(req, res) {
   try {
     const result = await verifyConsumablePurchase({ productId, purchaseToken });
 
-    // Best-effort audit log (non-blocking).
+    let entitlement = null;
+
+    // Best-effort audit + anonymous entitlement log (non-blocking).
     try {
       const redis = getRedis();
       if (redis) {
@@ -59,6 +62,13 @@ export default async function handler(req, res) {
         });
         await redis.lpush('wwht:purchases', entry);
         await redis.ltrim('wwht:purchases', 0, 499);
+        if (result.valid && installId) {
+          entitlement = await recordVerifiedEntitlement(redis, {
+            installId,
+            productId,
+            orderId: result.orderId || null,
+          });
+        }
       }
     } catch {
       /* audit failures must never block the user */
@@ -70,6 +80,7 @@ export default async function handler(req, res) {
       productId,
       orderId: result.orderId || null,
       purchaseState: result.purchaseState,
+      entitlement,
     });
   } catch (err) {
     const message = err?.message || 'verify_failed';

@@ -31,19 +31,37 @@ import { palette, spacing, radius, type, CATEGORY_META } from '@/utils/theme';
 import { CATEGORY_SIGILS, getContinuityHint } from '@/utils/cosmic';
 import { tap, expand as expandHaptic, unlock as unlockHaptic } from '@/utils/haptics';
 import { track, Events } from '@/services/analyticsService';
+import { getDeeperMeaning } from '@/utils/deeperMeaning';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-export function SignalCard({ category, prediction, isFree, isUnlocked, onUnlockPress }) {
-  const canRead = isFree || isUnlocked;
+export function SignalCard({
+  category,
+  prediction,
+  isFree,
+  isUnlocked,
+  isRevealed,
+  isDeepUnlocked,
+  isPaidEntitled,
+  deeperEnabled = true,
+  onUnlockPress,
+  onWatchAdPress,
+  onBuyDailyPress,
+  onBuyFullPress,
+  onDeeperAdPress,
+  dailyPrice = '₹29',
+  fullPrice = '₹49',
+}) {
+  const canRead = isFree || isUnlocked || isRevealed;
   const [expanded, setExpanded] = useState(false);
   const [revealing, setRevealing] = useState(false);
   const meta = CATEGORY_META[category] || CATEGORY_META.mood;
   const sigil = CATEGORY_SIGILS[category] || CATEGORY_SIGILS.mood;
   const continuity = getContinuityHint(category);
+  const deeper = getDeeperMeaning(category, prediction);
   const revealAnim = useRef(new Animated.Value(0)).current;
 
   // ── Fallback shell — no prediction loaded yet (don't render an empty box) ──
@@ -87,6 +105,7 @@ export function SignalCard({ category, prediction, isFree, isUnlocked, onUnlockP
   const handleHeaderPress = useCallback(() => {
     if (!canRead) {
       tap();
+      track(Events.LOCKED_SIGNAL_TAP, { category });
       track(Events.LOCKED_CARD_TAP, { category });
       onUnlockPress?.();
       return;
@@ -217,6 +236,49 @@ export function SignalCard({ category, prediction, isFree, isUnlocked, onUnlockP
             </TouchableOpacity>
           ) : null}
 
+          {deeperEnabled ? (
+            <View style={[styles.deeperBox, { borderColor: `${meta.color}33` }]}>
+              {isDeepUnlocked || isPaidEntitled ? (
+                <>
+                  <Text style={[styles.deeperKicker, { color: meta.color }]}>DEEPER MEANING</Text>
+                  <View style={styles.deeperGrid}>
+                    <View style={styles.deeperItem}>
+                      <Text style={styles.deeperLabel}>Avoid</Text>
+                      <Text style={styles.deeperText}>{deeper.avoid}</Text>
+                    </View>
+                    <View style={styles.deeperItem}>
+                      <Text style={styles.deeperLabel}>Say yes to</Text>
+                      <Text style={styles.deeperText}>{deeper.sayYesTo}</Text>
+                    </View>
+                    <View style={styles.deeperItem}>
+                      <Text style={styles.deeperLabel}>This touches</Text>
+                      <Text style={styles.deeperText}>{deeper.touches}</Text>
+                    </View>
+                    <View style={styles.deeperItem}>
+                      <Text style={styles.deeperLabel}>Small move</Text>
+                      <Text style={styles.deeperText}>{deeper.move}</Text>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.deeperKicker, { color: meta.color }]}>THERE'S MORE UNDER THIS CARD</Text>
+                  <Text style={styles.deeperLockedText}>
+                    The first meaning is open. The deeper one is still hidden.
+                  </Text>
+                  <View style={styles.lockedActions}>
+                    <TouchableOpacity activeOpacity={0.82} onPress={onDeeperAdPress} style={[styles.actionChip, { borderColor: `${meta.color}55` }]}>
+                      <Text style={[styles.actionChipText, { color: meta.color }]}>Watch ad</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity activeOpacity={0.82} onPress={onBuyDailyPress} style={styles.actionChip}>
+                      <Text style={styles.actionChipText}>Unlock today {dailyPrice}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          ) : null}
+
           <View style={styles.shareGroup}>
             <Text style={styles.shareLabel}>SEND THIS TO SOMEONE</Text>
             <View style={styles.shareRowMulti}>
@@ -248,6 +310,39 @@ export function SignalCard({ category, prediction, isFree, isUnlocked, onUnlockP
 
       {/* Locked footer CTA */}
       {!canRead && (
+        <View style={[styles.lockedFooter, { borderColor: `${meta.color}33` }]}>
+          <Text style={styles.lockedFooterTitle}>She can draw this one now.</Text>
+          <View style={styles.lockedActions}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => {
+                expandHaptic();
+                track(Events.LOCKED_SIGNAL_TAP, { category });
+                track(Events.LOCKED_CARD_TAP, { category });
+                onWatchAdPress?.();
+              }}
+              style={[styles.actionChip, { borderColor: `${meta.color}55` }]}
+            >
+              <Text style={[styles.actionChipText, { color: meta.color }]}>Reveal with ad</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={onBuyDailyPress || onUnlockPress}
+              style={styles.actionChip}
+            >
+              <Text style={styles.actionChipText}>Unlock today {dailyPrice}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={onBuyFullPress || onUnlockPress}
+              style={styles.actionChip}
+            >
+              <Text style={styles.actionChipText}>Open 30 days {fullPrice}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      {false && !canRead && (
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => {
@@ -509,11 +604,70 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
-    alignItems: 'center',
+  },
+  lockedFooterTitle: {
+    ...type.caption,
+    color: palette.textSub,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
   },
   lockedFooterText: {
     ...type.caption,
     color: palette.textMuted,
     fontWeight: '500',
+  },
+  lockedActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+    justifyContent: 'center',
+  },
+  actionChip: {
+    borderWidth: 1,
+    borderColor: palette.glassBorder,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(255,255,255,0.025)',
+  },
+  actionChipText: {
+    ...type.caption,
+    color: palette.textSub,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  deeperBox: {
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.025)',
+  },
+  deeperKicker: {
+    ...type.kicker,
+    fontSize: 9,
+    marginBottom: spacing.xs,
+  },
+  deeperGrid: {
+    gap: spacing.xs,
+  },
+  deeperItem: {
+    gap: 2,
+  },
+  deeperLabel: {
+    ...type.kicker,
+    color: palette.textDim,
+    fontSize: 8,
+    letterSpacing: 1.2,
+  },
+  deeperText: {
+    ...type.caption,
+    color: palette.textSub,
+    lineHeight: 18,
+  },
+  deeperLockedText: {
+    ...type.caption,
+    color: palette.textMuted,
+    marginBottom: spacing.sm,
   },
 });

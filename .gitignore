@@ -10,6 +10,7 @@ ios/
 *.key
 *.mobileprovision
 *.orig.*
+*.log
 web-build/
 .env
 .env.local
