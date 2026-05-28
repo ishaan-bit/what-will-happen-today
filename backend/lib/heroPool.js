@@ -70,7 +70,8 @@ function getBackendBaseUrl() {
   return String(raw || '').trim().replace(/\/$/, '');
 }
 
-function getInputImageUrl(input = {}) {
+function getInputMediaUrl(input = {}) {
+  if (hasOwn(input, 'mediaUrl')) return input.mediaUrl;
   if (hasOwn(input, 'imageUrl')) return input.imageUrl;
   if (hasOwn(input, 'url')) return input.url;
   if (hasOwn(input, 'uri')) return input.uri;
@@ -78,7 +79,7 @@ function getInputImageUrl(input = {}) {
   return '';
 }
 
-function normalizeImageUrl(value) {
+function normalizeMediaUrl(value) {
   const raw = cleanText(value, '', 2000);
   if (!raw) return '';
   if (/^\/api\/hero-batch\/image\?/i.test(raw)) {
@@ -86,6 +87,13 @@ function normalizeImageUrl(value) {
     return base ? `${base}${raw}` : raw;
   }
   return raw;
+}
+
+function inferMediaType(input = {}, url = '') {
+  const explicit = String(input.mediaType || '').trim().toLowerCase();
+  if (explicit === 'video') return 'video';
+  if (explicit === 'image') return 'image';
+  return /\.(mp4|m4v|webm)(\?.*)?$/i.test(String(url || '')) ? 'video' : 'image';
 }
 
 function isBackendHeroBatchUrl(url) {
@@ -102,14 +110,14 @@ function isBackendHeroBatchUrl(url) {
   }
 }
 
-function isPublicImageUrl(url) {
+function isPublicMediaUrl(url) {
   const raw = String(url || '').trim();
   if (isBackendHeroBatchUrl(raw)) return true;
   return /^https?:\/\/.+/i.test(raw);
 }
 
 function isLegacyHeroUrl(url) {
-  return isPublicImageUrl(url) || /^data:image\//i.test(String(url || '').trim());
+  return isPublicMediaUrl(url) || /^data:image\//i.test(String(url || '').trim());
 }
 
 // Diagnostic logging helper; logs to console only in development.
@@ -123,12 +131,13 @@ function logDiagnostic(context, message, data = {}) {
 
 export function normalizeHeroImage(input = {}, index = 0, dateKey = getTodayKey(), { allowData = false } = {}) {
   const url = allowData
-    ? cleanText(getInputImageUrl(input), '', 4_000_000)
-    : normalizeImageUrl(getInputImageUrl(input));
+    ? cleanText(getInputMediaUrl(input), '', 4_000_000)
+    : normalizeMediaUrl(getInputMediaUrl(input));
+  const mediaType = inferMediaType(input, url);
   const inputTitle = input.title || input.name || `Hero ${index + 1}`;
-  const isValidUrl = allowData ? isLegacyHeroUrl(url) : isPublicImageUrl(url);
+  const isValidUrl = allowData ? isLegacyHeroUrl(url) : isPublicMediaUrl(url);
   if (!isValidUrl) {
-    logDiagnostic('normalizeHeroImage', `REJECTED: Invalid URL format for "${inputTitle}"`, {
+    logDiagnostic('normalizeHeroImage', `REJECTED: Invalid media URL format for "${inputTitle}"`, {
       index,
       title: inputTitle,
       urlPrefix: url ? url.substring(0, 50) : '(empty)',
@@ -145,17 +154,22 @@ export function normalizeHeroImage(input = {}, index = 0, dateKey = getTodayKey(
 
   const weight = Math.max(0, Math.min(1000, parseInt(input.weight, 10) || 1));
   const title = cleanText(input.title || input.name, `Hero ${index + 1}`, 100);
-  const readerMood = cleanText(input.readerMood, 'The Mirror', 80);
+  const readerMood = cleanText(input.readerMood || input.readerLabel || input.publicLabel, "Today's reader", 80);
   const active = normalizeBooleanFlag(input.active, true);
   const enabled = normalizeBooleanFlag(input.enabled, true);
   const storeSafe = normalizeBooleanFlag(input.storeSafe, true);
-  const cta = cleanText(input.cta || input.CTA || input.ctaCopy, 'Let her draw your first signal', 120);
+  const headline = cleanText(input.headline, '', 140);
+  const cta = cleanText(input.cta || input.CTA || input.ctaCopy, '', 120);
   const isDefault = normalizeBooleanFlag(input.isDefault ?? input.default, false);
+  const posterUrl = normalizeMediaUrl(input.posterUrl || input.poster || '');
 
   return {
     id,
     url,
-    imageUrl: url,
+    mediaUrl: url,
+    mediaType,
+    ...(mediaType === 'image' ? { imageUrl: url } : {}),
+    ...(posterUrl ? { posterUrl } : {}),
     title,
     name: title,
     active,
@@ -165,7 +179,7 @@ export function normalizeHeroImage(input = {}, index = 0, dateKey = getTodayKey(
     campaign: cleanText(input.campaign || input.assignment, '', 80),
     tags: cleanTags(input.tags),
     readerMood,
-    headline: cleanText(input.headline, `${readerMood} is waiting`, 140),
+    headline,
     cta,
     ...(hasOwn(input, 'CTA') ? { CTA: cta } : {}),
     weight,
@@ -232,13 +246,18 @@ export function getServableHeroPool(pool, { allowData = false } = {}) {
   const normalizedImages = pool.images.map((img) => {
     if (!img) return img;
     const url = allowData
-      ? cleanText(getInputImageUrl(img), '', 4_000_000)
-      : normalizeImageUrl(getInputImageUrl(img));
-    const cta = cleanText(img.cta || img.CTA || img.ctaCopy, 'Let her draw your first signal', 120);
+      ? cleanText(getInputMediaUrl(img), '', 4_000_000)
+      : normalizeMediaUrl(getInputMediaUrl(img));
+    const mediaType = inferMediaType(img, url);
+    const cta = cleanText(img.cta || img.CTA || img.ctaCopy, '', 120);
+    const posterUrl = normalizeMediaUrl(img.posterUrl || img.poster || '');
     return {
       ...img,
       url,
-      imageUrl: url,
+      mediaUrl: url,
+      mediaType,
+      ...(mediaType === 'image' ? { imageUrl: url } : {}),
+      ...(posterUrl ? { posterUrl } : {}),
       active: normalizeBooleanFlag(img.active, true),
       enabled: normalizeBooleanFlag(img.enabled, true),
       storeSafe: normalizeBooleanFlag(img.storeSafe, true),
@@ -249,7 +268,7 @@ export function getServableHeroPool(pool, { allowData = false } = {}) {
     };
   });
   const filtered = normalizedImages.filter((img) => {
-    const validUrl = allowData ? isLegacyHeroUrl(img?.url) : isPublicImageUrl(img?.url);
+    const validUrl = allowData ? isLegacyHeroUrl(img?.url) : isPublicMediaUrl(img?.url);
     const activeOk = normalizeBooleanFlag(img?.active, true);
     const enabledOk = normalizeBooleanFlag(img?.enabled, true);
     const safeOk = normalizeBooleanFlag(img?.storeSafe, true);
@@ -379,9 +398,9 @@ export function legacyHeroAsPool(heroImage, dateKey = getTodayKey()) {
     ...heroImage,
     id: heroImage.id || `legacy_${hashString(heroImage.url).slice(0, 8)}`,
     title: heroImage.alt || 'Today reader',
-    readerMood: heroImage.readerMood || 'The Mirror',
-    headline: heroImage.headline || 'The reader for today is here',
-    cta: heroImage.cta || 'Let her draw your first signal',
+    readerMood: heroImage.readerMood || "Today's reader",
+    headline: heroImage.headline || '',
+    cta: heroImage.cta || '',
     isDefault: true,
   }, 0, dateKey, { allowData: true });
   if (!image) return null;

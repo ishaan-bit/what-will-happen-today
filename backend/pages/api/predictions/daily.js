@@ -94,6 +94,10 @@ export default async function handler(req, res) {
     const rawBatchCount = Array.isArray(rawStoredHeroPool?.images) ? rawStoredHeroPool.images.length : 0;
     const storedHeroPool = getServableHeroPool(rawStoredHeroPool);
     const legacyHeroPool = getServableHeroPool(legacyHeroAsPool(parseStoredJson(heroRaw), dateKey), { allowData: true });
+    const monetizationConfig = mergeMonetizationConfig(
+      parseStoredJson(monetizationRaw),
+      storedHeroPool?.config || null,
+    );
 
     if (isDebug) {
       console.log(`[/api/predictions/daily] Pool status:`, {
@@ -107,7 +111,7 @@ export default async function handler(req, res) {
     const assignedBatchHeroPool = storedHeroPool ? assignDailyHeroSet(storedHeroPool, {
       installId,
       dateKey,
-      count: 4,
+      count: monetizationConfig.maxHeroImagesPerDay,
       fallbackHero: null,
     }) : null;
     const heroSource = assignedBatchHeroPool ? 'batch' : (legacyHeroPool ? 'legacy' : 'none');
@@ -132,11 +136,6 @@ export default async function handler(req, res) {
     // Keep that field tied to the legacy one-hero system. New builds read
     // the additive `heroPool` field for daily batch/assignment.
     const heroImage = legacyHeroPool?.images?.[0] || null;
-    const monetizationConfig = mergeMonetizationConfig(
-      parseStoredJson(monetizationRaw),
-      heroPool?.config || null,
-    );
-
     res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate');
     res.setHeader('CDN-Cache-Control', 'no-store');
     res.setHeader('Vercel-CDN-Cache-Control', 'no-store');

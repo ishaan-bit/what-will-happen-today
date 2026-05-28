@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Image, StyleSheet, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { palette, radius, spacing } from '@/utils/theme';
 
 const FALLBACK_HERO = require('../assets/splash.png');
@@ -28,13 +29,60 @@ function withVersion(source, version) {
   return fragment ? `${versioned}#${fragment}` : versioned;
 }
 
-export function HeroImage({ source, version, fallbackEnabled = false }) {
+function HeroVideo({ source, posterUrl, onError }) {
+  const [firstFrameReady, setFirstFrameReady] = useState(false);
+  const player = useVideoPlayer(
+    source ? { uri: source, contentType: 'auto' } : null,
+    (videoPlayer) => {
+      videoPlayer.loop = true;
+      videoPlayer.muted = true;
+      videoPlayer.staysActiveInBackground = false;
+      videoPlayer.play();
+    },
+  );
+
+  useEffect(() => {
+    setFirstFrameReady(false);
+  }, [source]);
+
+  useEffect(() => {
+    const sub = player?.addListener?.('statusChange', ({ status }) => {
+      if (status === 'readyToPlay') {
+        try { player.play(); } catch {}
+      }
+      if (status === 'error') onError?.();
+    });
+    return () => sub?.remove?.();
+  }, [player, onError]);
+
+  return (
+    <>
+      <VideoView
+        player={player}
+        style={styles.image}
+        nativeControls={false}
+        contentFit="cover"
+        allowsFullscreen={false}
+        allowsPictureInPicture={false}
+        useExoShutter={false}
+        onFirstFrameRender={() => setFirstFrameReady(true)}
+      />
+      {posterUrl && !firstFrameReady ? (
+        <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
+      ) : null}
+    </>
+  );
+}
+
+export function HeroImage({ source, mediaType = 'image', posterUrl, version, fallbackEnabled = false }) {
   const [failed, setFailed] = useState(false);
   const versionedSource = useMemo(() => withVersion(source, version), [source, version]);
+  const versionedPoster = useMemo(() => withVersion(posterUrl, version), [posterUrl, version]);
+  const isVideo = mediaType === 'video';
 
   useEffect(() => {
     setFailed(false);
-  }, [versionedSource]);
+  }, [versionedSource, mediaType]);
 
   const shouldUseFallback = fallbackEnabled && (!versionedSource || failed);
   if (!versionedSource && !shouldUseFallback) return null;
@@ -46,12 +94,21 @@ export function HeroImage({ source, version, fallbackEnabled = false }) {
   return (
     <View style={styles.wrap} accessible={false}>
       <View style={styles.frame}>
-        <Image
-          source={imageSource}
-          style={styles.image}
-          resizeMode={shouldUseFallback ? 'contain' : 'cover'}
-          onError={() => setFailed(true)}
-        />
+        {isVideo && !shouldUseFallback ? (
+          <HeroVideo
+            key={versionedSource}
+            source={versionedSource}
+            posterUrl={versionedPoster}
+            onError={() => setFailed(true)}
+          />
+        ) : (
+          <Image
+            source={imageSource}
+            style={styles.image}
+            resizeMode={shouldUseFallback ? 'contain' : 'cover'}
+            onError={() => setFailed(true)}
+          />
+        )}
         {/* Top + bottom gradient mask so the image blends into the dark UI */}
         <LinearGradient
           colors={['rgba(7,8,15,0.55)', 'rgba(7,8,15,0)', 'rgba(7,8,15,0.55)']}
@@ -85,6 +142,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#0b0c14',
   },
   image: { width: '100%', height: '100%' },
+  poster: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
   glow: {
     position: 'absolute',
     bottom: -20,

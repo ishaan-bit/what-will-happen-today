@@ -37,6 +37,19 @@ async function resizeImageToDataUrl(file, maxEdge = 1024, quality = 0.85) {
   return canvas.toDataURL('image/jpeg', quality);
 }
 
+async function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(new Error('read_failed'));
+    fr.readAsDataURL(file);
+  });
+}
+
+function inferMediaTypeFromUrl(url) {
+  return /\.(mp4|m4v|webm)(\?.*)?$/i.test(String(url || '')) ? 'video' : 'image';
+}
+
 function getTodayInputValue() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -52,6 +65,8 @@ function toDateInputValue(value) {
 
 const EMPTY_POOL_IMAGE = {
   url: '',
+  mediaType: 'image',
+  posterUrl: '',
   title: '',
   active: true,
   storeSafe: true,
@@ -394,9 +409,10 @@ function Dashboard({ creds, onLogout }) {
   function addHeroPoolImage() {
     const url = (heroPoolImageDraft.url || '').trim();
     if (!/^https?:\/\//i.test(url)) {
-      showToast('Use a public http(s) image URL for the daily pool.', 'error');
+      showToast('Use a public http(s) image or video URL for the daily pool.', 'error');
       return;
     }
+    const mediaType = heroPoolImageDraft.mediaType || inferMediaTypeFromUrl(url);
     const title = heroPoolImageDraft.title || `Hero ${heroPoolDraft.images.length + 1}`;
     setHeroPoolDraft((d) => ({
       ...d,
@@ -405,6 +421,9 @@ function Dashboard({ creds, onLogout }) {
         {
           ...heroPoolImageDraft,
           url,
+          mediaUrl: url,
+          mediaType,
+          posterUrl: (heroPoolImageDraft.posterUrl || '').trim(),
           title,
           name: title,
           tags: heroPoolImageDraft.tags.split(',').map((t) => t.trim()).filter(Boolean),
@@ -417,9 +436,11 @@ function Dashboard({ creds, onLogout }) {
   }
 
   async function uploadHeroBatchFiles(fileList) {
-    const files = Array.from(fileList || []).filter((file) => file.type?.startsWith('image/'));
+    const files = Array.from(fileList || []).filter((file) => (
+      file.type?.startsWith('image/') || file.type === 'video/mp4'
+    ));
     if (!files.length) {
-      showToast('Select image files first.', 'error');
+      showToast('Select image or MP4 files first.', 'error');
       return;
     }
     setHeroBatchUploading(true);
@@ -427,7 +448,10 @@ function Dashboard({ creds, onLogout }) {
       const uploaded = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const dataUrl = await resizeImageToDataUrl(file, 900, 0.72);
+        const isVideo = file.type === 'video/mp4';
+        const dataUrl = isVideo
+          ? await fileToDataUrl(file)
+          : await resizeImageToDataUrl(file, 900, 0.72);
         const r = await backend.uploadHeroBatchImage({
           dateKey: heroPoolDraft.dateKey,
           fileName: file.name,
@@ -436,6 +460,9 @@ function Dashboard({ creds, onLogout }) {
         const baseName = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
         uploaded.push({
           url: r.url,
+          mediaUrl: r.url,
+          mediaType: r.mediaType || (isVideo ? 'video' : 'image'),
+          posterUrl: '',
           title: baseName || `Batch hero ${heroPoolDraft.images.length + uploaded.length + 1}`,
           name: baseName || `Batch hero ${heroPoolDraft.images.length + uploaded.length + 1}`,
           active: true,
@@ -460,7 +487,7 @@ function Dashboard({ creds, onLogout }) {
           isDefault: list.some((x) => x.isDefault) ? img.isDefault : index === 0,
         })),
       }));
-      showToast(`Uploaded ${uploaded.length} batch image${uploaded.length === 1 ? '' : 's'} into the draft. Click Publish daily pool to serve them.`);
+      showToast(`Uploaded ${uploaded.length} batch media item${uploaded.length === 1 ? '' : 's'} into the draft. Click Publish daily pool to serve them.`);
     } catch (err) {
       showToast(`Batch upload failed: ${err.message}`, 'error');
     } finally {
@@ -485,7 +512,7 @@ function Dashboard({ creds, onLogout }) {
 
   async function saveHeroPool() {
     if (!heroPoolDraft.images.length) {
-      showToast('Add at least one public hero image URL.', 'error');
+      showToast('Add at least one public hero image or video URL.', 'error');
       return;
     }
     setBusyAction('heroPool');
@@ -499,7 +526,7 @@ function Dashboard({ creds, onLogout }) {
         maxHeroShufflesPerDay: r.heroPool.config?.maxHeroShufflesPerDay ?? d.maxHeroShufflesPerDay,
         maxHeroImagesPerDay: r.heroPool.config?.maxHeroImagesPerDay ?? d.maxHeroImagesPerDay,
       }));
-      showToast(`Daily hero pool saved (${r.heroPool.images.length} image${r.heroPool.images.length === 1 ? '' : 's'}).`);
+      showToast(`Daily hero pool saved (${r.heroPool.images.length} media item${r.heroPool.images.length === 1 ? '' : 's'}).`);
     } catch (err) {
       showToast(`Hero pool save failed: ${err.message}`, 'error');
     } finally {
@@ -1035,7 +1062,7 @@ function Dashboard({ creds, onLogout }) {
           </div>
 
           <div style={{ padding: 12, background: '#0f0f17', border: '1px solid #1f1f2a', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 8 }}>Upload/select local images</div>
+            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 8 }}>Upload/select local images or MP4 videos</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
               <label
                 style={{
@@ -1044,10 +1071,10 @@ function Dashboard({ creds, onLogout }) {
                   background: '#10101a',
                 }}
               >
-                {heroBatchUploading ? 'Uploading...' : 'Select multiple images'}
+                {heroBatchUploading ? 'Uploading...' : 'Select media files'}
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/*,video/mp4"
                   multiple
                   disabled={heroBatchUploading}
                   style={{ display: 'none' }}
@@ -1064,7 +1091,7 @@ function Dashboard({ creds, onLogout }) {
                 {heroBatchUploading ? 'Uploading...' : 'Select folder'}
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/*,video/mp4"
                   multiple
                   webkitdirectory=""
                   directory=""
@@ -1077,14 +1104,28 @@ function Dashboard({ creds, onLogout }) {
 
             <hr style={{ border: 'none', borderTop: '1px solid #1f1f2a', margin: '10px 0 12px' }} />
 
-            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 8 }}>Or register public image URL</div>
+            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 8 }}>Or register public image/video URL</div>
             <div style={{ display: 'grid', gap: 8 }}>
               <input
                 value={heroPoolImageDraft.url}
                 onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, url: e.target.value }))}
-                placeholder="https://cdn.example.com/wwht/reader-01.jpg"
+                placeholder="https://cdn.example.com/wwht/reader-01.jpg or .mp4"
                 style={{ width: '100%' }}
               />
+              <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 8 }}>
+                <select
+                  value={heroPoolImageDraft.mediaType}
+                  onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, mediaType: e.target.value }))}
+                >
+                  <option value="image">Image</option>
+                  <option value="video">Video</option>
+                </select>
+                <input
+                  value={heroPoolImageDraft.posterUrl}
+                  onChange={(e) => setHeroPoolImageDraft((d) => ({ ...d, posterUrl: e.target.value }))}
+                  placeholder="Optional poster URL for video"
+                />
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <input
                   value={heroPoolImageDraft.title}
@@ -1162,12 +1203,17 @@ function Dashboard({ creds, onLogout }) {
           {heroPoolDraft.images.length > 0 ? (
             <div style={{ display: 'grid', gap: 8 }}>
               {heroPoolDraft.images.map((img, index) => (
-                <div key={`${img.url}-${index}`} style={{ display: 'grid', gridTemplateColumns: '90px 1fr auto', gap: 10, alignItems: 'center', padding: 8, background: '#0f0f17', border: '1px solid #1f1f2a', borderRadius: 8 }}>
-                  <img src={img.url} alt="" style={{ width: 90, height: 112, objectFit: 'cover', borderRadius: 6, border: '1px solid #2a2a35' }} />
+                <div key={`${img.url || img.mediaUrl}-${index}`} style={{ display: 'grid', gridTemplateColumns: '90px 1fr auto', gap: 10, alignItems: 'center', padding: 8, background: '#0f0f17', border: '1px solid #1f1f2a', borderRadius: 8 }}>
+                  {img.mediaType === 'video' ? (
+                    <video src={img.url || img.mediaUrl} poster={img.posterUrl || undefined} muted playsInline style={{ width: 90, height: 112, objectFit: 'cover', borderRadius: 6, border: '1px solid #2a2a35', background: '#06060c' }} />
+                  ) : (
+                    <img src={img.url || img.mediaUrl} alt="" style={{ width: 90, height: 112, objectFit: 'cover', borderRadius: 6, border: '1px solid #2a2a35' }} />
+                  )}
                   <div style={{ minWidth: 0 }}>
                     <div style={{ color: '#ddd', fontSize: 13 }}>{img.title || img.name || `Hero ${index + 1}`} {img.isDefault ? <span style={{ color: '#c9a96e' }}>· default</span> : null}</div>
                     <div style={{ color: '#aaa', fontSize: 12 }}>{img.readerMood} · weight {img.weight || 1}</div>
-                    <div style={{ color: '#777', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{img.url}</div>
+                    <div style={{ color: '#777', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{img.url || img.mediaUrl}</div>
+                    {img.posterUrl ? <div style={{ color: '#777', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>poster: {img.posterUrl}</div> : null}
                     <div style={{ color: '#777', fontSize: 11 }}>{Array.isArray(img.tags) ? img.tags.join(', ') : img.tags}</div>
                     {img.active === false || img.storeSafe === false ? (
                       <div style={{ color: '#ffaa8a', fontSize: 11 }}>Not servable: {img.active === false ? 'inactive ' : ''}{img.storeSafe === false ? 'storeUnsafe' : ''}</div>
@@ -1181,7 +1227,7 @@ function Dashboard({ creds, onLogout }) {
               ))}
             </div>
           ) : (
-            <div style={{ color: '#777', fontSize: 12 }}>No images in this daily pool yet. Add around 12 public URLs, then publish.</div>
+            <div style={{ color: '#777', fontSize: 12 }}>No media in this daily pool yet. Add public image or MP4 URLs, then publish.</div>
           )}
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

@@ -4,9 +4,8 @@
  *   POST   /api/ops/hero-pool
  *   DELETE /api/ops/hero-pool?date=YYYYMMDD
  *
- * Images must be public http(s) URLs. Binary upload storage is intentionally
- * not invented here; register CDN/R2/S3/Cloudinary URLs until a storage
- * provider is configured.
+ * Media must be public http(s) image or video URLs. Binary upload storage is
+ * intentionally small/dev-friendly; prefer CDN/R2/S3/Cloudinary URLs for scale.
  */
 import { Redis } from '@upstash/redis';
 import { requireOpsAuth } from '@/lib/opsAuth';
@@ -50,8 +49,8 @@ export default async function handler(req, res) {
       const pool = normalizeHeroPool({ ...(req.body || {}), dateKey }, previous);
       if (!pool.images.length) {
         return res.status(400).json({
-          error: 'image_url_required',
-          message: 'Add at least one public http(s) image URL.',
+          error: 'media_url_required',
+          message: 'Add at least one public http(s) image or video URL.',
         });
       }
       await redis.set(heroPoolKey(pool.dateKey), JSON.stringify(pool));

@@ -34,7 +34,7 @@ import {
   recordHeroShuffle,
   setCurrentHeroForToday,
 } from '@/services/storageService';
-import { showRewardedAd } from '@/services/rewardedAdService';
+import { preloadRewardedAd, showRewardedAd } from '@/services/rewardedAdService';
 import {
   getCategoryOrder,
   getDailyVibe,
@@ -66,16 +66,19 @@ function cardAnalyticsProps(category, index, prediction, extra = {}) {
 }
 
 function getHeroUrl(hero) {
-  return hero?.imageUrl || hero?.url || hero?.uri || hero?.src || null;
+  return hero?.mediaUrl || hero?.imageUrl || hero?.url || hero?.uri || hero?.src || null;
 }
 
 function normalizeHero(hero) {
   const url = getHeroUrl(hero);
   if (!hero || !url) return null;
+  const mediaType = hero.mediaType === 'video' ? 'video' : 'image';
   return {
     ...hero,
     url,
-    imageUrl: url,
+    mediaUrl: url,
+    mediaType,
+    ...(mediaType === 'image' ? { imageUrl: url } : {}),
     cta: hero.cta || hero.CTA || hero.ctaCopy || null,
   };
 }
@@ -89,7 +92,7 @@ function isHumanReadableHeroText(value) {
   if (/^batch hero\s+\d+$/i.test(text)) return false;
   if (/^(asset|hero|img|image|file)[_-][a-z0-9_-]+$/i.test(text)) return false;
   if (/^[a-z0-9]+[-_][a-z0-9_-]*\d[a-z0-9_-]*$/i.test(text) && !/\s/.test(text)) return false;
-  if (/\.(jpe?g|png|webp|gif|heic)(\?.*)?$/i.test(text)) return false;
+  if (/\.(jpe?g|png|webp|gif|heic|mp4|m4v|webm)(\?.*)?$/i.test(text)) return false;
   if (/^[\w.-]+[\\/][\w./-]+$/i.test(text)) return false;
   if (/^[a-z0-9_-]+\.(jpe?g|png|webp|gif|heic)$/i.test(text)) return false;
   if (/^[0-9a-f]{8}[-\s][0-9a-f]{4}[-\s][0-9a-f]{4}[-\s][0-9a-f]{4}[-\s][0-9a-f]{12}$/i.test(text)) return false;
@@ -174,19 +177,35 @@ export default function HomeScreen() {
   }, [heroImages, heroImage, heroShuffleState?.currentHeroId, defaultHeroId]);
   const currentHeroVisualKey = currentHero?.id || currentHero?.url || null;
   const heroPoolRevision = heroPool?.revision || heroPool?.updatedAt || 'legacy';
+  const rewardedAdsEnabled = monetizationConfig.rewardedAdsEnabled !== false;
+  const todayUnlockEnabled = monetizationConfig.todayUnlockEnabled !== false;
+  const thirtyDayUnlockEnabled = monetizationConfig.thirtyDayUnlockEnabled !== false;
 
   const maxHeroImages = Math.min(
     heroImages.length || 1,
-    monetizationConfig.maxHeroImagesPerDay || 5,
+    monetizationConfig.maxHeroImagesPerDay,
   );
   const maxHeroShuffles = Math.min(
-    monetizationConfig.maxHeroShufflesPerDay || 4,
+    monetizationConfig.maxHeroShufflesPerDay,
     Math.max(0, maxHeroImages - 1),
   );
   const seenHeroIds = heroShuffleState?.seenHeroIds || [];
   const totalHeroShuffles = (heroShuffleState?.rewardedShuffles || 0) + (heroShuffleState?.paidShuffles || 0);
   const heroShuffleRemaining = Math.max(0, maxHeroShuffles - totalHeroShuffles);
-  const canShuffleHero = heroImages.length > 1 && heroShuffleRemaining > 0 && seenHeroIds.length < maxHeroImages;
+  const hasAlternateHero = heroImages.some((img) => img.id !== currentHero?.id);
+  const hasUnseenHero = heroImages.some((img) => img.id !== currentHero?.id && !seenHeroIds.includes(img.id));
+  const canShuffleHeroByLimit = heroImages.length > 1
+    && hasAlternateHero
+    && hasUnseenHero
+    && heroShuffleRemaining > 0
+    && seenHeroIds.length < maxHeroImages;
+  const canShuffleHero = canShuffleHeroByLimit && (isPaidEntitled || rewardedAdsEnabled);
+
+  const shuffleRemainingText = useMemo(() => {
+    if (!canShuffleHeroByLimit) return 'No more reader shuffles today.';
+    if (heroShuffleRemaining === 1) return 'One more reader shuffle left today.';
+    return `You can shuffle ${heroShuffleRemaining} more times today.`;
+  }, [canShuffleHeroByLimit, heroShuffleRemaining]);
 
   useEffect(() => {
     if (!currentHero?.id || !heroShuffleState) return;
@@ -203,6 +222,11 @@ export default function HomeScreen() {
       useNativeDriver: true,
     }).start();
   }, [currentHeroVisualKey, heroFade]);
+
+  useEffect(() => {
+    if (!rewardedAdsEnabled || isPaidEntitled || !canShuffleHeroByLimit) return;
+    preloadRewardedAd({ placement: 'hero_shuffle' });
+  }, [rewardedAdsEnabled, isPaidEntitled, canShuffleHeroByLimit, currentHero?.id]);
 
   useEffect(() => {
     if (!currentHero?.id || lastHeroImpressionRef.current === currentHero.id) return;
@@ -333,7 +357,7 @@ export default function HomeScreen() {
   }, [predictions, firstCategory, dayNumber, isPaidEntitled, refreshRevealState, requestSignalFocus]);
 
   const grantSignalWithAd = useCallback(async (category, index) => {
-    if (!monetizationConfig.rewardedAdsEnabled) {
+    if (!rewardedAdsEnabled) {
       Alert.alert('Ad unavailable', 'Try again in a little while, or unlock today.');
       return;
     }
@@ -360,7 +384,7 @@ export default function HomeScreen() {
       user_day_number: dayNumber,
       is_paid_entitled: isPaidEntitled,
     }));
-  }, [monetizationConfig.rewardedAdsEnabled, predictions, dayNumber, isPaidEntitled, refreshRevealState, requestSignalFocus]);
+  }, [rewardedAdsEnabled, predictions, dayNumber, isPaidEntitled, refreshRevealState, requestSignalFocus]);
 
   const handleSignalAdPress = useCallback((category, index) => {
     track(Events.LOCKED_SIGNAL_TAP, cardAnalyticsProps(category, index, predictions?.[category], {
@@ -378,7 +402,7 @@ export default function HomeScreen() {
   }, [grantSignalWithAd, predictions, dayNumber, isPaidEntitled]);
 
   const grantDeeperWithAd = useCallback(async (category, index) => {
-    if (!monetizationConfig.rewardedAdsEnabled) {
+    if (!rewardedAdsEnabled) {
       Alert.alert('Ad unavailable', 'Try again in a little while, or unlock today.');
       return;
     }
@@ -405,7 +429,7 @@ export default function HomeScreen() {
       user_day_number: dayNumber,
       is_paid_entitled: isPaidEntitled,
     }));
-  }, [monetizationConfig.rewardedAdsEnabled, predictions, dayNumber, isPaidEntitled, refreshRevealState, requestSignalFocus]);
+  }, [rewardedAdsEnabled, predictions, dayNumber, isPaidEntitled, refreshRevealState, requestSignalFocus]);
 
   const handleDeeperAdPress = useCallback((category, index) => {
     track(Events.DEEPER_MEANING_TAP, cardAnalyticsProps(category, index, predictions?.[category], {
@@ -430,8 +454,8 @@ export default function HomeScreen() {
   const changeHero = useCallback(async (source) => {
     const next = getNextHero();
     if (!next) {
-      Alert.alert("Today's reader images are complete.", 'You have seen the available readers for today.');
-      return;
+      Alert.alert('No more reader images', 'The available readers for today have all appeared.');
+      return false;
     }
     await recordHeroShuffle(next.id, source, heroPoolRevision);
     await refreshRevealState();
@@ -442,6 +466,7 @@ export default function HomeScreen() {
       is_paid_entitled: isPaidEntitled,
       ad_placement: source === 'ad' ? 'hero_shuffle' : null,
     }));
+    return true;
   }, [getNextHero, refreshRevealState, currentHero?.id, dayNumber, isPaidEntitled, heroPoolRevision]);
 
   const handleHeroShuffle = useCallback(() => {
@@ -453,7 +478,7 @@ export default function HomeScreen() {
     }));
 
     if (!canShuffleHero) {
-      Alert.alert("Today's reader images are complete.", 'You have seen the available readers for today.');
+      Alert.alert('No more reader images', 'The available readers for today have all appeared.');
       return;
     }
 
@@ -462,9 +487,11 @@ export default function HomeScreen() {
       return;
     }
 
+    if (!rewardedAdsEnabled) return;
+
     Alert.alert(
-      'Watch an ad to show another reader image.',
-      `You can change the reader image ${heroShuffleRemaining} more time${heroShuffleRemaining === 1 ? '' : 's'} today.`,
+      "Shuffle today's reader?",
+      `Watch one short ad to change the reader image. ${shuffleRemainingText}`,
       [
         { text: 'Not now', style: 'cancel' },
         {
@@ -475,13 +502,18 @@ export default function HomeScreen() {
               user_day_number: dayNumber,
               is_paid_entitled: isPaidEntitled,
             }));
-            const result = await showRewardedAd({ placement: 'hero_shuffle', metadata: { heroId: currentHero?.id } });
+            const result = await showRewardedAd({
+              placement: 'hero_shuffle',
+              metadata: { heroId: currentHero?.id },
+              requireLoaded: true,
+            });
             if (!result.rewarded) {
               track(Events.HERO_SHUFFLE_AD_FAILED, heroAnalyticsProps(currentHero, {
                 ad_placement: 'hero_shuffle',
                 reason: result.reason || 'not_rewarded',
               }));
-              Alert.alert('Ad unavailable', 'The reader image did not change. Please try again.');
+              Alert.alert('Ad still loading', 'The reader image did not change. Try again in a moment.');
+              preloadRewardedAd({ placement: 'hero_shuffle' });
               return;
             }
             track(Events.HERO_SHUFFLE_AD_COMPLETED, heroAnalyticsProps(currentHero, {
@@ -489,12 +521,13 @@ export default function HomeScreen() {
               user_day_number: dayNumber,
               is_paid_entitled: isPaidEntitled,
             }));
-            changeHero('ad');
+            const changed = await changeHero('ad');
+            if (!changed) preloadRewardedAd({ placement: 'hero_shuffle' });
           },
         },
       ],
     );
-  }, [currentHero, dayNumber, isPaidEntitled, heroShuffleRemaining, canShuffleHero, changeHero]);
+  }, [currentHero, dayNumber, isPaidEntitled, canShuffleHero, rewardedAdsEnabled, shuffleRemainingText, changeHero]);
 
   const vibe = getDailyVibe();
   const moment = getDailyMoment();
@@ -504,14 +537,19 @@ export default function HomeScreen() {
     : null;
   const heroMood = isHumanReadableHeroText(currentHero?.readerMood)
     ? normalizeHeroCopy(currentHero.readerMood)
-    : (heroTitle || "TODAY'S READER");
+    : (heroTitle || "Today's reader");
   const heroHeadline = isHumanReadableHeroText(currentHero?.headline)
       && !isGenericHeroFallbackHeadline(currentHero?.headline, currentHero?.readerMood)
     ? normalizeHeroCopy(currentHero.headline)
-    : 'Your reader is ready.';
-  const heroCta = currentHero?.cta || currentHero?.CTA || 'Let her draw your first signal';
-  const activeShuffleCtaText = width < 360 ? 'Change reader image' : 'Show another reader image';
-  const shuffleCtaText = canShuffleHero ? activeShuffleCtaText : "Today's reader images are complete";
+    : "Your reader has opened today's signal.";
+  const heroCta = normalizeHeroCopy(currentHero?.cta || currentHero?.CTA) || 'Draw my first signal';
+  const activeShuffleCtaText = width < 360 ? 'Shuffle reader' : 'Shuffle reader image';
+  const shuffleCtaText = canShuffleHero ? activeShuffleCtaText : 'No more reader shuffles today';
+  const showHeroShuffleControl = heroImages.length > 1 && (isPaidEntitled || rewardedAdsEnabled);
+  const footerOffers = [
+    todayUnlockEnabled ? `Unlock today ${dailyPrice}` : null,
+    thirtyDayUnlockEnabled ? `Open 30 days ${fullPrice}` : null,
+  ].filter(Boolean);
   const hideBannerAd = paywall !== null || isPaidEntitled;
 
   return (
@@ -553,6 +591,8 @@ export default function HomeScreen() {
         <Animated.View style={{ opacity: heroFade }}>
           <HeroImage
             source={currentHero?.url}
+            mediaType={currentHero?.mediaType || 'image'}
+            posterUrl={currentHero?.posterUrl}
             version={heroPool?.revision || currentHero?.revision || currentHero?.updatedAt}
             fallbackEnabled={monetizationConfig.fallbackHeroEnabled}
           />
@@ -576,19 +616,19 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ) : null}
 
-          <TouchableOpacity
-            activeOpacity={0.78}
-            onPress={handleHeroShuffle}
-            disabled={purchasing}
-            style={[styles.shuffleCta, !canShuffleHero && styles.shuffleCtaDisabled]}
-          >
-            {canShuffleHero ? (
-              <Feather name="shuffle" size={13} color={palette.textMuted} style={styles.shuffleIcon} />
-            ) : null}
-            <Text style={styles.shuffleCtaText}>{shuffleCtaText}</Text>
-          </TouchableOpacity>
-          {canShuffleHero ? (
-            <Text style={styles.shuffleHint}>You have more reader images for today.</Text>
+          {showHeroShuffleControl ? (
+            <>
+              <TouchableOpacity
+                activeOpacity={0.78}
+                onPress={handleHeroShuffle}
+                disabled={purchasing || !canShuffleHero}
+                style={[styles.shuffleCta, !canShuffleHero && styles.shuffleCtaDisabled]}
+              >
+                <Feather name="shuffle" size={14} color={canShuffleHero ? palette.accent : palette.textMuted} style={styles.shuffleIcon} />
+                <Text style={styles.shuffleCtaText}>{shuffleCtaText}</Text>
+              </TouchableOpacity>
+              <Text style={styles.shuffleHint}>{shuffleRemainingText}</Text>
+            </>
           ) : null}
         </View>
 
@@ -635,6 +675,9 @@ export default function HomeScreen() {
                     isDeepUnlocked={isDeepUnlocked}
                     isPaidEntitled={isPaidEntitled}
                     deeperEnabled={monetizationConfig.deeperMeaningEnabled}
+                    rewardedAdsEnabled={rewardedAdsEnabled}
+                    todayUnlockEnabled={todayUnlockEnabled}
+                    thirtyDayUnlockEnabled={thirtyDayUnlockEnabled}
                     dailyPrice={dailyPrice}
                     fullPrice={fullPrice}
                     highlighted={highlightedCategory === cat}
@@ -648,11 +691,11 @@ export default function HomeScreen() {
               );
             })}
 
-            {!isPaidEntitled && (
+            {!isPaidEntitled && footerOffers.length > 0 && (
               <View style={styles.footerBlock}>
                 <Text style={styles.footerTitle}>The first signal found you.</Text>
                 <Text style={styles.footerNote}>
-                  Reveal all today · {dailyPrice} · Open 30 days · {fullPrice}
+                  {footerOffers.join(' · ')}
                 </Text>
               </View>
             )}
@@ -668,7 +711,7 @@ export default function HomeScreen() {
         entryCategory={paywall?.category}
         entryPoint={paywall?.entryPoint}
         onRewardPress={
-          paywall?.category
+          rewardedAdsEnabled && paywall?.category
             ? () => {
                 const index = categoryOrder.indexOf(paywall.category);
                 setPaywall(null);
@@ -677,6 +720,8 @@ export default function HomeScreen() {
             : null
         }
         rewardLabel="Or reveal one more with an ad"
+        todayUnlockEnabled={todayUnlockEnabled}
+        thirtyDayUnlockEnabled={thirtyDayUnlockEnabled}
       />
     </ScreenShell>
   );
@@ -765,33 +810,35 @@ const styles = StyleSheet.create({
   },
   shuffleCta: {
     marginTop: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md + 2,
+    paddingVertical: spacing.sm + 2,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: palette.glassBorder,
-    backgroundColor: 'rgba(255,255,255,0.025)',
+    borderColor: 'rgba(201,169,110,0.36)',
+    backgroundColor: 'rgba(201,169,110,0.055)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   shuffleCtaDisabled: {
-    opacity: 0.55,
+    opacity: 0.56,
+    borderColor: palette.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.025)',
   },
   shuffleIcon: {
     marginRight: spacing.xs,
-    opacity: 0.78,
+    opacity: 0.92,
   },
   shuffleCtaText: {
     ...type.caption,
-    color: palette.textSub,
+    color: palette.text,
     fontWeight: '700',
     textAlign: 'center',
   },
   shuffleHint: {
     ...type.caption,
     color: palette.textMuted,
-    fontSize: 11,
+    fontSize: 11.5,
     marginTop: spacing.xs,
     opacity: 0.72,
     textAlign: 'center',

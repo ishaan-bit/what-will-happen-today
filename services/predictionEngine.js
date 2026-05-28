@@ -32,16 +32,19 @@ const CATEGORY_OFFSETS = {
 const CATEGORIES = ['love', 'career', 'money', 'mood'];
 
 function heroUrl(hero) {
-  return hero?.imageUrl || hero?.url || hero?.uri || hero?.src || null;
+  return hero?.mediaUrl || hero?.imageUrl || hero?.url || hero?.uri || hero?.src || null;
 }
 
 function normalizeHero(hero) {
   const url = heroUrl(hero);
   if (!hero || !url) return null;
+  const mediaType = hero.mediaType === 'video' ? 'video' : 'image';
   return {
     ...hero,
     url,
-    imageUrl: url,
+    mediaUrl: url,
+    mediaType,
+    ...(mediaType === 'image' ? { imageUrl: url } : {}),
     cta: hero.cta || hero.CTA || hero.ctaCopy || null,
   };
 }

@@ -1,7 +1,7 @@
 /**
- * Dev/local-friendly hero batch image upload.
+ * Dev/local-friendly hero batch media upload.
  *
- * This stores resized data URLs in namespaced Redis asset keys and returns a
+ * This stores data URLs in namespaced Redis asset keys and returns a
  * production-fetchable backend URL. It is additive and does not touch
  * wwht:heroImage. For high-volume production use, replace this with object
  * storage/CDN and keep the same returned URL contract.
@@ -10,7 +10,7 @@ import { Redis } from '@upstash/redis';
 import { requireOpsAuth } from '@/lib/opsAuth';
 import { hashToUint, normalizeDateKey } from '@/lib/heroPool';
 
-const MAX_DATA_URL_BYTES = parseInt(process.env.HERO_BATCH_UPLOAD_MAX_BYTES || '900000', 10);
+const MAX_DATA_URL_BYTES = parseInt(process.env.HERO_BATCH_UPLOAD_MAX_BYTES || '12000000', 10);
 const ASSET_PREFIX = 'wwht:heroBatchAsset:';
 
 let _redis = null;
@@ -24,7 +24,7 @@ function assetKey(dateKey, id) {
 }
 
 function parseDataUrl(dataUrl) {
-  const match = String(dataUrl || '').match(/^data:(image\/(?:jpeg|jpg|png|webp));base64,([a-zA-Z0-9+/=]+)$/);
+  const match = String(dataUrl || '').match(/^data:(image\/(?:jpeg|jpg|png|webp)|video\/mp4);base64,([a-zA-Z0-9+/=]+)$/);
   if (!match) return null;
   return {
     contentType: match[1] === 'image/jpg' ? 'image/jpeg' : match[1],
@@ -40,7 +40,7 @@ function getBaseUrl(req) {
 }
 
 export const config = {
-  api: { bodyParser: { sizeLimit: '4mb' } },
+  api: { bodyParser: { sizeLimit: '16mb' } },
 };
 
 export default async function handler(req, res) {
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
   const dateKey = normalizeDateKey(body.dateKey || body.date);
   const parsed = parseDataUrl(body.dataUrl);
   if (!parsed) {
-    return res.status(400).json({ error: 'invalid_image_data_url' });
+    return res.status(400).json({ error: 'invalid_media_data_url' });
   }
 
   const bytes = Math.ceil(parsed.base64.length * 0.75);
@@ -63,12 +63,14 @@ export default async function handler(req, res) {
     });
   }
 
-  const fileName = String(body.fileName || 'hero-image').replace(/[^\w.-]/g, '_').slice(0, 120);
+  const mediaType = parsed.contentType.startsWith('video/') ? 'video' : 'image';
+  const fileName = String(body.fileName || `hero-${mediaType}`).replace(/[^\w.-]/g, '_').slice(0, 120);
   const id = `asset_${hashToUint(`${dateKey}|${fileName}|${parsed.base64.slice(0, 64)}`).toString(36)}`;
   const value = {
     id,
     dateKey,
     fileName,
+    mediaType,
     contentType: parsed.contentType,
     base64: parsed.base64,
     bytes,
@@ -78,5 +80,5 @@ export default async function handler(req, res) {
   await getRedis().set(assetKey(dateKey, id), JSON.stringify(value));
 
   const url = `${getBaseUrl(req)}/api/hero-batch/image?date=${encodeURIComponent(dateKey)}&id=${encodeURIComponent(id)}`;
-  return res.status(200).json({ ok: true, id, dateKey, url, bytes, contentType: parsed.contentType });
+  return res.status(200).json({ ok: true, id, dateKey, url, mediaType, bytes, contentType: parsed.contentType });
 }

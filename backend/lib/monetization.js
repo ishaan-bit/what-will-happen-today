@@ -56,7 +56,7 @@ export function normalizeMonetizationConfig(input = {}) {
 
 export function mergeMonetizationConfig(remote = null, poolConfig = null) {
   return normalizeMonetizationConfig({
-    ...(remote || {}),
     ...(poolConfig || {}),
+    ...(remote || {}),
   });
 }

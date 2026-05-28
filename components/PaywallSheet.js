@@ -32,6 +32,8 @@ export function PaywallSheet({
   rewardLabel = 'Or reveal one more with an ad',
   heading = 'The first signal found you.\nThe rest are still waiting.',
   subheading = 'Reveal the hidden signals and the deeper meanings under them.',
+  todayUnlockEnabled = true,
+  thirtyDayUnlockEnabled = true,
 }) {
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(400)).current;
@@ -167,6 +169,7 @@ export function PaywallSheet({
         ) : null}
 
         {/* PRIMARY: Full unlock */}
+        {thirtyDayUnlockEnabled ? (
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleBuyFull}
@@ -195,8 +198,10 @@ export function PaywallSheet({
             </View>
           </LinearGradient>
         </TouchableOpacity>
+        ) : null}
 
         {/* SECONDARY: Daily unlock */}
+        {todayUnlockEnabled ? (
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={handleBuyDaily}
@@ -215,6 +220,7 @@ export function PaywallSheet({
             )}
           </View>
         </TouchableOpacity>
+        ) : null}
 
         {/* Footer */}
         <View style={styles.footer}>

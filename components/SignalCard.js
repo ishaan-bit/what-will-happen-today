@@ -47,6 +47,9 @@ export function SignalCard({
   isDeepUnlocked,
   isPaidEntitled,
   deeperEnabled = true,
+  rewardedAdsEnabled = true,
+  todayUnlockEnabled = true,
+  thirtyDayUnlockEnabled = true,
   onUnlockPress,
   onWatchAdPress,
   onBuyDailyPress,
@@ -65,6 +68,7 @@ export function SignalCard({
   const deeper = getDeeperMeaning(category, prediction);
   const revealAnim = useRef(new Animated.Value(0)).current;
   const highlightAnim = useRef(new Animated.Value(0)).current;
+  const hasLockedActions = rewardedAdsEnabled || todayUnlockEnabled || thirtyDayUnlockEnabled;
 
   useEffect(() => {
     if (!highlighted) return;
@@ -164,10 +168,12 @@ export function SignalCard({
     } catch (_) {}
   }, [canRead, category, prediction]);
 
-  const borderColor = expanded && canRead ? `${meta.color}88` : palette.glassBorder;
+  const borderColor = expanded && canRead
+    ? `${meta.color}88`
+    : (!canRead ? `${meta.color}66` : palette.glassBorder);
 
   return (
-    <View style={[styles.card, { borderColor }]}>
+    <View style={[styles.card, !canRead && styles.lockedCard, { borderColor }]}>
       <Animated.View
         pointerEvents="none"
         style={[styles.highlightOverlay, { opacity: highlightAnim }]}
@@ -181,6 +187,14 @@ export function SignalCard({
         <LinearGradient
           colors={[`${meta.color}22`, 'transparent']}
           style={styles.topGlow}
+          pointerEvents="none"
+        />
+      )}
+
+      {!canRead && (
+        <LinearGradient
+          colors={[`${meta.color}24`, 'transparent']}
+          style={styles.lockedGlow}
           pointerEvents="none"
         />
       )}
@@ -212,7 +226,7 @@ export function SignalCard({
             {revealing ? '·' : expanded ? '−' : '+'}
           </Text>
         ) : (
-          <View style={[styles.lockBadge, { borderColor: `${meta.color}55` }]}>
+          <View style={[styles.lockBadge, { borderColor: `${meta.color}88`, backgroundColor: `${meta.color}16` }]}>
             <Text style={[styles.lockText, { color: meta.color }]}>Reveal</Text>
           </View>
         )}
@@ -289,14 +303,20 @@ export function SignalCard({
                   <Text style={styles.deeperLockedText}>
                     The first meaning is open. The deeper one is still hidden.
                   </Text>
-                  <View style={styles.lockedActions}>
-                    <TouchableOpacity activeOpacity={0.82} onPress={onDeeperAdPress} style={[styles.actionChip, { borderColor: `${meta.color}55` }]}>
-                      <Text style={[styles.actionChipText, { color: meta.color }]}>Watch ad</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity activeOpacity={0.82} onPress={onBuyDailyPress} style={styles.actionChip}>
-                      <Text style={styles.actionChipText}>Unlock today {dailyPrice}</Text>
-                    </TouchableOpacity>
-                  </View>
+                  {rewardedAdsEnabled || todayUnlockEnabled ? (
+                    <View style={styles.lockedActions}>
+                      {rewardedAdsEnabled ? (
+                        <TouchableOpacity activeOpacity={0.82} onPress={onDeeperAdPress} style={[styles.actionChip, { borderColor: `${meta.color}66` }]}>
+                          <Text style={[styles.actionChipText, { color: meta.color }]} numberOfLines={1}>Watch ad</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                      {todayUnlockEnabled ? (
+                        <TouchableOpacity activeOpacity={0.82} onPress={onBuyDailyPress} style={styles.actionChip}>
+                          <Text style={styles.actionChipText} numberOfLines={1}>Unlock today {dailyPrice}</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  ) : null}
                 </>
               )}
             </View>
@@ -335,34 +355,42 @@ export function SignalCard({
       {!canRead && (
         <View style={[styles.lockedFooter, { borderColor: `${meta.color}33` }]}>
           <Text style={styles.lockedFooterTitle}>She can draw this one now.</Text>
-          <View style={styles.lockedActions}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => {
-                expandHaptic();
-                track(Events.LOCKED_SIGNAL_TAP, { category });
-                track(Events.LOCKED_CARD_TAP, { category });
-                onWatchAdPress?.();
-              }}
-              style={[styles.actionChip, { borderColor: `${meta.color}55` }]}
-            >
-              <Text style={[styles.actionChipText, { color: meta.color }]}>Reveal with ad</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={onBuyDailyPress || onUnlockPress}
-              style={styles.actionChip}
-            >
-              <Text style={styles.actionChipText}>Unlock today {dailyPrice}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={onBuyFullPress || onUnlockPress}
-              style={styles.actionChip}
-            >
-              <Text style={styles.actionChipText}>Open 30 days {fullPrice}</Text>
-            </TouchableOpacity>
-          </View>
+          {hasLockedActions ? (
+            <View style={styles.lockedActions}>
+              {rewardedAdsEnabled ? (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    expandHaptic();
+                    track(Events.LOCKED_SIGNAL_TAP, { category });
+                    track(Events.LOCKED_CARD_TAP, { category });
+                    onWatchAdPress?.();
+                  }}
+                  style={[styles.actionChip, styles.revealChip, { borderColor: `${meta.color}77`, backgroundColor: `${meta.color}12` }]}
+                >
+                  <Text style={[styles.actionChipText, { color: meta.color }]} numberOfLines={1}>Reveal with ad</Text>
+                </TouchableOpacity>
+              ) : null}
+              {todayUnlockEnabled ? (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={onBuyDailyPress || onUnlockPress}
+                  style={styles.actionChip}
+                >
+                  <Text style={styles.actionChipText} numberOfLines={1}>Unlock today {dailyPrice}</Text>
+                </TouchableOpacity>
+              ) : null}
+              {thirtyDayUnlockEnabled ? (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={onBuyFullPress || onUnlockPress}
+                  style={styles.actionChip}
+                >
+                  <Text style={styles.actionChipText} numberOfLines={1}>Open 30 days {fullPrice}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       )}
       {false && !canRead && (
@@ -393,6 +421,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: spacing.md,
     minHeight: 96,
+  },
+  lockedCard: {
+    backgroundColor: 'rgba(18,18,30,0.96)',
+    shadowColor: '#000',
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    elevation: 2,
   },
   highlightOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -425,6 +460,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 80,
+    zIndex: 0,
+  },
+  lockedGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 96,
     zIndex: 0,
   },
   cornerSigilTL: {
@@ -498,8 +541,8 @@ const styles = StyleSheet.create({
   lockBadge: {
     borderWidth: 1,
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 5,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: 6,
     marginTop: 4,
   },
   lockText: {
@@ -656,15 +699,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.glassBorder,
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 7,
-    backgroundColor: 'rgba(255,255,255,0.025)',
+    paddingHorizontal: spacing.sm + 3,
+    paddingVertical: 8,
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  revealChip: {
+    minWidth: 112,
   },
   actionChipText: {
     ...type.caption,
     color: palette.textSub,
     fontWeight: '700',
     fontSize: 12,
+    flexShrink: 0,
   },
   deeperBox: {
     borderWidth: 1,

@@ -35,8 +35,26 @@ export default async function handler(req, res) {
   }
 
   const buffer = Buffer.from(asset.base64, 'base64');
+  const range = req.headers.range;
   res.setHeader('Content-Type', asset.contentType);
-  res.setHeader('Content-Length', String(buffer.length));
   res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400');
+  res.setHeader('Accept-Ranges', 'bytes');
+
+  if (range) {
+    const match = String(range).match(/bytes=(\d*)-(\d*)/);
+    if (match) {
+      const start = match[1] ? parseInt(match[1], 10) : 0;
+      const end = match[2] ? parseInt(match[2], 10) : buffer.length - 1;
+      const safeStart = Math.max(0, Math.min(start, buffer.length - 1));
+      const safeEnd = Math.max(safeStart, Math.min(end, buffer.length - 1));
+      const chunk = buffer.subarray(safeStart, safeEnd + 1);
+      res.statusCode = 206;
+      res.setHeader('Content-Range', `bytes ${safeStart}-${safeEnd}/${buffer.length}`);
+      res.setHeader('Content-Length', String(chunk.length));
+      return res.end(chunk);
+    }
+  }
+
+  res.setHeader('Content-Length', String(buffer.length));
   return res.status(200).send(buffer);
 }
