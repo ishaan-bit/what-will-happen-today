@@ -12,7 +12,9 @@ function mockAdsEnabled() {
 
 export function getRewardedAdUnitId(placement) {
   if (placement === 'hero_shuffle') {
-    return process.env.EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID || '';
+    return process.env.EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID
+      || process.env.EXPO_PUBLIC_ADMOB_REWARDED_SIGNAL_UNIT_ID
+      || '';
   }
   if (placement === 'deeper_meaning') {
     return process.env.EXPO_PUBLIC_ADMOB_REWARDED_DEEPER_UNIT_ID
@@ -402,7 +404,17 @@ async function showNativeRewardedAd({ placement, metadata }) {
   });
 }
 
-export async function showRewardedAd({ placement, metadata, requireLoaded = false } = {}) {
+function hasReadyPreloadedAd(placement) {
+  const state = preloadedAds.get(placement);
+  return !!state?.ad && state.loaded && !state.showing;
+}
+
+export async function showRewardedAd({
+  placement,
+  metadata,
+  preferLoaded = false,
+  requireLoaded = false,
+} = {}) {
   if (mockAdsEnabled()) {
     track(Events.REWARDED_AD_REQUESTED, adProps(placement, { source: 'mock' }));
     await new Promise((resolve) => setTimeout(resolve, MOCK_DELAY_MS));
@@ -419,6 +431,10 @@ export async function showRewardedAd({ placement, metadata, requireLoaded = fals
       adUnitId: 'mock',
       metadata: metadata || null,
     };
+  }
+
+  if ((preferLoaded || requireLoaded) && hasReadyPreloadedAd(placement)) {
+    return showPreloadedRewardedAd({ placement, metadata });
   }
 
   if (requireLoaded) {

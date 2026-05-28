@@ -225,7 +225,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!rewardedAdsEnabled || isPaidEntitled || !canShuffleHeroByLimit) return;
-    preloadRewardedAd({ placement: 'hero_shuffle' });
+    preloadRewardedAd({ placement: 'hero_shuffle' }).catch(() => null);
   }, [rewardedAdsEnabled, isPaidEntitled, canShuffleHeroByLimit, currentHero?.id]);
 
   useEffect(() => {
@@ -505,15 +505,21 @@ export default function HomeScreen() {
             const result = await showRewardedAd({
               placement: 'hero_shuffle',
               metadata: { heroId: currentHero?.id },
-              requireLoaded: true,
+              preferLoaded: true,
             });
             if (!result.rewarded) {
+              const adStillLoading = result.reason === 'ad_loading';
               track(Events.HERO_SHUFFLE_AD_FAILED, heroAnalyticsProps(currentHero, {
                 ad_placement: 'hero_shuffle',
                 reason: result.reason || 'not_rewarded',
               }));
-              Alert.alert('Ad still loading', 'The reader image did not change. Try again in a moment.');
-              preloadRewardedAd({ placement: 'hero_shuffle' });
+              Alert.alert(
+                adStillLoading ? 'Ad still loading' : 'Ad unavailable',
+                adStillLoading
+                  ? 'The reader image did not change. Try again in a moment.'
+                  : 'No reward was granted. Please try again.',
+              );
+              preloadRewardedAd({ placement: 'hero_shuffle' }).catch(() => null);
               return;
             }
             track(Events.HERO_SHUFFLE_AD_COMPLETED, heroAnalyticsProps(currentHero, {
@@ -522,7 +528,7 @@ export default function HomeScreen() {
               is_paid_entitled: isPaidEntitled,
             }));
             const changed = await changeHero('ad');
-            if (!changed) preloadRewardedAd({ placement: 'hero_shuffle' });
+            if (!changed) preloadRewardedAd({ placement: 'hero_shuffle' }).catch(() => null);
           },
         },
       ],
