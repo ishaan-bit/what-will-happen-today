@@ -75,7 +75,7 @@ function logHeroShuffleDebug(label, data = {}) {
 }
 
 function heroRewardAlertForResult(result) {
-  if (result?.reason === 'closed_before_reward') {
+  if (result?.reason === 'closed_before_reward' || result?.reason === 'ad_closed_before_reward') {
     return {
       title: 'Reader unchanged',
       body: 'The reader image changes after the ad reward is completed.',

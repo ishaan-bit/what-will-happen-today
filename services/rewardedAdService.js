@@ -5,6 +5,7 @@ const MOCK_DELAY_MS = 850;
 const LOAD_TIMEOUT_MS = 12000;
 const SHOW_TIMEOUT_MS = 90000;
 const REWARD_CLOSE_GRACE_MS = 750;
+const HERO_PLACEMENT = 'hero_shuffle';
 const TEST_REWARDED_UNIT_IDS = {
   android: 'ca-app-pub-3940256099942544/5224354917',
   ios: 'ca-app-pub-3940256099942544/1712485313',
@@ -28,6 +29,15 @@ function platformRewardedUnitId() {
 export function getRewardedAdUnitId(placement) {
   const testUnitId = platformRewardedUnitId();
   if (testUnitId) return testUnitId;
+
+  if (placement === HERO_PLACEMENT) {
+    return (Platform.OS === 'android'
+      ? process.env.EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID
+      : process.env.EXPO_PUBLIC_ADMOB_IOS_REWARDED_HERO_UNIT_ID)
+      || process.env.EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID
+      || process.env.EXPO_PUBLIC_ADMOB_REWARDED_SIGNAL_UNIT_ID
+      || '';
+  }
 
   if (placement === 'deeper_meaning') {
     return process.env.EXPO_PUBLIC_ADMOB_REWARDED_DEEPER_UNIT_ID
@@ -616,4 +626,16 @@ export async function showRewardedAd({
   }
 
   return showNativeRewardedAd({ placement, metadata });
+}
+
+export function getHeroAdStatus() {
+  return getRewardedAdStatus(HERO_PLACEMENT);
+}
+
+export function loadHeroAd(options = {}) {
+  return preloadRewardedAd({ placement: HERO_PLACEMENT, ...options });
+}
+
+export function showHeroAd({ metadata } = {}) {
+  return showRewardedAd({ placement: HERO_PLACEMENT, metadata });
 }
