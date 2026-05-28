@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1026151778181",
+    "project_id": "wwht-c31a9",
+    "storage_bucket": "wwht-c31a9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1026151778181:android:891032c259d035fff866ec",
+        "android_client_info": {
+          "package_name": "com.wwht.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtqOIK_OrAu7chAjwkuIsThLyuvE56Ptk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
