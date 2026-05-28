@@ -5,11 +5,12 @@ const MOCK_DELAY_MS = 850;
 const LOAD_TIMEOUT_MS = 12000;
 const SHOW_TIMEOUT_MS = 90000;
 const REWARD_CLOSE_GRACE_MS = 750;
+const HERO_PLACEMENT = 'hero_shuffle';
 const TEST_REWARDED_UNIT_IDS = {
   android: 'ca-app-pub-3940256099942544/5224354917',
   ios: 'ca-app-pub-3940256099942544/1712485313',
 };
-const preloadedAds = new Map();
+const rewardedPlacements = new Map();
 
 function mockAdsEnabled() {
   return process.env.EXPO_PUBLIC_REWARDED_AD_MOCK === 'true';
@@ -29,11 +30,12 @@ export function getRewardedAdUnitId(placement) {
   const testUnitId = platformRewardedUnitId();
   if (testUnitId) return testUnitId;
 
-  if (placement === 'hero_shuffle') {
+  if (placement === HERO_PLACEMENT) {
     return (Platform.OS === 'android'
       ? process.env.EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID
       : process.env.EXPO_PUBLIC_ADMOB_IOS_REWARDED_HERO_UNIT_ID)
       || process.env.EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID
+      || process.env.EXPO_PUBLIC_ADMOB_REWARDED_SIGNAL_UNIT_ID
       || '';
   }
   if (placement === 'deeper_meaning') {
@@ -62,26 +64,38 @@ function loadGoogleMobileAds() {
 }
 
 function cleanup(unsubs) {
-  unsubs.forEach((unsubscribe) => {
+  unsubs?.forEach((unsubscribe) => {
     try { unsubscribe?.(); } catch {}
   });
 }
 
+function compactError(error) {
+  return {
+    code: error?.code || null,
+    message: error?.message || null,
+  };
+}
+
 function logAdDebug(label, data = {}) {
-  const shouldLog = data?.placement === 'hero_shuffle'
+  const { unitId, adUnitId, ...safeData } = data || {};
+  const shouldLog = safeData?.placement === HERO_PLACEMENT
     || process.env.EXPO_PUBLIC_ADMOB_DEBUG === 'true'
     || (typeof __DEV__ !== 'undefined' && __DEV__);
-  if (shouldLog) {
-    console.log(`[rewarded:${label}]`, {
-      ...data,
-      unitIdPresent: data.unitIdPresent ?? undefined,
-    });
+  if (!shouldLog) return;
+  if (safeData?.placement === HERO_PLACEMENT) {
+    console.log(`[hero-ad] ${label}`, safeData);
+    return;
   }
+  console.log(`[rewarded:${label}]`, safeData);
 }
 
 async function getNativeAds(placement) {
   const unitId = getRewardedAdUnitId(placement);
-  logAdDebug('unit_id_check', { placement, unitIdPresent: !!unitId, testMode: nativeAdTestModeEnabled() });
+  if (placement === HERO_PLACEMENT) {
+    console.log(`[hero-ad] unit present ${unitId ? 'yes' : 'no'}`);
+  } else {
+    logAdDebug('unit_id_check', { placement, unitIdPresent: !!unitId, testMode: nativeAdTestModeEnabled() });
+  }
   if (!unitId) return { error: 'missing_ad_unit_id', unitId: '' };
 
   const ads = loadGoogleMobileAds();
@@ -99,124 +113,188 @@ async function getNativeAds(placement) {
   return { ads, unitId };
 }
 
-export function getRewardedAdStatus(placement = 'locked_signal') {
-  if (mockAdsEnabled()) return { loaded: true, loading: false, showing: false, phase: 'ready', reason: 'mock' };
-  const state = preloadedAds.get(placement);
+function createPlacementState(placement, patch = {}) {
   return {
-    loaded: !!state?.loaded,
-    loading: !!state?.loading,
-    showing: !!state?.showing,
-    phase: state?.phase || 'idle',
+    placement,
+    ad: null,
+    unitId: '',
+    phase: 'idle',
+    loaded: false,
+    loading: false,
+    showing: false,
+    unsubs: [],
+    loadTimer: null,
+    reason: null,
+    error: null,
+    ...patch,
+  };
+}
+
+function clearPlacementInstance(state) {
+  if (!state) return;
+  clearTimeout(state.loadTimer);
+  cleanup(state.unsubs);
+  state.unsubs = [];
+  state.loadTimer = null;
+  state.ad = null;
+}
+
+function resetPlacementState(placement, phase = 'idle', patch = {}) {
+  const existing = rewardedPlacements.get(placement);
+  clearPlacementInstance(existing);
+  const state = createPlacementState(placement, {
+    unitId: existing?.unitId || '',
+    phase,
+    loaded: phase === 'loaded',
+    loading: phase === 'loading',
+    showing: phase === 'showing',
+    ...patch,
+  });
+  rewardedPlacements.set(placement, state);
+  return state;
+}
+
+function getPlacementState(placement) {
+  const existing = rewardedPlacements.get(placement);
+  if (existing) return existing;
+  const state = createPlacementState(placement);
+  rewardedPlacements.set(placement, state);
+  return state;
+}
+
+export function getRewardedAdStatus(placement = 'locked_signal') {
+  if (mockAdsEnabled()) {
+    return { loaded: true, loading: false, showing: false, phase: 'loaded', state: 'loaded', reason: 'mock' };
+  }
+  const state = rewardedPlacements.get(placement);
+  const phase = state?.phase || 'idle';
+  return {
+    loaded: phase === 'loaded' && !!state?.ad,
+    loading: phase === 'loading',
+    showing: phase === 'showing',
+    phase,
+    state: phase,
     error: state?.error || null,
     reason: state?.reason || null,
   };
 }
 
-export async function preloadRewardedAd({ placement = 'locked_signal' } = {}) {
+export async function preloadRewardedAd({ placement = 'locked_signal', forceFresh = false } = {}) {
   if (mockAdsEnabled()) return getRewardedAdStatus(placement);
-  const existing = preloadedAds.get(placement);
-  if (existing?.loaded || existing?.loading) return getRewardedAdStatus(placement);
 
+  const existing = rewardedPlacements.get(placement);
+  if (!forceFresh && ['loading', 'loaded', 'showing'].includes(existing?.phase)) {
+    return getRewardedAdStatus(placement);
+  }
+
+  clearPlacementInstance(existing);
   const native = await getNativeAds(placement);
   if (native.error) {
-    preloadedAds.set(placement, { loaded: false, loading: false, reason: native.error });
+    const phase = native.error === 'missing_ad_unit_id' || native.error === 'ad_sdk_unavailable'
+      ? 'unavailable'
+      : 'failed';
+    resetPlacementState(placement, phase, {
+      reason: native.error,
+      unitId: native.unitId || '',
+      error: null,
+    });
+    logAdDebug(phase === 'unavailable' ? 'unavailable' : 'failed to load', {
+      placement,
+      reason: native.error,
+      unitIdPresent: false,
+    });
     return getRewardedAdStatus(placement);
   }
 
   const { RewardedAd, RewardedAdEventType, AdEventType } = native.ads;
-  const unsubs = [];
-  const state = {
-    ad: null,
+  const state = createPlacementState(placement, {
     unitId: native.unitId,
     phase: 'loading',
-    loaded: false,
     loading: true,
-    showing: false,
-    unsubs,
-    loadTimer: null,
-    reason: null,
-    error: null,
-  };
+  });
 
   try {
+    logAdDebug('create fresh instance', { placement, unitIdPresent: true });
     state.ad = RewardedAd.createForAdRequest(native.unitId, {
       requestNonPersonalizedAdsOnly: true,
     });
   } catch (err) {
-    preloadedAds.set(placement, {
-      loaded: false,
-      loading: false,
+    resetPlacementState(placement, 'failed', {
       reason: 'ad_sdk_create_failed',
       error: err,
+      unitId: native.unitId,
     });
+    logAdDebug('failed to load', { placement, reason: 'ad_sdk_create_failed', ...compactError(err) });
     return getRewardedAdStatus(placement);
   }
 
-  unsubs.push(state.ad.addAdEventListener(RewardedAdEventType.LOADED, () => {
+  const failLoad = (reason, error = null) => {
+    if (rewardedPlacements.get(placement) !== state) return;
+    clearTimeout(state.loadTimer);
+    state.loaded = false;
+    state.loading = false;
+    state.showing = false;
+    state.phase = 'failed';
+    state.reason = reason;
+    state.error = error;
+    state.ad = null;
+    cleanup(state.unsubs);
+    state.unsubs = [];
+    track(Events.REWARDED_AD_FAILED, adProps(placement, {
+      source: 'preload',
+      reason,
+      ...compactError(error),
+    }));
+    if (reason === 'load_timeout') {
+      logAdDebug('timeout while loading', { placement });
+    } else {
+      logAdDebug('failed to load', { placement, ...compactError(error), reason });
+    }
+  };
+
+  state.unsubs.push(state.ad.addAdEventListener(RewardedAdEventType.LOADED, () => {
+    if (rewardedPlacements.get(placement) !== state) return;
     clearTimeout(state.loadTimer);
     state.loaded = true;
     state.loading = false;
-    state.phase = 'ready';
+    state.showing = false;
+    state.phase = 'loaded';
     state.reason = null;
+    state.error = null;
     track(Events.REWARDED_AD_LOADED, adProps(placement, { source: 'preload' }));
     logAdDebug('loaded', { placement });
   }));
 
-  unsubs.push(state.ad.addAdEventListener(AdEventType.ERROR, (error) => {
-    clearTimeout(state.loadTimer);
-    state.loaded = false;
-    state.loading = false;
-    state.phase = 'failed';
-    state.reason = 'load_error';
-    state.error = error;
-    cleanup(state.unsubs);
-    preloadedAds.delete(placement);
-    track(Events.REWARDED_AD_FAILED, adProps(placement, {
-      source: 'preload',
-      reason: 'load_error',
-      code: error?.code || null,
-      message: error?.message || null,
-    }));
-    logAdDebug('load_error', { placement, code: error?.code || null, message: error?.message || null });
+  state.unsubs.push(state.ad.addAdEventListener(AdEventType.ERROR, (error) => {
+    failLoad('load_error', error);
   }));
 
-  preloadedAds.set(placement, state);
+  rewardedPlacements.set(placement, state);
   try {
     track(Events.REWARDED_AD_REQUESTED, adProps(placement, { source: 'preload' }));
+    logAdDebug('load start', { placement, unitIdPresent: true });
     state.loadTimer = setTimeout(() => {
-      if (!state.loading || state.loaded) return;
-      state.loading = false;
-      state.phase = 'failed';
-      state.reason = 'load_timeout';
-      cleanup(state.unsubs);
-      preloadedAds.delete(placement);
-      track(Events.REWARDED_AD_FAILED, adProps(placement, { source: 'preload', reason: 'load_timeout' }));
-      logAdDebug('load_timeout', { placement });
+      if (state.phase !== 'loading') return;
+      failLoad('load_timeout');
     }, LOAD_TIMEOUT_MS);
     state.ad.load();
   } catch (err) {
-    clearTimeout(state.loadTimer);
-    cleanup(state.unsubs);
-    preloadedAds.delete(placement);
-    preloadedAds.set(placement, {
-      loaded: false,
-      loading: false,
-      reason: 'failed_to_load',
-      error: err,
-    });
+    failLoad('failed_to_load', err);
   }
 
   return getRewardedAdStatus(placement);
 }
 
 function showPreloadedRewardedAd({ placement, metadata }) {
-  const state = preloadedAds.get(placement);
-  if (!state?.ad || !state.loaded || state.showing) {
-    logAdDebug('not_ready', { placement, status: getRewardedAdStatus(placement) });
+  const state = getPlacementState(placement);
+  if (!state?.ad || state.phase !== 'loaded') {
+    logAdDebug('not ready', { placement, status: getRewardedAdStatus(placement) });
     return Promise.resolve({
       ok: false,
       rewarded: false,
-      reason: state?.loading ? 'ad_loading' : 'ad_not_ready',
+      reason: state?.phase === 'loading'
+        ? 'ad_loading'
+        : (state?.phase === 'unavailable' ? 'ad_unavailable' : (state?.reason || 'ad_not_ready')),
       placement,
     });
   }
@@ -225,6 +303,7 @@ function showPreloadedRewardedAd({ placement, metadata }) {
     const ads = loadGoogleMobileAds();
     const { RewardedAdEventType, AdEventType } = ads || {};
     if (!RewardedAdEventType || !AdEventType) {
+      resetPlacementState(placement, 'unavailable', { reason: 'ad_sdk_unavailable' });
       resolve({ ok: false, rewarded: false, reason: 'ad_sdk_unavailable', placement });
       return;
     }
@@ -235,6 +314,8 @@ function showPreloadedRewardedAd({ placement, metadata }) {
     state.loaded = false;
     state.loading = false;
     state.phase = 'showing';
+    state.reason = null;
+    state.error = null;
     let settled = false;
     let opened = false;
     let earnedReward = null;
@@ -242,35 +323,32 @@ function showPreloadedRewardedAd({ placement, metadata }) {
     let showTimer = null;
     let closeGraceTimer = null;
 
+    const reloadNext = () => {
+      logAdDebug('reset/reload', { placement });
+      resetPlacementState(placement, 'idle', { unitId: state.unitId });
+      preloadRewardedAd({ placement, forceFresh: true }).catch(() => null);
+    };
+
     const settle = (result) => {
       if (settled) return;
       settled = true;
       clearTimeout(showTimer);
       clearTimeout(closeGraceTimer);
-      state.phase = result.rewarded ? 'rewardEarned' : (result.reason === 'ad_closed_before_reward' ? 'closed' : 'failed');
-      logAdDebug('settled', {
-        placement,
-        phase: state.phase,
-        rewarded: !!result.rewarded,
-        reason: result.reason || null,
-        source: 'preloaded',
-      });
       cleanup(state.unsubs);
-      preloadedAds.delete(placement);
       if (result.rewarded) {
         track(Events.REWARD_GRANTED, adProps(placement, { reward: result.reward || null, source: 'preloaded' }));
       } else {
         track(Events.REWARD_DENIED, adProps(placement, { reason: result.reason || 'not_rewarded', source: 'preloaded' }));
       }
-      preloadRewardedAd({ placement }).catch(() => null);
+      reloadNext();
       resolve(result);
     };
 
     state.unsubs.push(state.ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, (reward) => {
       earnedReward = reward || { type: 'reward', amount: 1 };
-      state.phase = 'rewardEarned';
+      state.phase = 'showing';
       track(Events.REWARDED_AD_EARNED, adProps(placement, { reward: earnedReward, source: 'preloaded' }));
-      logAdDebug('reward_earned', { placement, source: 'preloaded' });
+      logAdDebug('earned reward', { placement });
       if (closed) {
         settle({
           ok: true,
@@ -288,15 +366,15 @@ function showPreloadedRewardedAd({ placement, metadata }) {
 
     state.unsubs.push(state.ad.addAdEventListener(AdEventType.OPENED, () => {
       opened = true;
+      state.phase = 'showing';
       track(Events.REWARDED_AD_OPENED, adProps(placement, { source: 'preloaded' }));
-      logAdDebug('opened', { placement, source: 'preloaded' });
+      logAdDebug('opened', { placement });
     }));
 
     state.unsubs.push(state.ad.addAdEventListener(AdEventType.CLOSED, () => {
       closed = true;
-      state.phase = earnedReward ? 'rewardEarned' : 'closed';
       track(Events.REWARDED_AD_CLOSED, adProps(placement, { earned: !!earnedReward, source: 'preloaded' }));
-      logAdDebug('closed', { placement, earned: !!earnedReward, source: 'preloaded' });
+      logAdDebug('closed', { placement, earned: !!earnedReward });
       const result = {
         ok: !!earnedReward,
         rewarded: !!earnedReward,
@@ -318,28 +396,33 @@ function showPreloadedRewardedAd({ placement, metadata }) {
       track(Events.REWARDED_AD_FAILED, adProps(placement, {
         reason,
         source: 'preloaded',
-        code: error?.code || null,
-        message: error?.message || null,
+        ...compactError(error),
       }));
       state.phase = 'failed';
-      logAdDebug('error', { placement, reason, code: error?.code || null, message: error?.message || null, source: 'preloaded' });
+      state.reason = reason;
+      state.error = error;
+      logAdDebug('show failed', { placement, ...compactError(error), reason });
       settle({ ok: false, rewarded: false, reason, placement, error });
     }));
 
     showTimer = setTimeout(() => {
-      track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: opened ? 'show_timeout' : 'open_timeout', source: 'preloaded' }));
+      const reason = opened ? 'show_timeout' : 'open_timeout';
+      track(Events.REWARDED_AD_FAILED, adProps(placement, { reason, source: 'preloaded' }));
       state.phase = 'failed';
-      logAdDebug('timeout', { placement, reason: opened ? 'show_timeout' : 'open_timeout', source: 'preloaded' });
-      settle({ ok: false, rewarded: false, reason: opened ? 'show_timeout' : 'open_timeout', placement });
+      state.reason = reason;
+      logAdDebug('show failed', { placement, reason });
+      settle({ ok: false, rewarded: false, reason, placement });
     }, SHOW_TIMEOUT_MS);
 
     try {
+      logAdDebug('show attempt', { placement });
       state.ad.show();
-      logAdDebug('show_called', { placement, source: 'preloaded' });
     } catch (err) {
       track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'show_throw', message: err?.message, source: 'preloaded' }));
       state.phase = 'failed';
-      logAdDebug('show_throw', { placement, message: err?.message || null, source: 'preloaded' });
+      state.reason = 'failed_to_show';
+      state.error = err;
+      logAdDebug('show failed', { placement, ...compactError(err), reason: 'show_throw' });
       settle({ ok: false, rewarded: false, reason: 'failed_to_show', placement });
     }
   });
@@ -350,14 +433,14 @@ async function showNativeRewardedAd({ placement, metadata }) {
   if (native.error === 'missing_ad_unit_id') {
     track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'missing_ad_unit_id' }));
     track(Events.REWARD_DENIED, adProps(placement, { reason: 'missing_ad_unit_id' }));
-    logAdDebug('missing_unit_id', { placement, unitIdPresent: false });
+    logAdDebug('missing unit id', { placement, unitIdPresent: false });
     return { ok: false, rewarded: false, reason: 'missing_ad_unit_id', placement };
   }
 
   if (native.error === 'ad_sdk_unavailable') {
     track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'ad_sdk_unavailable' }));
     track(Events.REWARD_DENIED, adProps(placement, { reason: 'ad_sdk_unavailable' }));
-    logAdDebug('sdk_unavailable', { placement });
+    logAdDebug('sdk unavailable', { placement });
     return { ok: false, rewarded: false, reason: 'ad_sdk_unavailable', placement };
   }
 
@@ -375,7 +458,6 @@ async function showNativeRewardedAd({ placement, metadata }) {
     let opened = false;
     let earnedReward = null;
     let closed = false;
-    let phase = 'idle';
     let loadTimer = null;
     let showTimer = null;
     let closeGraceTimer = null;
@@ -386,13 +468,6 @@ async function showNativeRewardedAd({ placement, metadata }) {
       clearTimeout(loadTimer);
       clearTimeout(showTimer);
       clearTimeout(closeGraceTimer);
-      phase = result.rewarded ? 'rewardEarned' : (result.reason === 'ad_closed_before_reward' ? 'closed' : 'failed');
-      logAdDebug('settled', {
-        placement,
-        phase,
-        rewarded: !!result.rewarded,
-        reason: result.reason || null,
-      });
       cleanup(unsubs);
       if (result.rewarded) {
         track(Events.REWARD_GRANTED, adProps(placement, { reward: result.reward || null }));
@@ -425,26 +500,22 @@ async function showNativeRewardedAd({ placement, metadata }) {
 
     unsubs.push(rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
       loaded = true;
-      phase = 'ready';
       track(Events.REWARDED_AD_LOADED, adProps(placement));
       logAdDebug('loaded', { placement });
       try {
-        phase = 'showing';
+        logAdDebug('show attempt', { placement });
         rewardedAd.show();
-        logAdDebug('show_called', { placement });
       } catch (err) {
         track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'show_throw', message: err?.message }));
-        phase = 'failed';
-        logAdDebug('show_throw', { placement, message: err?.message || null });
+        logAdDebug('show failed', { placement, ...compactError(err), reason: 'show_throw' });
         settle({ ok: false, rewarded: false, reason: 'failed_to_show', placement });
       }
     }));
 
     unsubs.push(rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, (reward) => {
       earnedReward = reward || { type: 'reward', amount: 1 };
-      phase = 'rewardEarned';
       track(Events.REWARDED_AD_EARNED, adProps(placement, { reward: earnedReward }));
-      logAdDebug('reward_earned', { placement });
+      logAdDebug('earned reward', { placement });
       if (closed) {
         settle({
           ok: true,
@@ -462,14 +533,12 @@ async function showNativeRewardedAd({ placement, metadata }) {
 
     unsubs.push(rewardedAd.addAdEventListener(AdEventType.OPENED, () => {
       opened = true;
-      phase = 'showing';
       track(Events.REWARDED_AD_OPENED, adProps(placement));
       logAdDebug('opened', { placement });
     }));
 
     unsubs.push(rewardedAd.addAdEventListener(AdEventType.CLOSED, () => {
       closed = true;
-      phase = earnedReward ? 'rewardEarned' : 'closed';
       track(Events.REWARDED_AD_CLOSED, adProps(placement, { earned: !!earnedReward }));
       logAdDebug('closed', { placement, earned: !!earnedReward });
       const result = {
@@ -492,49 +561,44 @@ async function showNativeRewardedAd({ placement, metadata }) {
       const reason = opened ? 'show_error' : 'load_error';
       track(Events.REWARDED_AD_FAILED, adProps(placement, {
         reason,
-        code: error?.code || null,
-        message: error?.message || null,
+        ...compactError(error),
       }));
-      phase = 'failed';
-      logAdDebug('error', { placement, reason, code: error?.code || null, message: error?.message || null });
+      logAdDebug(opened ? 'show failed' : 'failed to load', { placement, reason, ...compactError(error) });
       settle({ ok: false, rewarded: false, reason, placement, error });
     }));
 
     loadTimer = setTimeout(() => {
       if (!loaded) {
         track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'load_timeout' }));
-        phase = 'failed';
-        logAdDebug('timeout', { placement, reason: 'load_timeout' });
+        logAdDebug('timeout while loading', { placement });
         settle({ ok: false, rewarded: false, reason: 'load_timeout', placement });
       }
     }, LOAD_TIMEOUT_MS);
 
     showTimer = setTimeout(() => {
       if (loaded && !earnedReward) {
-        track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: opened ? 'show_timeout' : 'open_timeout' }));
-        phase = 'failed';
-        logAdDebug('timeout', { placement, reason: opened ? 'show_timeout' : 'open_timeout' });
-        settle({ ok: false, rewarded: false, reason: opened ? 'show_timeout' : 'open_timeout', placement });
+        const reason = opened ? 'show_timeout' : 'open_timeout';
+        track(Events.REWARDED_AD_FAILED, adProps(placement, { reason }));
+        logAdDebug('show failed', { placement, reason });
+        settle({ ok: false, rewarded: false, reason, placement });
       }
     }, SHOW_TIMEOUT_MS);
 
     try {
-      phase = 'loading';
       track(Events.REWARDED_AD_REQUESTED, adProps(placement));
-      logAdDebug('load_requested', { placement, unitIdPresent: true });
+      logAdDebug('load start', { placement, unitIdPresent: true });
       rewardedAd.load();
     } catch (err) {
       track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'load_throw', message: err?.message }));
-      phase = 'failed';
-      logAdDebug('load_throw', { placement, message: err?.message || null });
+      logAdDebug('failed to load', { placement, ...compactError(err), reason: 'load_throw' });
       settle({ ok: false, rewarded: false, reason: 'failed_to_load', placement });
     }
   });
 }
 
 function hasReadyPreloadedAd(placement) {
-  const state = preloadedAds.get(placement);
-  return !!state?.ad && state.loaded && !state.showing;
+  const state = rewardedPlacements.get(placement);
+  return !!state?.ad && state.phase === 'loaded';
 }
 
 export async function showRewardedAd({
@@ -570,4 +634,20 @@ export async function showRewardedAd({
   }
 
   return showNativeRewardedAd({ placement, metadata });
+}
+
+export function getHeroAdStatus() {
+  return getRewardedAdStatus(HERO_PLACEMENT);
+}
+
+export function loadHeroAd(options = {}) {
+  return preloadRewardedAd({ placement: HERO_PLACEMENT, ...options });
+}
+
+export function showHeroAd({ metadata } = {}) {
+  return showRewardedAd({
+    placement: HERO_PLACEMENT,
+    metadata,
+    requireLoaded: true,
+  });
 }
