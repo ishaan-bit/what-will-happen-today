@@ -34,7 +34,8 @@ import {
   recordHeroShuffle,
   setCurrentHeroForToday,
 } from '@/services/storageService';
-import { getHeroAdStatus, loadHeroAd, showHeroAd, showRewardedAd } from '@/services/rewardedAdService';
+import { showRewardedAd } from '@/services/rewardedAdService';
+import { showHeroShuffleRewardedAd } from '@/services/heroShuffleRewardedAd';
 import {
   getCategoryOrder,
   getDailyVibe,
@@ -74,17 +75,10 @@ function logHeroShuffleDebug(label, data = {}) {
 }
 
 function heroRewardAlertForResult(result) {
-  if (result?.reason === 'ad_closed_before_reward') {
+  if (result?.reason === 'closed_before_reward') {
     return {
       title: 'Reader unchanged',
       body: 'The reader image changes after the ad reward is completed.',
-    };
-  }
-
-  if (result?.reason === 'ad_loading') {
-    return {
-      title: 'Ad still loading',
-      body: 'The reader image did not change. Try again in a moment.',
     };
   }
 
@@ -174,7 +168,6 @@ export default function HomeScreen() {
   const heroShuffleAdInFlightRef = useRef(false);
   const [highlightedCategory, setHighlightedCategory] = useState(null);
   const [heroShuffleAdBusy, setHeroShuffleAdBusy] = useState(false);
-  const [heroShuffleAdLoading, setHeroShuffleAdLoading] = useState(false);
 
   useEffect(() => {
     if (!loading) SplashScreen.hideAsync().catch(() => null);
@@ -252,58 +245,6 @@ export default function HomeScreen() {
   }, [currentHeroVisualKey, heroFade]);
 
   useEffect(() => {
-    if (!rewardedAdsEnabled || isPaidEntitled || !canShuffleHeroByLimit) {
-      setHeroShuffleAdLoading(false);
-      return;
-    }
-    let cancelled = false;
-    let attempts = 0;
-    let pollTimer = null;
-    const syncStatus = (label) => {
-      const status = getHeroAdStatus();
-      if (!cancelled) setHeroShuffleAdLoading(!!status.loading && !status.loaded);
-      logHeroShuffleDebug(label, {
-        loaded: status.loaded,
-        loading: status.loading,
-        phase: status.phase,
-        reason: status.reason || null,
-        remainingBefore: heroShuffleRemaining,
-        alternateAvailable: hasAlternateHero && hasUnseenHero,
-      });
-      return status;
-    };
-    syncStatus('preload_before');
-    loadHeroAd()
-      .then(() => {
-        const status = syncStatus('preload_requested');
-        if (status.loaded || !status.loading) return;
-        pollTimer = setInterval(() => {
-          attempts += 1;
-          const nextStatus = syncStatus('preload_poll');
-          if (nextStatus.loaded || !nextStatus.loading || attempts >= 26) {
-            clearInterval(pollTimer);
-          }
-        }, 500);
-      })
-      .catch((error) => {
-        if (!cancelled) setHeroShuffleAdLoading(false);
-        logHeroShuffleDebug('preload_error', { message: error?.message || null });
-      });
-    return () => {
-      cancelled = true;
-      if (pollTimer) clearInterval(pollTimer);
-    };
-  }, [
-    rewardedAdsEnabled,
-    isPaidEntitled,
-    canShuffleHeroByLimit,
-    currentHero?.id,
-    heroShuffleRemaining,
-    hasAlternateHero,
-    hasUnseenHero,
-  ]);
-
-  useEffect(() => {
     if (!currentHero?.id || lastHeroImpressionRef.current === currentHero.id) return;
     lastHeroImpressionRef.current = currentHero.id;
     track(Events.HERO_IMPRESSION, heroAnalyticsProps(currentHero, {
@@ -349,16 +290,6 @@ export default function HomeScreen() {
       refreshRevealState();
       refreshUnlock();
     }, [refresh, refreshRevealState, refreshUnlock])
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!rewardedAdsEnabled || isPaidEntitled || !canShuffleHeroByLimit) return undefined;
-      loadHeroAd().catch((error) => {
-        logHeroShuffleDebug('preload_focus_error', { message: error?.message || null });
-      });
-      return undefined;
-    }, [rewardedAdsEnabled, isPaidEntitled, canShuffleHeroByLimit, currentHero?.id])
   );
 
   const handleSettings = useCallback(() => {
@@ -566,8 +497,10 @@ export default function HomeScreen() {
     return true;
   }, [getNextHero, refreshRevealState, currentHero?.id, dayNumber, isPaidEntitled, heroPoolRevision]);
 
-  const handleHeroShuffle = useCallback(() => {
+  const handleHeroShuffle = useCallback(async () => {
     tap();
+    if (heroShuffleAdInFlightRef.current) return;
+
     track(Events.HERO_SHUFFLE_TAP, heroAnalyticsProps(currentHero, {
       user_day_number: dayNumber,
       is_paid_entitled: isPaidEntitled,
@@ -589,13 +522,18 @@ export default function HomeScreen() {
       inFlight: heroShuffleAdInFlightRef.current,
     });
 
+    if (loading) {
+      Alert.alert('Ad unavailable', 'The reader image did not change. Try again in a moment.');
+      return;
+    }
+
     if (heroImages.length <= 1 || !hasAlternateHero || !hasUnseenHero) {
       Alert.alert('No other reader ready', 'There are no more reader images available right now.');
       return;
     }
 
     if (heroShuffleRemaining <= 0 || seenHeroIds.length >= maxHeroImages) {
-      Alert.alert('No more reader shuffles today', 'No more reader shuffles today.');
+      Alert.alert('No more reader shuffles today', 'Come back tomorrow for a new draw.');
       return;
     }
 
@@ -613,115 +551,59 @@ export default function HomeScreen() {
       Alert.alert('Ad unavailable', 'The reader image did not change. Try again in a moment.');
       return;
     }
-    if (heroShuffleAdInFlightRef.current) return;
 
-    Alert.alert(
-      "Shuffle today's reader?",
-      `Watch one short ad to change the reader image. ${shuffleRemainingText}`,
-      [
-        { text: 'Not now', style: 'cancel' },
-        {
-          text: 'Watch ad',
-          onPress: async () => {
-            if (heroShuffleAdInFlightRef.current) return;
-            const status = getHeroAdStatus();
-            logHeroShuffleDebug('ad_status_before_show', {
-              loaded: status.loaded,
-              loading: status.loading,
-              phase: status.phase,
-              reason: status.reason || null,
-              remainingBefore: heroShuffleRemaining,
-            });
+    heroShuffleAdInFlightRef.current = true;
+    setHeroShuffleAdBusy(true);
+    track(Events.HERO_SHUFFLE_AD_STARTED, heroAnalyticsProps(currentHero, {
+      ad_placement: 'hero_shuffle',
+      user_day_number: dayNumber,
+      is_paid_entitled: isPaidEntitled,
+    }));
+    try {
+      const result = await showHeroShuffleRewardedAd({ metadata: { heroId: currentHero?.id } });
+      logHeroShuffleDebug('ad_result', {
+        rewarded: !!result.rewarded,
+        reason: result.reason || null,
+        source: result.source || null,
+        remainingBefore: heroShuffleRemaining,
+      });
+      if (!result.rewarded) {
+        const copy = heroRewardAlertForResult(result);
+        track(Events.HERO_SHUFFLE_AD_FAILED, heroAnalyticsProps(currentHero, {
+          ad_placement: 'hero_shuffle',
+          reason: result.reason || 'not_rewarded',
+        }));
+        Alert.alert(copy.title, copy.body);
+        return;
+      }
 
-            if (status.phase === 'loading') {
-              setHeroShuffleAdLoading(true);
-              track(Events.HERO_SHUFFLE_AD_FAILED, heroAnalyticsProps(currentHero, {
-                ad_placement: 'hero_shuffle',
-                reason: 'ad_loading',
-              }));
-              Alert.alert('Ad still loading', 'The reader image did not change. Try again in a moment.');
-              return;
-            }
-
-            if (status.phase !== 'loaded') {
-              const nextStatus = await loadHeroAd({ forceFresh: true });
-              setHeroShuffleAdLoading(!!nextStatus.loading && !nextStatus.loaded);
-              track(Events.HERO_SHUFFLE_AD_FAILED, heroAnalyticsProps(currentHero, {
-                ad_placement: 'hero_shuffle',
-                reason: nextStatus.phase === 'unavailable'
-                  ? (nextStatus.reason || 'ad_unavailable')
-                  : (status.reason || status.phase || 'ad_not_ready'),
-              }));
-              if (nextStatus.phase === 'unavailable') {
-                Alert.alert('Ad unavailable', 'The reader image did not change. Try again in a moment.');
-              } else {
-                Alert.alert('Ad still loading', 'The reader image did not change. Try again in a moment.');
-              }
-              return;
-            }
-
-            heroShuffleAdInFlightRef.current = true;
-            setHeroShuffleAdBusy(true);
-            setHeroShuffleAdLoading(false);
-            track(Events.HERO_SHUFFLE_AD_STARTED, heroAnalyticsProps(currentHero, {
-              ad_placement: 'hero_shuffle',
-              user_day_number: dayNumber,
-              is_paid_entitled: isPaidEntitled,
-            }));
-            try {
-              const result = await showHeroAd({ metadata: { heroId: currentHero?.id } });
-              logHeroShuffleDebug('ad_result', {
-                rewarded: !!result.rewarded,
-                reason: result.reason || null,
-                source: result.source || null,
-                remainingBefore: heroShuffleRemaining,
-              });
-              if (!result.rewarded) {
-                const copy = heroRewardAlertForResult(result);
-                track(Events.HERO_SHUFFLE_AD_FAILED, heroAnalyticsProps(currentHero, {
-                  ad_placement: 'hero_shuffle',
-                  reason: result.reason || 'not_rewarded',
-                }));
-                Alert.alert(copy.title, copy.body);
-                loadHeroAd().catch(() => null);
-                return;
-              }
-
-              logHeroShuffleDebug('reward earned, calling shuffle', {
-                remainingBefore: heroShuffleRemaining,
-                currentHeroId: currentHero?.id || null,
-              });
-              const changed = await changeHero('ad');
-              if (changed) {
-                logHeroShuffleDebug('shuffle success', { remainingBefore: heroShuffleRemaining });
-                track(Events.HERO_SHUFFLE_AD_COMPLETED, heroAnalyticsProps(currentHero, {
-                  ad_placement: 'hero_shuffle',
-                  user_day_number: dayNumber,
-                  is_paid_entitled: isPaidEntitled,
-                }));
-              } else {
-                logHeroShuffleDebug('shuffle failed', { reason: 'no_alternate_hero' });
-                loadHeroAd().catch(() => null);
-              }
-            } catch (error) {
-              logHeroShuffleDebug('shuffle failed', { message: error?.message || null });
-              Alert.alert('Ad unavailable', 'The reader image did not change. Try again in a moment.');
-              loadHeroAd({ forceFresh: true }).catch(() => null);
-            } finally {
-              heroShuffleAdInFlightRef.current = false;
-              setHeroShuffleAdBusy(false);
-              setHeroShuffleAdLoading(false);
-            }
-          },
-        },
-      ],
-    );
+      logHeroShuffleDebug('reward true, calling shuffle', {
+        remainingBefore: heroShuffleRemaining,
+        currentHeroId: currentHero?.id || null,
+      });
+      const changed = await changeHero('ad');
+      if (changed) {
+        logHeroShuffleDebug('shuffle success', { remainingBefore: heroShuffleRemaining });
+        track(Events.HERO_SHUFFLE_AD_COMPLETED, heroAnalyticsProps(currentHero, {
+          ad_placement: 'hero_shuffle',
+          user_day_number: dayNumber,
+          is_paid_entitled: isPaidEntitled,
+        }));
+      } else {
+        logHeroShuffleDebug('shuffle failed', { reason: 'no_alternate_hero' });
+      }
+    } catch (error) {
+      logHeroShuffleDebug('shuffle failed', { message: error?.message || null });
+      Alert.alert('Ad unavailable', 'The reader image did not change. Try again in a moment.');
+    } finally {
+      heroShuffleAdInFlightRef.current = false;
+      setHeroShuffleAdBusy(false);
+    }
   }, [
     currentHero,
     dayNumber,
     isPaidEntitled,
     rewardedAdsEnabled,
-    shuffleRemainingText,
     changeHero,
     heroImages.length,
     hasAlternateHero,
@@ -749,8 +631,8 @@ export default function HomeScreen() {
   const heroCta = normalizeHeroCopy(currentHero?.cta || currentHero?.CTA) || 'Draw my first signal';
   const activeShuffleCtaText = width < 360 ? 'Shuffle reader' : 'Shuffle reader image';
   const shuffleCtaText = heroShuffleAdBusy
-    ? 'Waiting for ad'
-    : (heroShuffleAdLoading && !isPaidEntitled && canShuffleHero ? 'Ad loading...' : (canShuffleHero ? activeShuffleCtaText : 'No more reader shuffles today'));
+    ? 'Preparing shuffle...'
+    : (canShuffleHero ? activeShuffleCtaText : 'No more reader shuffles today');
   const showHeroShuffleControl = heroImages.length > 1 && (isPaidEntitled || rewardedAdsEnabled);
   const footerOffers = [
     todayUnlockEnabled ? `Unlock today ${dailyPrice}` : null,
