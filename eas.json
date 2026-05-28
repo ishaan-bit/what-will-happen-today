@@ -8,7 +8,9 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://wwht-backend.vercel.app"
+        "EXPO_PUBLIC_API_URL": "https://wwht-backend.vercel.app",
+        "EXPO_PUBLIC_ADMOB_TEST_MODE": "true",
+        "EXPO_PUBLIC_REWARDED_AD_MOCK": "false"
       }
     },
     "preview": {
@@ -17,13 +19,17 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://wwht-backend.vercel.app"
+        "EXPO_PUBLIC_API_URL": "https://wwht-backend.vercel.app",
+        "EXPO_PUBLIC_ADMOB_TEST_MODE": "true",
+        "EXPO_PUBLIC_REWARDED_AD_MOCK": "false"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://wwht-backend.vercel.app"
+        "EXPO_PUBLIC_API_URL": "https://wwht-backend.vercel.app",
+        "EXPO_PUBLIC_ADMOB_TEST_MODE": "false",
+        "EXPO_PUBLIC_REWARDED_AD_MOCK": "false"
       }
     }
   },

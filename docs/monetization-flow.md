@@ -103,18 +103,21 @@ Native/EAS requirements:
 
 - `app.config.js` injects the Google Mobile Ads config plugin.
 - `EXPO_PUBLIC_ADMOB_ANDROID_APP_ID` should be set for production builds.
-- If missing, the Google sample Android app id is used to avoid native startup crashes, but that is not monetized production config.
+- Dev/test builds can opt into Google sample app ids with `EXPO_PUBLIC_ADMOB_TEST_MODE=true`; production builds must provide the real app id.
 - A new native build is required after adding the plugin.
 
 Reward unit env vars:
 
 - `EXPO_PUBLIC_ADMOB_REWARDED_SIGNAL_UNIT_ID`
 - `EXPO_PUBLIC_ADMOB_REWARDED_DEEPER_UNIT_ID`
-- `EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID`
+- `EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID` for Android hero shuffle rewarded ads
+- `EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID` remains a compatibility fallback for existing builds
+- Production GitHub Actions must set `EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID` or the legacy fallback `EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID`.
 
 Mock mode:
 
 - `EXPO_PUBLIC_REWARDED_AD_MOCK=true` explicitly enables local/dev mock rewards.
+- `EXPO_PUBLIC_ADMOB_TEST_MODE=true` uses Google rewarded test units for dev/internal test builds.
 - Default is false.
 - Production never grants a reward unless the native SDK emits the earned-reward callback.
 
