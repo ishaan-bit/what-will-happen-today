@@ -1,4 +1,4 @@
-import { showRewardedAd } from '@/services/rewardedAdService';
+import { showRewardedAd, getRewardedAdUnitId } from '@/services/rewardedAdService';
 
 const HERO_PLACEMENT = 'hero_shuffle';
 
@@ -20,6 +20,18 @@ const HERO_PLACEMENT = 'hero_shuffle';
  *   - 'missing_ad_unit_id', 'ad_sdk_unavailable': Configuration issue
  */
 export async function showHeroShuffleRewardedAd({ metadata } = {}) {
+  try {
+    const unitId = getRewardedAdUnitId(HERO_PLACEMENT) || '';
+    // Log safe diagnostic: only suffix of unit id
+    console.log('[hero-shuffle] showHeroShuffleRewardedAd requested', {
+      placement: HERO_PLACEMENT,
+      unitIdSuffix: unitId ? unitId.split('/').pop() : null,
+      envPresent: !!unitId,
+    });
+  } catch (err) {
+    console.log('[hero-shuffle] showHeroShuffleRewardedAd diagnostic failed', { message: err?.message || null });
+  }
+
   return showRewardedAd({
     placement: HERO_PLACEMENT,
     metadata,

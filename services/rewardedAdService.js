@@ -31,12 +31,28 @@ export function getRewardedAdUnitId(placement) {
   if (testUnitId) return testUnitId;
 
   if (placement === HERO_PLACEMENT) {
-    return (Platform.OS === 'android'
-      ? process.env.EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID
-      : process.env.EXPO_PUBLIC_ADMOB_IOS_REWARDED_HERO_UNIT_ID)
-      || process.env.EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID
-      || process.env.EXPO_PUBLIC_ADMOB_REWARDED_SIGNAL_UNIT_ID
+    const androidSpecific = process.env.EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID;
+    const iosSpecific = process.env.EXPO_PUBLIC_ADMOB_IOS_REWARDED_HERO_UNIT_ID;
+    const generic = process.env.EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID;
+    const signal = process.env.EXPO_PUBLIC_ADMOB_REWARDED_SIGNAL_UNIT_ID;
+
+    const unitId = (Platform.OS === 'android' ? androidSpecific : iosSpecific)
+      || generic
+      || signal
       || '';
+    // Log hero-specific placement diagnostics
+    logHeroAdDebug('unit_id_resolution', {
+      placement,
+      platform: Platform.OS,
+      androidSpecificPresent: !!androidSpecific,
+      iosSpecificPresent: !!iosSpecific,
+      genericPresent: !!generic,
+      signalFallbackPresent: !!signal,
+      finalUnitIdPresent: !!unitId,
+      finalUnitIdSuffix: unitId ? unitId.split('/').pop() : null,
+    });
+
+    return unitId;
   }
 
   if (placement === 'deeper_meaning') {
@@ -85,10 +101,30 @@ function logAdDebug(label, data = {}) {
   console.log(`[rewarded:${label}]`, safeData);
 }
 
+function logHeroAdDebug(label, data = {}) {
+  const { unitId, adUnitId, ...safeData } = data || {};
+  // Always log hero-specific diagnostics for production debugging
+  console.log(`[hero-rewarded:${label}]`, safeData);
+}
+
 async function getNativeAds(placement) {
   const unitId = getRewardedAdUnitId(placement);
-  logAdDebug('unit_id_check', { placement, unitIdPresent: !!unitId, testMode: nativeAdTestModeEnabled() });
-  if (!unitId) return { error: 'missing_ad_unit_id', unitId: '' };
+  const isHeroPlacement = placement === HERO_PLACEMENT;
+
+  if (!unitId) {
+    if (isHeroPlacement) {
+      logHeroAdDebug('missing_unit_id', { placement, testMode: nativeAdTestModeEnabled() });
+    } else {
+      logAdDebug('unit_id_check', { placement, unitIdPresent: false, testMode: nativeAdTestModeEnabled() });
+    }
+    return { error: 'missing_ad_unit_id', unitId: '' };
+  }
+
+  if (isHeroPlacement) {
+    logHeroAdDebug('unit_id_present', { placement, unitIdSuffix: unitId.split('/').pop() });
+  } else {
+    logAdDebug('unit_id_check', { placement, unitIdPresent: true, testMode: nativeAdTestModeEnabled() });
+  }
 
   const ads = loadGoogleMobileAds();
   if (!ads?.RewardedAd || !ads?.RewardedAdEventType || !ads?.AdEventType) {
@@ -421,8 +457,13 @@ function showPreloadedRewardedAd({ placement, metadata }) {
 }
 
 async function showNativeRewardedAd({ placement, metadata }) {
+  const isHeroPlacement = placement === HERO_PLACEMENT;
   const native = await getNativeAds(placement);
+
   if (native.error === 'missing_ad_unit_id') {
+    if (isHeroPlacement) {
+      logHeroAdDebug('show_failed_missing_unit_id', { error: native.error });
+    }
     track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'missing_ad_unit_id' }));
     track(Events.REWARD_DENIED, adProps(placement, { reason: 'missing_ad_unit_id' }));
     logAdDebug('missing unit id', { placement, unitIdPresent: false });
@@ -430,6 +471,9 @@ async function showNativeRewardedAd({ placement, metadata }) {
   }
 
   if (native.error === 'ad_sdk_unavailable') {
+    if (isHeroPlacement) {
+      logHeroAdDebug('show_failed_sdk_unavailable', { error: native.error });
+    }
     track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'ad_sdk_unavailable' }));
     track(Events.REWARD_DENIED, adProps(placement, { reason: 'ad_sdk_unavailable' }));
     logAdDebug('sdk unavailable', { placement });
@@ -442,6 +486,10 @@ async function showNativeRewardedAd({ placement, metadata }) {
     AdEventType,
   } = native.ads;
   const unitId = native.unitId;
+
+  if (isHeroPlacement) {
+    logHeroAdDebug('load_start', { unitIdSuffix: unitId.split('/').pop() });
+  }
 
   return new Promise((resolve) => {
     const unsubs = [];
@@ -493,13 +541,23 @@ async function showNativeRewardedAd({ placement, metadata }) {
     unsubs.push(rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
       loaded = true;
       track(Events.REWARDED_AD_LOADED, adProps(placement));
-      logAdDebug('loaded', { placement });
+      if (isHeroPlacement) {
+        logHeroAdDebug('ad_loaded', {});
+      } else {
+        logAdDebug('loaded', { placement });
+      }
       try {
         logAdDebug('show attempt', { placement });
+        if (isHeroPlacement) {
+          logHeroAdDebug('show_attempt', {});
+        }
         rewardedAd.show();
       } catch (err) {
         track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'show_throw', message: err?.message }));
         logAdDebug('show failed', { placement, ...compactError(err), reason: 'show_throw' });
+        if (isHeroPlacement) {
+          logHeroAdDebug('show_failed_throw', { reason: 'show_throw', code: err?.code, message: err?.message });
+        }
         settle({ ok: false, rewarded: false, reason: 'failed_to_show', placement });
       }
     }));
@@ -507,7 +565,11 @@ async function showNativeRewardedAd({ placement, metadata }) {
     unsubs.push(rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, (reward) => {
       earnedReward = reward || { type: 'reward', amount: 1 };
       track(Events.REWARDED_AD_EARNED, adProps(placement, { reward: earnedReward }));
-      logAdDebug('earned reward', { placement });
+      if (isHeroPlacement) {
+        logHeroAdDebug('reward_earned', { reward: earnedReward });
+      } else {
+        logAdDebug('earned reward', { placement });
+      }
       if (closed) {
         settle({
           ok: true,
@@ -526,13 +588,21 @@ async function showNativeRewardedAd({ placement, metadata }) {
     unsubs.push(rewardedAd.addAdEventListener(AdEventType.OPENED, () => {
       opened = true;
       track(Events.REWARDED_AD_OPENED, adProps(placement));
-      logAdDebug('opened', { placement });
+      if (isHeroPlacement) {
+        logHeroAdDebug('ad_opened', {});
+      } else {
+        logAdDebug('opened', { placement });
+      }
     }));
 
     unsubs.push(rewardedAd.addAdEventListener(AdEventType.CLOSED, () => {
       closed = true;
       track(Events.REWARDED_AD_CLOSED, adProps(placement, { earned: !!earnedReward }));
-      logAdDebug('closed', { placement, earned: !!earnedReward });
+      if (isHeroPlacement) {
+        logHeroAdDebug('ad_closed', { earned: !!earnedReward });
+      } else {
+        logAdDebug('closed', { placement, earned: !!earnedReward });
+      }
       const result = {
         ok: !!earnedReward,
         rewarded: !!earnedReward,
@@ -556,6 +626,9 @@ async function showNativeRewardedAd({ placement, metadata }) {
         ...compactError(error),
       }));
       logAdDebug(opened ? 'show failed' : 'failed to load', { placement, reason, ...compactError(error) });
+      if (isHeroPlacement) {
+        logHeroAdDebug('ad_error', { reason, code: error?.code, message: error?.message, opened });
+      }
       settle({ ok: false, rewarded: false, reason, placement, error });
     }));
 
