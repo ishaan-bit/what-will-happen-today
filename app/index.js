@@ -35,6 +35,7 @@ import {
   setCurrentHeroForToday,
 } from '@/services/storageService';
 import { showRewardedAd } from '@/services/rewardedAdService';
+import { showHeroShuffleRewardedAd } from '@/services/heroShuffleRewardedAd';
 import {
   getCategoryOrder,
   getDailyVibe,
@@ -519,21 +520,53 @@ export default function HomeScreen() {
     heroShuffleAdInFlightRef.current = true;
     setHeroShuffleAdBusy(true);
     try {
-      logHeroShuffleDebug('shuffle_start', {
+      logHeroShuffleDebug('ad_show_start', {
         remainingBefore: heroShuffleRemaining,
         currentHeroId: currentHero?.id || null,
       });
-      const changed = await changeHero('paid');
+
+      // Show fresh rewarded ad for hero shuffle before allowing shuffle
+      const adResult = await showHeroShuffleRewardedAd({
+        metadata: { heroId: currentHero?.id || null },
+      });
+
+      logHeroShuffleDebug('ad_show_complete', {
+        rewarded: adResult.rewarded,
+        reason: adResult.reason,
+      });
+
+      // Only proceed with shuffle if reward was earned
+      if (!adResult.rewarded) {
+        // Ad failed, closed early, or unavailable — don't shuffle, don't decrement count
+        if (adResult.reason === 'ad_closed_before_reward') {
+          Alert.alert('Reader unchanged', 'The reader image changes after the ad reward is completed.');
+        } else {
+          // Covers: load_timeout, load_error, show_error, missing_ad_unit_id, ad_sdk_unavailable, etc.
+          Alert.alert('Ad unavailable', 'The reader image did not change. Try again in a moment.');
+        }
+        logHeroShuffleDebug('ad_not_rewarded', {
+          reason: adResult.reason,
+          remainingBefore: heroShuffleRemaining,
+        });
+        return;
+      }
+
+      // Ad was rewarded — now shuffle the hero
+      logHeroShuffleDebug('shuffle_after_ad_reward', {
+        remainingBefore: heroShuffleRemaining,
+        currentHeroId: currentHero?.id || null,
+      });
+      const changed = await changeHero('ad');
       if (changed) {
-        logHeroShuffleDebug('shuffle_success', { remainingBefore: heroShuffleRemaining });
+        logHeroShuffleDebug('shuffle_success_after_ad', { remainingBefore: heroShuffleRemaining });
         track(Events.HERO_IMAGE_CHANGED, heroAnalyticsProps(currentHero, {
           previous_hero_image_id: currentHero?.id || null,
           user_day_number: dayNumber,
           is_paid_entitled: isPaidEntitled,
-          ad_placement: null,
+          ad_placement: 'hero_shuffle',
         }));
       } else {
-        logHeroShuffleDebug('shuffle_failed', { reason: 'no_alternate_hero' });
+        logHeroShuffleDebug('shuffle_failed_after_ad_reward', { reason: 'no_alternate_hero' });
         Alert.alert('No other reader ready', 'There are no more reader images available right now.');
       }
     } catch (error) {
