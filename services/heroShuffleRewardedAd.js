@@ -65,33 +65,13 @@ export async function showHeroShuffleRewardedAd({ metadata } = {}) {
       placement: HERO_PLACEMENT,
       unitIdSuffix: unitId ? unitId.split('/').pop() : '[missing]',
     });
-
-    // Check if ad is still loading before attempting to show
-    const status = getRewardedAdStatus(HERO_PLACEMENT);
-    if (status.loading && !status.loaded) {
-      console.log('[hero-shuffle:show] ad still loading, cannot show yet', { phase: status.phase });
-      return {
-        ok: false,
-        rewarded: false,
-        reason: 'ad_still_loading',
-        isLoading: true,
-        placement: HERO_PLACEMENT,
-      };
-    }
-
-    if (status.loaded) {
-      console.log('[hero-shuffle:show] ad preloaded, attempting show');
-    }
   } catch (err) {
     console.log('[hero-shuffle:show] diagnostic failed', { message: err?.message || null });
   }
 
-  const result = await showRewardedAd({
-    placement: HERO_PLACEMENT,
-    metadata,
-    preferLoaded: true,
-    requireLoaded: false,
-  });
+  // Use the same helper/lifecycle as locked-signal: call `showRewardedAd` directly
+  // This avoids the early 'ad_still_loading' short-circuit and matches the working flow.
+  const result = await showRewardedAd({ placement: HERO_PLACEMENT, metadata });
 
   console.log('[hero-shuffle:show] result', {
     rewarded: result.rewarded,

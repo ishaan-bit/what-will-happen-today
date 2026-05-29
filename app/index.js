@@ -34,8 +34,8 @@ import {
   recordHeroShuffle,
   setCurrentHeroForToday,
 } from '@/services/storageService';
-import { showRewardedAd } from '@/services/rewardedAdService';
-import { showHeroShuffleRewardedAd, preloadHeroShuffleRewardedAd } from '@/services/heroShuffleRewardedAd';
+import { showRewardedAd, getRewardedAdUnitId } from '@/services/rewardedAdService';
+import { showHeroShuffleRewardedAd, preloadHeroShuffleRewardedAd, getHeroShuffleAdStatus } from '@/services/heroShuffleRewardedAd';
 import {
   getCategoryOrder,
   getDailyVibe,
