@@ -35,7 +35,7 @@ import {
   setCurrentHeroForToday,
 } from '@/services/storageService';
 import { showRewardedAd } from '@/services/rewardedAdService';
-import { showHeroShuffleRewardedAd } from '@/services/heroShuffleRewardedAd';
+import { showHeroShuffleRewardedAd, preloadHeroShuffleRewardedAd } from '@/services/heroShuffleRewardedAd';
 import {
   getCategoryOrder,
   getDailyVibe,
@@ -276,6 +276,13 @@ export default function HomeScreen() {
       refreshRevealState();
       refreshUnlock();
     }, [refresh, refreshRevealState, refreshUnlock])
+  );
+
+  // Preload hero shuffle ad on screen mount/focus for faster show on tap
+  useFocusEffect(
+    useCallback(() => {
+      preloadHeroShuffleRewardedAd({ forceFresh: false }).catch(() => null);
+    }, [])
   );
 
   const handleSettings = useCallback(() => {
@@ -537,15 +544,18 @@ export default function HomeScreen() {
 
       // Only proceed with shuffle if reward was earned
       if (!adResult.rewarded) {
-        // Ad failed, closed early, or unavailable — don't shuffle, don't decrement count
+        // Ad failed, closed early, unavailable, or still loading — don't shuffle, don't decrement count
         if (adResult.reason === 'ad_closed_before_reward') {
           Alert.alert('Reader unchanged', 'The reader image changes after the ad reward is completed.');
+        } else if (adResult.reason === 'ad_still_loading') {
+          Alert.alert('Ad still loading', 'The ad is loading. Please try again in a moment.');
         } else {
           // Covers: load_timeout, load_error, show_error, missing_ad_unit_id, ad_sdk_unavailable, etc.
           Alert.alert('Ad unavailable', 'The reader image did not change. Try again in a moment.');
         }
         logHeroShuffleDebug('ad_not_rewarded', {
           reason: adResult.reason,
+          isLoading: adResult.isLoading || false,
           remainingBefore: heroShuffleRemaining,
         });
         return;

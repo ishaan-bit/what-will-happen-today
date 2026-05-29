@@ -627,7 +627,14 @@ async function showNativeRewardedAd({ placement, metadata }) {
       }));
       logAdDebug(opened ? 'show failed' : 'failed to load', { placement, reason, ...compactError(error) });
       if (isHeroPlacement) {
-        logHeroAdDebug('ad_error', { reason, code: error?.code, message: error?.message, opened });
+        logHeroAdDebug('ad_error', {
+          reason,
+          code: error?.code || null,
+          message: error?.message || null,
+          opened,
+          loaded,
+          unitIdSuffix: unitId.split('/').pop(),
+        });
       }
       settle({ ok: false, rewarded: false, reason, placement, error });
     }));
@@ -636,6 +643,9 @@ async function showNativeRewardedAd({ placement, metadata }) {
       if (!loaded) {
         track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'load_timeout' }));
         logAdDebug('timeout while loading', { placement });
+        if (isHeroPlacement) {
+          logHeroAdDebug('load_timeout', { loadedMs: LOAD_TIMEOUT_MS, unitIdSuffix: unitId.split('/').pop() });
+        }
         settle({ ok: false, rewarded: false, reason: 'load_timeout', placement });
       }
     }, LOAD_TIMEOUT_MS);
@@ -645,6 +655,9 @@ async function showNativeRewardedAd({ placement, metadata }) {
         const reason = opened ? 'show_timeout' : 'open_timeout';
         track(Events.REWARDED_AD_FAILED, adProps(placement, { reason }));
         logAdDebug('show failed', { placement, reason });
+        if (isHeroPlacement) {
+          logHeroAdDebug(reason, { opened });
+        }
         settle({ ok: false, rewarded: false, reason, placement });
       }
     }, SHOW_TIMEOUT_MS);
