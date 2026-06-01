@@ -2,6 +2,12 @@ import { showRewardedAd, getRewardedAdUnitId, getRewardedAdStatus, preloadReward
 
 const HERO_PLACEMENT = 'hero_shuffle';
 
+function adUnitSuffix(unitId) {
+  return typeof unitId === 'string' && unitId.trim()
+    ? unitId.trim().split('/').pop()
+    : '[missing]';
+}
+
 /**
  * Preload the hero shuffle rewarded ad for the next shuffle attempt.
  * Call on screen mount and after every ad closes/fails/rewards.
@@ -11,7 +17,7 @@ export async function preloadHeroShuffleRewardedAd(options = {}) {
     const unitId = getRewardedAdUnitId(HERO_PLACEMENT) || '';
     console.log('[hero-shuffle:preload] started', {
       placement: HERO_PLACEMENT,
-      unitIdSuffix: unitId ? unitId.split('/').pop() : '[missing]',
+      unitIdSuffix: adUnitSuffix(unitId),
     });
 
     const status = await preloadRewardedAd({
@@ -63,7 +69,7 @@ export async function showHeroShuffleRewardedAd({ metadata } = {}) {
     const unitId = getRewardedAdUnitId(HERO_PLACEMENT) || '';
     console.log('[hero-shuffle:show] requested', {
       placement: HERO_PLACEMENT,
-      unitIdSuffix: unitId ? unitId.split('/').pop() : '[missing]',
+      unitIdSuffix: adUnitSuffix(unitId),
     });
   } catch (err) {
     console.log('[hero-shuffle:show] diagnostic failed', { message: err?.message || null });

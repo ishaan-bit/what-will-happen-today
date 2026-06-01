@@ -10,6 +10,7 @@ const TEST_REWARDED_UNIT_IDS = {
   android: 'ca-app-pub-3940256099942544/5224354917',
   ios: 'ca-app-pub-3940256099942544/1712485313',
 };
+const HERO_REWARDED_UNIT_SUFFIX = '9004079434';
 const rewardedPlacements = new Map();
 
 function mockAdsEnabled() {
@@ -26,37 +27,49 @@ function platformRewardedUnitId() {
   return TEST_REWARDED_UNIT_IDS[Platform.OS] || TEST_REWARDED_UNIT_IDS.android;
 }
 
+function localHeroTestOverrideEnabled() {
+  return process.env.EXPO_PUBLIC_ADMOB_FORCE_HERO_TEST === 'true'
+    && (typeof __DEV__ !== 'undefined' && __DEV__);
+}
+
+function cleanEnvValue(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function adUnitSuffix(unitId) {
+  return cleanEnvValue(unitId).split('/').pop() || null;
+}
+
 export function getRewardedAdUnitId(placement) {
   const testUnitId = platformRewardedUnitId();
   if (testUnitId) return testUnitId;
 
   if (placement === HERO_PLACEMENT) {
     // Allow forcing the hero placement to use Google test unit for debugging
-    // set EXPO_PUBLIC_ADMOB_FORCE_HERO_TEST=true in local .env to enable
-    if (process.env.EXPO_PUBLIC_ADMOB_FORCE_HERO_TEST === 'true') {
+    // in local dev builds only. Set EXPO_PUBLIC_ADMOB_FORCE_HERO_TEST=true
+    // in local .env to enable.
+    if (localHeroTestOverrideEnabled()) {
       logHeroAdDebug('force_test_unit_enabled', { usingTestUnit: true });
       return TEST_REWARDED_UNIT_IDS[Platform.OS] || TEST_REWARDED_UNIT_IDS.android;
     }
-    const androidSpecific = process.env.EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID;
-    const iosSpecific = process.env.EXPO_PUBLIC_ADMOB_IOS_REWARDED_HERO_UNIT_ID;
-    const generic = process.env.EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID;
-    const signal = process.env.EXPO_PUBLIC_ADMOB_REWARDED_SIGNAL_UNIT_ID;
+    const androidSpecific = cleanEnvValue(process.env.EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID);
+    const iosSpecific = cleanEnvValue(process.env.EXPO_PUBLIC_ADMOB_IOS_REWARDED_HERO_UNIT_ID);
+    const generic = cleanEnvValue(process.env.EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID);
 
     const unitId = (Platform.OS === 'android' ? androidSpecific : iosSpecific)
       || generic
-      || signal
       || '';
     // Log hero-specific placement diagnostics
     logHeroAdDebug('unit_id_resolution', {
       placement,
       platform: Platform.OS,
-      usingTestOverride: !!(process.env.EXPO_PUBLIC_ADMOB_FORCE_HERO_TEST === 'true'),
+      usingTestOverride: localHeroTestOverrideEnabled(),
       androidSpecificPresent: !!androidSpecific,
       iosSpecificPresent: !!iosSpecific,
       genericPresent: !!generic,
-      signalFallbackPresent: !!signal,
       finalUnitIdPresent: !!unitId,
-      finalUnitIdSuffix: unitId ? unitId.split('/').pop() : null,
+      finalUnitIdSuffix: adUnitSuffix(unitId),
+      finalUnitIdSuffixMatchesExpected: adUnitSuffix(unitId) === HERO_REWARDED_UNIT_SUFFIX,
     });
 
     return unitId;
@@ -128,7 +141,11 @@ async function getNativeAds(placement) {
   }
 
   if (isHeroPlacement) {
-    logHeroAdDebug('unit_id_present', { placement, unitIdSuffix: unitId.split('/').pop() });
+    logHeroAdDebug('unit_id_present', {
+      placement,
+      unitIdSuffix: adUnitSuffix(unitId),
+      unitIdSuffixMatchesExpected: adUnitSuffix(unitId) === HERO_REWARDED_UNIT_SUFFIX,
+    });
   } else {
     logAdDebug('unit_id_check', { placement, unitIdPresent: true, testMode: nativeAdTestModeEnabled() });
   }
@@ -254,7 +271,7 @@ export async function preloadRewardedAd({ placement = 'locked_signal', forceFres
       requestNonPersonalizedAdsOnly: true,
     });
     if (placement === HERO_PLACEMENT) {
-      logHeroAdDebug('preload_instance_created', { placement, unitIdSuffix: (native.unitId || '').split('/').pop() });
+      logHeroAdDebug('preload_instance_created', { placement, unitIdSuffix: adUnitSuffix(native.unitId) });
     }
   } catch (err) {
     resetPlacementState(placement, 'failed', {
@@ -500,7 +517,7 @@ async function showNativeRewardedAd({ placement, metadata }) {
   const unitId = native.unitId;
 
   if (isHeroPlacement) {
-    logHeroAdDebug('load_start', { unitIdSuffix: unitId.split('/').pop() });
+    logHeroAdDebug('load_start', { unitIdSuffix: adUnitSuffix(unitId) });
   }
 
   return new Promise((resolve) => {
@@ -545,7 +562,7 @@ async function showNativeRewardedAd({ placement, metadata }) {
           : undefined,
       });
       if (isHeroPlacement) {
-        logHeroAdDebug('instance_created', { unitIdSuffix: unitId.split('/').pop() });
+        logHeroAdDebug('instance_created', { unitIdSuffix: adUnitSuffix(unitId) });
       }
     } catch (err) {
       track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'create_throw', message: err?.message }));
@@ -557,16 +574,16 @@ async function showNativeRewardedAd({ placement, metadata }) {
       loaded = true;
       track(Events.REWARDED_AD_LOADED, adProps(placement));
       if (isHeroPlacement) {
-        logHeroAdDebug('instance_loaded', { unitIdSuffix: unitId.split('/').pop() });
+        logHeroAdDebug('instance_loaded', { unitIdSuffix: adUnitSuffix(unitId) });
       } else {
         logAdDebug('loaded', { placement });
       }
       try {
         logAdDebug('show attempt', { placement });
         if (isHeroPlacement) {
-          logHeroAdDebug('show_attempt', { unitIdSuffix: unitId.split('/').pop() });
+          logHeroAdDebug('show_attempt', { unitIdSuffix: adUnitSuffix(unitId) });
         }
-        if (isHeroPlacement) logHeroAdDebug('show_called', { unitIdSuffix: unitId.split('/').pop() });
+        if (isHeroPlacement) logHeroAdDebug('show_called', { unitIdSuffix: adUnitSuffix(unitId) });
         rewardedAd.show();
       } catch (err) {
         track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'show_throw', message: err?.message }));
@@ -649,7 +666,7 @@ async function showNativeRewardedAd({ placement, metadata }) {
           message: error?.message || null,
           opened,
           loaded,
-          unitIdSuffix: unitId.split('/').pop(),
+          unitIdSuffix: adUnitSuffix(unitId),
         });
       }
       settle({ ok: false, rewarded: false, reason, placement, error });
@@ -660,7 +677,7 @@ async function showNativeRewardedAd({ placement, metadata }) {
         track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'load_timeout' }));
         logAdDebug('timeout while loading', { placement });
         if (isHeroPlacement) {
-          logHeroAdDebug('load_timeout', { loadedMs: LOAD_TIMEOUT_MS, unitIdSuffix: unitId.split('/').pop() });
+          logHeroAdDebug('load_timeout', { loadedMs: LOAD_TIMEOUT_MS, unitIdSuffix: adUnitSuffix(unitId) });
         }
         settle({ ok: false, rewarded: false, reason: 'load_timeout', placement });
       }
@@ -681,7 +698,7 @@ async function showNativeRewardedAd({ placement, metadata }) {
     try {
       track(Events.REWARDED_AD_REQUESTED, adProps(placement));
       logAdDebug('load start', { placement, unitIdPresent: true });
-      if (isHeroPlacement) logHeroAdDebug('load_called', { unitIdSuffix: unitId.split('/').pop() });
+      if (isHeroPlacement) logHeroAdDebug('load_called', { unitIdSuffix: adUnitSuffix(unitId) });
       rewardedAd.load();
     } catch (err) {
       track(Events.REWARDED_AD_FAILED, adProps(placement, { reason: 'load_throw', message: err?.message }));

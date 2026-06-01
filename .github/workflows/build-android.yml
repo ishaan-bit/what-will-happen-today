@@ -60,7 +60,7 @@ jobs:
           EXPO_PUBLIC_ADMOB_ANDROID_APP_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID }}
           EXPO_PUBLIC_ADMOB_REWARDED_SIGNAL_UNIT_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_REWARDED_SIGNAL_UNIT_ID }}
           EXPO_PUBLIC_ADMOB_REWARDED_DEEPER_UNIT_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_REWARDED_DEEPER_UNIT_ID }}
-          EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID }}
+          EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID }}
           EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID }}
           EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID }}
           EXPO_PUBLIC_ADMOB_TEST_MODE: "false"
@@ -73,8 +73,8 @@ jobs:
               missing=1
             fi
           done
-          if [ -z "$EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID" ] && [ -z "$EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID" ]; then
-            echo "ERROR: set EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID or legacy EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID" >&2
+          if [ -z "$EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID" ]; then
+            echo "ERROR: EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID secret is not set for Android hero rewarded ads" >&2
             missing=1
           fi
           if [ "$EXPO_PUBLIC_ADMOB_TEST_MODE" != "false" ]; then
@@ -88,6 +88,12 @@ jobs:
           if [ "$missing" -ne 0 ]; then
             exit 1
           fi
+          hero_suffix="${EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID##*/}"
+          echo "Android hero rewarded unit suffix: $hero_suffix"
+          if [ "$hero_suffix" != "9004079434" ]; then
+            echo "ERROR: Android hero rewarded unit suffix must be 9004079434" >&2
+            exit 1
+          fi
 
       - name: Build AAB (production)
         env:
@@ -96,7 +102,7 @@ jobs:
           EXPO_PUBLIC_ADMOB_ANDROID_APP_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID }}
           EXPO_PUBLIC_ADMOB_REWARDED_SIGNAL_UNIT_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_REWARDED_SIGNAL_UNIT_ID }}
           EXPO_PUBLIC_ADMOB_REWARDED_DEEPER_UNIT_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_REWARDED_DEEPER_UNIT_ID }}
-          EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID }}
+          EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID }}
           EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID }}
           EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID: ${{ secrets.EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID }}
           EXPO_PUBLIC_ADMOB_TEST_MODE: "false"

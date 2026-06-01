@@ -112,7 +112,8 @@ Reward unit env vars:
 - `EXPO_PUBLIC_ADMOB_REWARDED_DEEPER_UNIT_ID`
 - `EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID` for Android hero shuffle rewarded ads
 - `EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID` remains a compatibility fallback for existing builds
-- Production GitHub Actions must set `EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID` or the legacy fallback `EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID`.
+- Production GitHub Actions maps the existing `EXPO_PUBLIC_ADMOB_REWARDED_HERO_UNIT_ID` secret into `EXPO_PUBLIC_ADMOB_ANDROID_REWARDED_HERO_UNIT_ID`.
+- Hero shuffle does not fall back to the signal rewarded unit. If no hero unit is configured, no shuffle count is consumed.
 
 Mock mode:
 
