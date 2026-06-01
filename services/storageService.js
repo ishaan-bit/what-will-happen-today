@@ -305,6 +305,7 @@ function emptyHeroShuffleState() {
     dateKey: getTodayKey(),
     poolRevision: null,
     lastResetNonce: null,
+    lastResetAt: null,
     currentHeroId: null,
     seenHeroIds: [],
     rewardedShuffles: 0,
@@ -365,19 +366,26 @@ export async function recordHeroShuffle(heroId, source = 'ad', poolRevision = nu
   return state;
 }
 
-export async function applyHeroShuffleResetNonce(resetNonce, poolRevision = null) {
+export async function applyHeroShuffleResetNonce(resetNonce, poolRevision = null, resetAt = null) {
   const nonce = String(resetNonce || '').trim();
-  if (!nonce) return { state: await getHeroShuffleState(), applied: false };
+  const resetAtValue = String(resetAt || '').trim();
+  if (!nonce && !resetAtValue) return { state: await getHeroShuffleState(), applied: false };
   const state = await getHeroShuffleState();
-  if (state.lastResetNonce === nonce) return { state, applied: false };
+  if (
+    (!nonce || state.lastResetNonce === nonce)
+    && (!resetAtValue || state.lastResetAt === resetAtValue)
+  ) {
+    return { state, applied: false };
+  }
   const next = {
     ...emptyHeroShuffleState(),
     lastResetNonce: nonce,
+    lastResetAt: resetAtValue || null,
     poolRevision: poolRevision || state.poolRevision || null,
   };
   await saveHeroShuffleState(next);
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
-    console.log('[hero-shuffle] applied reset nonce', { resetNonce: nonce, poolRevision: next.poolRevision });
+    console.log('[hero-shuffle] applied reset', { resetNonce: nonce, resetAt: resetAtValue || null, poolRevision: next.poolRevision });
   }
   return { state: next, applied: true };
 }

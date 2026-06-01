@@ -49,10 +49,11 @@ export function PredictionsProvider({ children }) {
     if (!silent) setLoading(true);
     try {
       const preds = await getPredictions();
-      if (preds.heroPool?.heroShuffleResetNonce) {
+      if (preds.heroPool?.heroShuffleResetNonce || preds.heroPool?.heroShuffleResetAt) {
         await applyHeroShuffleResetNonce(
           preds.heroPool.heroShuffleResetNonce,
           preds.heroPool.revision || preds.heroPool.updatedAt || null,
+          preds.heroPool.heroShuffleResetAt || null,
         );
       }
       const [

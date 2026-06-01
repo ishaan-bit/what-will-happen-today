@@ -580,6 +580,15 @@ function Dashboard({ creds, onLogout }) {
     try {
       const r = await backend.resetHeroShuffleUsage(heroPoolDraft.dateKey);
       setHeroPool(r.heroPool || heroPool);
+      if (r.heroPool) {
+        setHeroPoolDraft((d) => ({
+          ...d,
+          dateKey: toDateInputValue(r.heroPool.dateKey),
+          images: r.heroPool.images || d.images,
+          maxHeroShufflesPerDay: String(r.heroPool.config?.maxRewardedShufflesPerDay ?? r.heroPool.config?.maxHeroShufflesPerDay ?? d.maxHeroShufflesPerDay),
+          maxHeroImagesPerDay: String(r.heroPool.config?.maxImagesPerDay ?? r.heroPool.config?.maxHeroImagesPerDay ?? d.maxHeroImagesPerDay),
+        }));
+      }
       showToast(`Hero shuffle usage reset nonce updated: ${r.heroShuffleResetNonce || 'saved'}.`);
     } catch (err) {
       showToast(`Hero shuffle reset failed: ${err.message}`, 'error');

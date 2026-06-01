@@ -34,7 +34,7 @@ import {
   recordHeroShuffle,
   setCurrentHeroForToday,
 } from '@/services/storageService';
-import { showRewardedAd, getRewardedAdUnitId } from '@/services/rewardedAdService';
+import { showRewardedAd } from '@/services/rewardedAdService';
 import { showHeroShuffleRewardedAd, preloadHeroShuffleRewardedAd, getHeroShuffleAdStatus } from '@/services/heroShuffleRewardedAd';
 import {
   getCategoryOrder,
@@ -72,6 +72,12 @@ function getHeroUrl(hero) {
 
 function logHeroShuffleDebug(label, data = {}) {
   console.log(`[hero-shuffle] ${label}`, data);
+}
+
+function classifyHeroAdFailure(reason) {
+  if (reason === 'ad_closed_before_reward') return 'reward_not_earned';
+  if (reason === 'ad_loading' || reason === 'ad_still_loading' || reason === 'ad_not_ready') return 'ad_not_loaded';
+  return 'ad_load_error_or_no_fill';
 }
 
 function normalizeHero(hero) {
@@ -192,17 +198,22 @@ export default function HomeScreen() {
     heroImages.length || 1,
     monetizationConfig.maxHeroImagesPerDay,
   );
-  const maxHeroShuffles = monetizationConfig.maxHeroShufflesPerDay;
+  const maxHeroShuffles = monetizationConfig.maxRewardedShufflesPerDay ?? monetizationConfig.maxHeroShufflesPerDay;
   const seenHeroIds = heroShuffleState?.seenHeroIds || [];
+  const activeHeroIds = useMemo(() => new Set(heroImages.map((img) => img.id).filter(Boolean)), [heroImages]);
+  const activeSeenHeroIds = useMemo(
+    () => seenHeroIds.filter((id) => activeHeroIds.has(id)),
+    [seenHeroIds, activeHeroIds],
+  );
   const totalHeroShuffles = (heroShuffleState?.rewardedShuffles || 0) + (heroShuffleState?.paidShuffles || 0);
   const heroShuffleRemaining = Math.max(0, maxHeroShuffles - totalHeroShuffles);
   const hasAlternateHero = heroImages.some((img) => img.id !== currentHero?.id);
-  const hasUnseenHero = heroImages.some((img) => img.id !== currentHero?.id && !seenHeroIds.includes(img.id));
+  const hasUnseenHero = heroImages.some((img) => img.id !== currentHero?.id && !activeSeenHeroIds.includes(img.id));
   const canShuffleHeroByLimit = heroImages.length > 1
     && hasAlternateHero
     && hasUnseenHero
     && heroShuffleRemaining > 0
-    && seenHeroIds.length < maxHeroImages;
+    && activeSeenHeroIds.length < maxHeroImages;
   const canShuffleHero = canShuffleHeroByLimit;
 
   const shuffleRemainingText = useMemo(() => {
@@ -214,6 +225,13 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!currentHero?.id || !heroShuffleState) return;
     if (heroShuffleState.currentHeroId === currentHero.id) return;
+    if (heroShuffleState.currentHeroId) {
+      logHeroShuffleDebug('stale_current_hero_reset', {
+        staleHeroId: heroShuffleState.currentHeroId,
+        nextHeroId: currentHero.id,
+        heroPoolRevision,
+      });
+    }
     setCurrentHeroForToday(currentHero.id, heroPoolRevision).then(refreshRevealState).catch(() => null);
   }, [currentHero?.id, heroShuffleState, heroPoolRevision, refreshRevealState]);
 
@@ -278,8 +296,9 @@ export default function HomeScreen() {
   // Preload hero shuffle ad on screen mount/focus for faster show on tap
   useFocusEffect(
     useCallback(() => {
+      if (!rewardedAdsEnabled || !canShuffleHeroByLimit) return;
       preloadHeroShuffleRewardedAd({ forceFresh: false }).catch(() => null);
-    }, [])
+    }, [rewardedAdsEnabled, canShuffleHeroByLimit])
   );
 
   const handleSettings = useCallback(() => {
@@ -453,9 +472,9 @@ export default function HomeScreen() {
   }, [grantDeeperWithAd, predictions, dayNumber, isPaidEntitled]);
 
   const getNextHero = useCallback(() => {
-    const seen = new Set(seenHeroIds);
+    const seen = new Set(activeSeenHeroIds);
     return heroImages.find((img) => img.id !== currentHero?.id && !seen.has(img.id)) || null;
-  }, [seenHeroIds, heroImages, currentHero?.id]);
+  }, [activeSeenHeroIds, heroImages, currentHero?.id]);
 
   const changeHero = useCallback(async (source) => {
     const next = getNextHero();
@@ -490,33 +509,72 @@ export default function HomeScreen() {
   const handleHeroShuffle = useCallback(async () => {
     tap();
     if (heroShuffleAdInFlightRef.current) return;
+    const nextHero = getNextHero();
+    const adStatus = getHeroShuffleAdStatus();
+    const currentHeroIdIsActive = !!currentHero?.id && activeHeroIds.has(currentHero.id);
+    const invalidOrStaleConfig = !Number.isFinite(Number(maxHeroShuffles))
+      || Number(maxHeroShuffles) < 1
+      || !Number.isFinite(Number(monetizationConfig.maxHeroImagesPerDay))
+      || Number(monetizationConfig.maxHeroImagesPerDay) < 1;
+    const tapDiagnostics = {
+      maxRewardedShufflesPerDay: maxHeroShuffles,
+      maxHeroImagesPerDay: monetizationConfig.maxHeroImagesPerDay,
+      localDailyHeroShuffleCount: totalHeroShuffles,
+      rewardedShuffles: heroShuffleState?.rewardedShuffles || 0,
+      paidShuffles: heroShuffleState?.paidShuffles || 0,
+      remainingRewardedShuffles: heroShuffleRemaining,
+      activeHeroAssetCount: heroImages.length,
+      activeSeenHeroCount: activeSeenHeroIds.length,
+      currentHeroId: currentHero?.id || null,
+      storedCurrentHeroId: heroShuffleState?.currentHeroId || null,
+      currentHeroIdIsActive,
+      nextHeroExists: !!nextHero,
+      nextHeroId: nextHero?.id || null,
+      rewardedAdLoaded: !!adStatus?.loaded,
+      rewardedAdLoading: !!adStatus?.loading,
+      rewardedAdPhase: adStatus?.phase || adStatus?.state || null,
+      rewardedLoadError: adStatus?.error?.message || adStatus?.error || adStatus?.reason || null,
+      configSource: heroPool?.source || null,
+      heroPoolRevision,
+      heroShuffleResetNonce: heroPool?.heroShuffleResetNonce || null,
+      heroShuffleResetAt: heroPool?.heroShuffleResetAt || null,
+    };
 
     track(Events.HERO_SHUFFLE_TAP, heroAnalyticsProps(currentHero, {
       user_day_number: dayNumber,
       is_paid_entitled: isPaidEntitled,
       remaining: heroShuffleRemaining,
+      failure_reason: invalidOrStaleConfig
+        ? 'invalid_or_stale_config'
+        : heroShuffleRemaining <= 0
+          ? 'daily_shuffle_limit_reached'
+          : !nextHero
+            ? 'no_next_hero_available'
+            : null,
     }));
-    logHeroShuffleDebug('tap', {
-      currentHeroId: currentHero?.id || null,
-      currentMediaType: currentHero?.mediaType || 'image',
-      heroPoolCount: heroImages.length,
-      hasAlternateHero,
-      hasUnseenHero,
-      remainingBefore: heroShuffleRemaining,
-      isPaidEntitled,
-    });
+    logHeroShuffleDebug('tap_diagnostics', tapDiagnostics);
     logHeroShuffleDebug(`preconditions remaining=${heroShuffleRemaining} eligible=${heroImages.length}`, {
       loading,
       canShuffleHeroByLimit,
       inFlight: heroShuffleAdInFlightRef.current,
+      invalidOrStaleConfig,
+      noNextHero: !nextHero,
     });
 
-    if (heroShuffleRemaining <= 0) {
-      Alert.alert('No more reader shuffles today', 'Come back tomorrow for a new draw.');
+    if (invalidOrStaleConfig) {
+      logHeroShuffleDebug('shuffle_blocked', { reason: 'invalid_or_stale_config', ...tapDiagnostics });
+      Alert.alert('Reader shuffle unavailable', 'The reader shuffle settings are still updating. Pull to refresh and try again.');
       return;
     }
 
-    if (heroImages.length <= 1) {
+    if (heroShuffleRemaining <= 0) {
+      logHeroShuffleDebug('shuffle_blocked', { reason: 'daily_shuffle_limit_reached', ...tapDiagnostics });
+      Alert.alert('You’ve seen all today’s reader shuffles.');
+      return;
+    }
+
+    if (!nextHero) {
+      logHeroShuffleDebug('shuffle_blocked', { reason: 'no_next_hero_available', ...tapDiagnostics });
       Alert.alert('No other reader ready', 'There are no more reader images available right now.');
       return;
     }
@@ -533,10 +591,12 @@ export default function HomeScreen() {
       const adResult = await showHeroShuffleRewardedAd({
         metadata: { heroId: currentHero?.id || null },
       });
+      const failureReason = adResult.rewarded ? null : classifyHeroAdFailure(adResult.reason);
 
       logHeroShuffleDebug('ad_show_complete', {
         rewarded: adResult.rewarded,
         reason: adResult.reason,
+        failureReason,
       });
 
       // Only proceed with shuffle if reward was earned
@@ -544,7 +604,7 @@ export default function HomeScreen() {
         // Ad failed, closed early, unavailable, or still loading — don't shuffle, don't decrement count
         if (adResult.reason === 'ad_closed_before_reward') {
           Alert.alert('Reader unchanged', 'The reader image changes after the ad reward is completed.');
-        } else if (adResult.reason === 'ad_still_loading') {
+        } else if (failureReason === 'ad_not_loaded') {
           Alert.alert('Ad still loading', 'The ad is loading. Please try again in a moment.');
         } else {
           // Covers: load_timeout, load_error, show_error, missing_ad_unit_id, ad_sdk_unavailable, etc.
@@ -552,6 +612,7 @@ export default function HomeScreen() {
         }
         logHeroShuffleDebug('ad_not_rewarded', {
           reason: adResult.reason,
+          failureReason,
           isLoading: adResult.isLoading || false,
           remainingBefore: heroShuffleRemaining,
         });
@@ -566,14 +627,8 @@ export default function HomeScreen() {
       const changed = await changeHero('ad');
       if (changed) {
         logHeroShuffleDebug('shuffle_success_after_ad', { remainingBefore: heroShuffleRemaining });
-        track(Events.HERO_IMAGE_CHANGED, heroAnalyticsProps(currentHero, {
-          previous_hero_image_id: currentHero?.id || null,
-          user_day_number: dayNumber,
-          is_paid_entitled: isPaidEntitled,
-          ad_placement: 'hero_shuffle',
-        }));
       } else {
-        logHeroShuffleDebug('shuffle_failed_after_ad_reward', { reason: 'no_alternate_hero' });
+        logHeroShuffleDebug('shuffle_failed_after_ad_reward', { reason: 'no_next_hero_available' });
         Alert.alert('No other reader ready', 'There are no more reader images available right now.');
       }
     } catch (error) {
@@ -588,8 +643,19 @@ export default function HomeScreen() {
     dayNumber,
     isPaidEntitled,
     changeHero,
+    getNextHero,
+    activeHeroIds,
+    activeSeenHeroIds.length,
     heroImages.length,
     heroShuffleRemaining,
+    maxHeroShuffles,
+    monetizationConfig.maxHeroImagesPerDay,
+    totalHeroShuffles,
+    heroShuffleState,
+    heroPool,
+    heroPoolRevision,
+    loading,
+    canShuffleHeroByLimit,
   ]);
 
   const vibe = getDailyVibe();
