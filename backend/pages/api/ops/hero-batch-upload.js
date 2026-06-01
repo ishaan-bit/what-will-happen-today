@@ -1,10 +1,8 @@
 /**
  * Dev/local-friendly hero batch media upload.
  *
- * This stores data URLs in namespaced Redis asset keys and returns a
- * production-fetchable backend URL. It is additive and does not touch
- * wwht:heroImage. For high-volume production use, replace this with object
- * storage/CDN and keep the same returned URL contract.
+ * Images keep the existing Redis-backed data URL path. MP4 videos are uploaded
+ * to Vercel Blob and only the returned public Blob URL is stored.
  */
 import { Redis } from '@upstash/redis';
 import { put } from '@vercel/blob';
@@ -58,8 +56,9 @@ export default async function handler(req, res) {
 
   const body = req.body || {};
   const dateKey = normalizeDateKey(body.dateKey || body.date);
-  const publicUrl = String(body.url || body.mediaUrl || '').trim();
+  const publicUrl = String(body.videoUrl || body.url || body.mediaUrl || '').trim();
   const fileName = cleanFileName(body.fileName, publicUrl.split('/').pop() || 'hero-media');
+  const posterUrl = String(body.posterUrl || body.poster || '').trim();
 
   if (publicUrl) {
     if (!/^https?:\/\/.+/i.test(publicUrl)) {
@@ -79,13 +78,25 @@ export default async function handler(req, res) {
       mediaType,
       type: mediaType,
       contentType,
-      url: publicUrl,
+      ...(mediaType === 'video' ? { videoUrl: publicUrl } : { url: publicUrl }),
+      ...(posterUrl ? { posterUrl } : {}),
       bytes: Number(body.bytes || 0) || 0,
       createdAt: new Date().toISOString(),
     };
     await getRedis().set(assetKey(dateKey, id), JSON.stringify(value));
     console.log('[hero-batch-upload] registered asset', { dateKey, id, type: mediaType, contentType, url: publicUrl });
-    return res.status(200).json({ ok: true, id, dateKey, url: publicUrl, mediaType, type: mediaType, bytes: value.bytes, contentType });
+    return res.status(200).json({
+      ok: true,
+      id,
+      dateKey,
+      url: publicUrl,
+      ...(mediaType === 'video' ? { videoUrl: publicUrl } : {}),
+      mediaType,
+      type: mediaType,
+      bytes: value.bytes,
+      contentType,
+      ...(posterUrl ? { posterUrl } : {}),
+    });
   }
 
   const parsed = parseDataUrl(body.dataUrl);
@@ -115,11 +126,20 @@ export default async function handler(req, res) {
         message: 'MP4 uploads require Vercel Blob storage. Set BLOB_READ_WRITE_TOKEN on the backend, then retry.',
       });
     }
-    const buffer = Buffer.from(parsed.base64, 'base64');
-    const blob = await put(`hero-batch/${dateKey}/${id}-${fileName}`, buffer, {
-      access: 'public',
-      contentType: 'video/mp4',
-    });
+    let blob;
+    try {
+      const buffer = Buffer.from(parsed.base64, 'base64');
+      blob = await put(`hero-batch/${dateKey}/${id}-${fileName}`, buffer, {
+        access: 'public',
+        contentType: 'video/mp4',
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
+    } catch (err) {
+      return res.status(502).json({
+        error: 'blob_upload_failed',
+        message: err?.message || 'Vercel Blob upload failed.',
+      });
+    }
     const value = {
       id,
       dateKey,
@@ -127,13 +147,25 @@ export default async function handler(req, res) {
       mediaType,
       type: mediaType,
       contentType: parsed.contentType,
-      url: blob.url,
+      videoUrl: blob.url,
+      ...(posterUrl ? { posterUrl } : {}),
       bytes,
       createdAt: new Date().toISOString(),
     };
     await getRedis().set(assetKey(dateKey, id), JSON.stringify(value));
     console.log('[hero-batch-upload] uploaded asset', { dateKey, id, type: mediaType, contentType: parsed.contentType, bytes, url: blob.url });
-    return res.status(200).json({ ok: true, id, dateKey, url: blob.url, mediaType, type: mediaType, bytes, contentType: parsed.contentType });
+    return res.status(200).json({
+      ok: true,
+      id,
+      dateKey,
+      url: blob.url,
+      videoUrl: blob.url,
+      mediaType,
+      type: mediaType,
+      bytes,
+      contentType: parsed.contentType,
+      ...(posterUrl ? { posterUrl } : {}),
+    });
   }
 
   const value = {

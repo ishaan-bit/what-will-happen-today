@@ -50,6 +50,14 @@ function inferMediaTypeFromUrl(url) {
   return /\.(mp4|m4v|webm)(\?.*)?$/i.test(String(url || '')) ? 'video' : 'image';
 }
 
+function getHeroAssetUrl(asset) {
+  return asset?.videoUrl || asset?.mediaUrl || asset?.imageUrl || asset?.url || '';
+}
+
+function getHeroAssetType(asset) {
+  return asset?.type || asset?.mediaType || inferMediaTypeFromUrl(getHeroAssetUrl(asset));
+}
+
 function requirePositiveInteger(value, label) {
   const raw = String(value ?? '').trim();
   if (!/^[1-9]\d*$/.test(raw)) {
@@ -431,6 +439,8 @@ function Dashboard({ creds, onLogout }) {
           url,
           mediaUrl: url,
           mediaType,
+          type: mediaType,
+          ...(mediaType === 'video' ? { videoUrl: url } : { imageUrl: url }),
           posterUrl: (heroPoolImageDraft.posterUrl || '').trim(),
           title,
           name: title,
@@ -466,12 +476,16 @@ function Dashboard({ creds, onLogout }) {
           mediaType: isVideo ? 'video' : 'image',
           dataUrl,
         });
+        const mediaType = r.type || r.mediaType || (isVideo ? 'video' : 'image');
+        const assetUrl = r.videoUrl || r.url;
         const baseName = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
         uploaded.push({
-          url: r.url,
-          mediaUrl: r.url,
-          mediaType: r.mediaType || (isVideo ? 'video' : 'image'),
-          posterUrl: '',
+          url: assetUrl,
+          mediaUrl: assetUrl,
+          mediaType,
+          type: mediaType,
+          ...(mediaType === 'video' ? { videoUrl: assetUrl } : { imageUrl: assetUrl }),
+          posterUrl: r.posterUrl || '',
           title: baseName || `Batch hero ${heroPoolDraft.images.length + uploaded.length + 1}`,
           name: baseName || `Batch hero ${heroPoolDraft.images.length + uploaded.length + 1}`,
           active: true,
@@ -1302,15 +1316,15 @@ function Dashboard({ creds, onLogout }) {
             <div style={{ display: 'grid', gap: 8 }}>
               {heroPoolDraft.images.map((img, index) => (
                 <div key={`${img.url || img.mediaUrl}-${index}`} style={{ display: 'grid', gridTemplateColumns: '90px 1fr auto', gap: 10, alignItems: 'center', padding: 8, background: '#0f0f17', border: '1px solid #1f1f2a', borderRadius: 8 }}>
-                  {img.mediaType === 'video' ? (
-                    <video src={img.url || img.mediaUrl} poster={img.posterUrl || undefined} muted playsInline style={{ width: 90, height: 112, objectFit: 'cover', borderRadius: 6, border: '1px solid #2a2a35', background: '#06060c' }} />
+                  {getHeroAssetType(img) === 'video' ? (
+                    <video src={getHeroAssetUrl(img)} poster={img.posterUrl || undefined} muted playsInline style={{ width: 90, height: 112, objectFit: 'cover', borderRadius: 6, border: '1px solid #2a2a35', background: '#06060c' }} />
                   ) : (
-                    <img src={img.url || img.mediaUrl} alt="" style={{ width: 90, height: 112, objectFit: 'cover', borderRadius: 6, border: '1px solid #2a2a35' }} />
+                    <img src={getHeroAssetUrl(img)} alt="" style={{ width: 90, height: 112, objectFit: 'cover', borderRadius: 6, border: '1px solid #2a2a35' }} />
                   )}
                   <div style={{ minWidth: 0 }}>
                     <div style={{ color: '#ddd', fontSize: 13 }}>{img.title || img.name || `Hero ${index + 1}`} {img.isDefault ? <span style={{ color: '#c9a96e' }}>· default</span> : null}</div>
                     <div style={{ color: '#aaa', fontSize: 12 }}>{img.readerMood} · weight {img.weight || 1}</div>
-                    <div style={{ color: '#777', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{img.url || img.mediaUrl}</div>
+                    <div style={{ color: '#777', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getHeroAssetUrl(img)}</div>
                     {img.posterUrl ? <div style={{ color: '#777', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>poster: {img.posterUrl}</div> : null}
                     <div style={{ color: '#777', fontSize: 11 }}>{Array.isArray(img.tags) ? img.tags.join(', ') : img.tags}</div>
                     {img.active === false || img.storeSafe === false ? (

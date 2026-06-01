@@ -23,6 +23,9 @@ export default async function handler(req, res) {
     redisConfigured: !!process.env.UPSTASH_REDIS_REST_URL,
     cronSecretConfigured: !!process.env.CRON_SECRET,
     opsKeyConfigured: !!process.env.OPS_KEY,
+    blobReadWriteTokenConfigured: !!process.env.BLOB_READ_WRITE_TOKEN,
+    blobStoreIdConfigured: !!process.env.BLOB_STORE_ID,
+    blobWebhookPublicKeyConfigured: !!process.env.BLOB_WEBHOOK_PUBLIC_KEY,
   };
 
   let redisOk = false;

@@ -77,6 +77,7 @@ function getBackendBaseUrl() {
 }
 
 function getInputMediaUrl(input = {}) {
+  if (hasOwn(input, 'videoUrl')) return input.videoUrl;
   if (hasOwn(input, 'mediaUrl')) return input.mediaUrl;
   if (hasOwn(input, 'imageUrl')) return input.imageUrl;
   if (hasOwn(input, 'url')) return input.url;
@@ -96,7 +97,7 @@ function normalizeMediaUrl(value) {
 }
 
 function inferMediaType(input = {}, url = '') {
-  const explicit = String(input.mediaType || '').trim().toLowerCase();
+  const explicit = String(input.mediaType || input.type || '').trim().toLowerCase();
   if (explicit === 'video') return 'video';
   if (explicit === 'image') return 'image';
   return /\.(mp4|m4v|webm)(\?.*)?$/i.test(String(url || '')) ? 'video' : 'image';
@@ -174,7 +175,9 @@ export function normalizeHeroImage(input = {}, index = 0, dateKey = getTodayKey(
     url,
     mediaUrl: url,
     mediaType,
+    type: mediaType,
     ...(mediaType === 'image' ? { imageUrl: url } : {}),
+    ...(mediaType === 'video' ? { videoUrl: url } : {}),
     ...(posterUrl ? { posterUrl } : {}),
     title,
     name: title,
@@ -266,7 +269,9 @@ export function getServableHeroPool(pool, { allowData = false } = {}) {
       url,
       mediaUrl: url,
       mediaType,
+      type: mediaType,
       ...(mediaType === 'image' ? { imageUrl: url } : {}),
+      ...(mediaType === 'video' ? { videoUrl: url } : {}),
       ...(posterUrl ? { posterUrl } : {}),
       active: normalizeBooleanFlag(img.active, true),
       enabled: normalizeBooleanFlag(img.enabled, true),

@@ -120,11 +120,11 @@ export const backend = {
     const qs = dateKey ? `?date=${encodeURIComponent(dateKey)}` : '';
     return request(`/api/backend/ops/hero-pool${qs}`, { method: 'DELETE' });
   },
-  async uploadHeroBatchImage({ dateKey, fileName, dataUrl, mediaType }) {
+  async uploadHeroBatchImage({ dateKey, fileName, dataUrl, mediaType, posterUrl }) {
     return request('/api/backend/ops/hero-batch-upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dateKey, fileName, dataUrl, mediaType }),
+      body: JSON.stringify({ dateKey, fileName, dataUrl, mediaType, posterUrl }),
     });
   },
   async getMonetizationConfig() {
