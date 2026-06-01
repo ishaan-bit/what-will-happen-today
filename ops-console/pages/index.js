@@ -50,6 +50,14 @@ function inferMediaTypeFromUrl(url) {
   return /\.(mp4|m4v|webm)(\?.*)?$/i.test(String(url || '')) ? 'video' : 'image';
 }
 
+function requirePositiveInteger(value, label) {
+  const raw = String(value ?? '').trim();
+  if (!/^[1-9]\d*$/.test(raw)) {
+    throw new Error(`${label} must be a positive whole number.`);
+  }
+  return parseInt(raw, 10);
+}
+
 function getTodayInputValue() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -241,8 +249,8 @@ function Dashboard({ creds, onLogout }) {
       if (hp?.heroPool) {
         setHeroPoolDraft({
           dateKey: toDateInputValue(hp.heroPool.dateKey),
-          maxHeroShufflesPerDay: hp.heroPool.config?.maxHeroShufflesPerDay ?? 4,
-          maxHeroImagesPerDay: hp.heroPool.config?.maxHeroImagesPerDay ?? 5,
+          maxHeroShufflesPerDay: String(hp.heroPool.config?.maxRewardedShufflesPerDay ?? hp.heroPool.config?.maxHeroShufflesPerDay ?? 4),
+          maxHeroImagesPerDay: String(hp.heroPool.config?.maxImagesPerDay ?? hp.heroPool.config?.maxHeroImagesPerDay ?? 5),
           images: hp.heroPool.images || [],
         });
       }
@@ -394,8 +402,8 @@ function Dashboard({ creds, onLogout }) {
       setHeroPoolDraft((d) => ({
         ...d,
         dateKey: toDateInputValue(r.heroPool?.dateKey || d.dateKey),
-        maxHeroShufflesPerDay: r.heroPool?.config?.maxHeroShufflesPerDay ?? d.maxHeroShufflesPerDay,
-        maxHeroImagesPerDay: r.heroPool?.config?.maxHeroImagesPerDay ?? d.maxHeroImagesPerDay,
+        maxHeroShufflesPerDay: String(r.heroPool?.config?.maxRewardedShufflesPerDay ?? r.heroPool?.config?.maxHeroShufflesPerDay ?? d.maxHeroShufflesPerDay),
+        maxHeroImagesPerDay: String(r.heroPool?.config?.maxImagesPerDay ?? r.heroPool?.config?.maxHeroImagesPerDay ?? d.maxHeroImagesPerDay),
         images: r.heroPool?.images || [],
       }));
       showToast(r.heroPool ? 'Hero pool loaded.' : 'No hero pool stored for that date.');
@@ -437,7 +445,7 @@ function Dashboard({ creds, onLogout }) {
 
   async function uploadHeroBatchFiles(fileList) {
     const files = Array.from(fileList || []).filter((file) => (
-      file.type?.startsWith('image/') || file.type === 'video/mp4'
+      file.type?.startsWith('image/') || file.type === 'video/mp4' || /\.mp4$/i.test(file.name || '')
     ));
     if (!files.length) {
       showToast('Select image or MP4 files first.', 'error');
@@ -448,13 +456,14 @@ function Dashboard({ creds, onLogout }) {
       const uploaded = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const isVideo = file.type === 'video/mp4';
+        const isVideo = file.type === 'video/mp4' || /\.mp4$/i.test(file.name || '');
         const dataUrl = isVideo
           ? await fileToDataUrl(file)
           : await resizeImageToDataUrl(file, 900, 0.72);
         const r = await backend.uploadHeroBatchImage({
           dateKey: heroPoolDraft.dateKey,
           fileName: file.name,
+          mediaType: isVideo ? 'video' : 'image',
           dataUrl,
         });
         const baseName = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
@@ -503,16 +512,92 @@ function Dashboard({ creds, onLogout }) {
     });
   }
 
-  function setDefaultHeroPoolImage(index) {
-    setHeroPoolDraft((d) => ({
-      ...d,
-      images: d.images.map((img, i) => ({ ...img, isDefault: i === index })),
-    }));
+  async function setDefaultHeroPoolImage(index) {
+    let nextDraft;
+    setHeroPoolDraft((d) => {
+      nextDraft = {
+        ...d,
+        images: d.images.map((img, i) => ({ ...img, isDefault: i === index })),
+      };
+      return nextDraft;
+    });
+    if (!nextDraft?.images?.length) return;
+    setBusyAction('heroPoolDefault');
+    try {
+      const r = await backend.setHeroPool(nextDraft);
+      setHeroPool(r.heroPool);
+      setHeroPoolDraft((d) => ({
+        ...d,
+        dateKey: toDateInputValue(r.heroPool.dateKey),
+        images: r.heroPool.images || nextDraft.images,
+        maxHeroShufflesPerDay: String(r.heroPool.config?.maxRewardedShufflesPerDay ?? r.heroPool.config?.maxHeroShufflesPerDay ?? d.maxHeroShufflesPerDay),
+        maxHeroImagesPerDay: String(r.heroPool.config?.maxImagesPerDay ?? r.heroPool.config?.maxHeroImagesPerDay ?? d.maxHeroImagesPerDay),
+      }));
+      showToast('Default hero changed.');
+    } catch (err) {
+      showToast(`Default save failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function saveHeroPoolSettings() {
+    let maxHeroShufflesPerDay;
+    let maxHeroImagesPerDay;
+    try {
+      maxHeroShufflesPerDay = requirePositiveInteger(heroPoolDraft.maxHeroShufflesPerDay, 'Max rewarded shuffles/day');
+      maxHeroImagesPerDay = requirePositiveInteger(heroPoolDraft.maxHeroImagesPerDay, 'Max images/day');
+    } catch (err) {
+      showToast(err.message, 'error');
+      return;
+    }
+    setBusyAction('heroPoolSettings');
+    try {
+      const r = await backend.saveHeroPoolSettings({
+        dateKey: heroPoolDraft.dateKey,
+        maxRewardedShufflesPerDay: maxHeroShufflesPerDay,
+        maxHeroImagesPerDay,
+      });
+      setHeroPool(r.heroPool);
+      setHeroPoolDraft((d) => ({
+        ...d,
+        dateKey: toDateInputValue(r.heroPool.dateKey),
+        maxHeroShufflesPerDay: String(r.heroPool.config?.maxRewardedShufflesPerDay ?? r.heroPool.config?.maxHeroShufflesPerDay ?? maxHeroShufflesPerDay),
+        maxHeroImagesPerDay: String(r.heroPool.config?.maxImagesPerDay ?? r.heroPool.config?.maxHeroImagesPerDay ?? maxHeroImagesPerDay),
+        images: r.heroPool.images || d.images,
+      }));
+      showToast('Batch settings saved.');
+    } catch (err) {
+      showToast(`Batch settings save failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function resetHeroShuffleUsage() {
+    if (!confirm(`Reset today's hero shuffle usage for ${heroPoolDraft.dateKey}?`)) return;
+    setBusyAction('heroShuffleReset');
+    try {
+      const r = await backend.resetHeroShuffleUsage(heroPoolDraft.dateKey);
+      setHeroPool(r.heroPool || heroPool);
+      showToast(`Hero shuffle usage reset nonce updated: ${r.heroShuffleResetNonce || 'saved'}.`);
+    } catch (err) {
+      showToast(`Hero shuffle reset failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   async function saveHeroPool() {
     if (!heroPoolDraft.images.length) {
       showToast('Add at least one public hero image or video URL.', 'error');
+      return;
+    }
+    try {
+      requirePositiveInteger(heroPoolDraft.maxHeroShufflesPerDay, 'Max rewarded shuffles/day');
+      requirePositiveInteger(heroPoolDraft.maxHeroImagesPerDay, 'Max images/day');
+    } catch (err) {
+      showToast(err.message, 'error');
       return;
     }
     setBusyAction('heroPool');
@@ -523,8 +608,8 @@ function Dashboard({ creds, onLogout }) {
         ...d,
         dateKey: toDateInputValue(r.heroPool.dateKey),
         images: r.heroPool.images || d.images,
-        maxHeroShufflesPerDay: r.heroPool.config?.maxHeroShufflesPerDay ?? d.maxHeroShufflesPerDay,
-        maxHeroImagesPerDay: r.heroPool.config?.maxHeroImagesPerDay ?? d.maxHeroImagesPerDay,
+        maxHeroShufflesPerDay: String(r.heroPool.config?.maxRewardedShufflesPerDay ?? r.heroPool.config?.maxHeroShufflesPerDay ?? d.maxHeroShufflesPerDay),
+        maxHeroImagesPerDay: String(r.heroPool.config?.maxImagesPerDay ?? r.heroPool.config?.maxHeroImagesPerDay ?? d.maxHeroImagesPerDay),
       }));
       showToast(`Daily hero pool saved (${r.heroPool.images.length} media item${r.heroPool.images.length === 1 ? '' : 's'}).`);
     } catch (err) {
@@ -1038,10 +1123,9 @@ function Dashboard({ creds, onLogout }) {
               <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Max rewarded shuffles/day</div>
               <input
                 type="number"
-                min={0}
-                max={24}
+                min={1}
                 value={heroPoolDraft.maxHeroShufflesPerDay}
-                onChange={(e) => setHeroPoolDraft((d) => ({ ...d, maxHeroShufflesPerDay: parseInt(e.target.value, 10) || 0 }))}
+                onChange={(e) => setHeroPoolDraft((d) => ({ ...d, maxHeroShufflesPerDay: e.target.value }))}
                 style={{ width: 120 }}
               />
             </label>
@@ -1050,14 +1134,19 @@ function Dashboard({ creds, onLogout }) {
               <input
                 type="number"
                 min={1}
-                max={24}
                 value={heroPoolDraft.maxHeroImagesPerDay}
-                onChange={(e) => setHeroPoolDraft((d) => ({ ...d, maxHeroImagesPerDay: parseInt(e.target.value, 10) || 1 }))}
+                onChange={(e) => setHeroPoolDraft((d) => ({ ...d, maxHeroImagesPerDay: e.target.value }))}
                 style={{ width: 120 }}
               />
             </label>
+            <button className="primary" disabled={busyAction === 'heroPoolSettings'} onClick={saveHeroPoolSettings}>
+              Save batch settings
+            </button>
             <button disabled={busyAction === 'heroPoolFetch'} onClick={fetchHeroPoolForDraftDate}>
               Fetch date
+            </button>
+            <button disabled={busyAction === 'heroShuffleReset'} onClick={resetHeroShuffleUsage}>
+              Reset today's hero shuffle usage
             </button>
           </div>
 
@@ -1220,7 +1309,7 @@ function Dashboard({ creds, onLogout }) {
                     ) : null}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <button disabled={img.isDefault} onClick={() => setDefaultHeroPoolImage(index)}>Default</button>
+                    <button disabled={img.isDefault || busyAction === 'heroPoolDefault'} onClick={() => setDefaultHeroPoolImage(index)}>Default</button>
                     <button className="danger" onClick={() => removeHeroPoolImage(index)}>Remove</button>
                   </div>
                 </div>

@@ -8,7 +8,7 @@
  *     so any uploaded artwork blends into the dark cosmic backdrop.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { View, Image, StyleSheet, Dimensions } from 'react-native';
+import { View, Image, StyleSheet, Dimensions, TouchableOpacity, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { palette, radius, spacing } from '@/utils/theme';
@@ -31,6 +31,7 @@ function withVersion(source, version) {
 
 function HeroVideo({ source, posterUrl, onError }) {
   const [firstFrameReady, setFirstFrameReady] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
   const player = useVideoPlayer(
     source ? { uri: source, contentType: 'auto' } : null,
     (videoPlayer) => {
@@ -43,7 +44,16 @@ function HeroVideo({ source, posterUrl, onError }) {
 
   useEffect(() => {
     setFirstFrameReady(false);
+    setAudioEnabled(false);
   }, [source]);
+
+  useEffect(() => {
+    if (!player) return;
+    try { player.muted = !audioEnabled; } catch {}
+    if (audioEnabled) {
+      try { player.play(); } catch {}
+    }
+  }, [player, audioEnabled]);
 
   useEffect(() => {
     const sub = player?.addListener?.('statusChange', ({ status }) => {
@@ -60,7 +70,7 @@ function HeroVideo({ source, posterUrl, onError }) {
       <VideoView
         player={player}
         style={styles.image}
-        nativeControls={false}
+        nativeControls={audioEnabled}
         contentFit="cover"
         allowsFullscreen={false}
         allowsPictureInPicture={false}
@@ -69,6 +79,17 @@ function HeroVideo({ source, posterUrl, onError }) {
       />
       {posterUrl && !firstFrameReady ? (
         <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
+      ) : null}
+      {!audioEnabled ? (
+        <TouchableOpacity
+          activeOpacity={0.82}
+          style={styles.audioButton}
+          onPress={() => setAudioEnabled(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Enable hero video audio"
+        >
+          <Text style={styles.audioButtonText}>Tap for audio</Text>
+        </TouchableOpacity>
       ) : null}
     </>
   );
@@ -154,5 +175,21 @@ const styles = StyleSheet.create({
     right: 0,
     height: 40,
     opacity: 0.6,
+  },
+  audioButton: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: radius.sm,
+    backgroundColor: 'rgba(7,8,15,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,110,0.45)',
+  },
+  audioButtonText: {
+    color: palette.accent,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

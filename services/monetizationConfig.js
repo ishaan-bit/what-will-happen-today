@@ -35,7 +35,7 @@ export function normalizeMonetizationConfig(input = {}) {
   const out = { ...DEFAULT_MONETIZATION_CONFIG };
   NUMBER_KEYS.forEach((key) => {
     if (Object.prototype.hasOwnProperty.call(input || {}, key)) {
-      out[key] = clampInt(input[key], DEFAULT_MONETIZATION_CONFIG[key], 0, 24);
+      out[key] = clampInt(input[key], DEFAULT_MONETIZATION_CONFIG[key], 0, Number.MAX_SAFE_INTEGER);
     }
   });
   BOOLEAN_KEYS.forEach((key) => {
@@ -44,8 +44,12 @@ export function normalizeMonetizationConfig(input = {}) {
     }
   });
   if (out.maxHeroImagesPerDay < 1) out.maxHeroImagesPerDay = 1;
-  if (out.maxHeroShufflesPerDay > out.maxHeroImagesPerDay - 1) {
-    out.maxHeroShufflesPerDay = Math.max(0, out.maxHeroImagesPerDay - 1);
-  }
   return out;
+}
+
+export function mergeMonetizationConfig(remote = null, poolConfig = null) {
+  return normalizeMonetizationConfig({
+    ...(remote || {}),
+    ...(poolConfig || {}),
+  });
 }

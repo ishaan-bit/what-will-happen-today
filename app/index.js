@@ -192,10 +192,7 @@ export default function HomeScreen() {
     heroImages.length || 1,
     monetizationConfig.maxHeroImagesPerDay,
   );
-  const maxHeroShuffles = Math.min(
-    monetizationConfig.maxHeroShufflesPerDay,
-    Math.max(0, maxHeroImages - 1),
-  );
+  const maxHeroShuffles = monetizationConfig.maxHeroShufflesPerDay;
   const seenHeroIds = heroShuffleState?.seenHeroIds || [];
   const totalHeroShuffles = (heroShuffleState?.rewardedShuffles || 0) + (heroShuffleState?.paidShuffles || 0);
   const heroShuffleRemaining = Math.max(0, maxHeroShuffles - totalHeroShuffles);

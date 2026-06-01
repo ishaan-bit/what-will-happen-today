@@ -37,6 +37,12 @@ function cleanText(value, fallback = '', max = 160) {
   return String(value || fallback).trim().slice(0, max);
 }
 
+function cleanOptionalText(value, fallback = null, max = 160) {
+  if (value === undefined || value === null) return fallback;
+  const text = String(value).trim().slice(0, max);
+  return text || fallback;
+}
+
 function hasOwn(input, key) {
   return Object.prototype.hasOwnProperty.call(input || {}, key);
 }
@@ -212,8 +218,8 @@ export function normalizeHeroPool(input = {}, previous = null) {
   }
 
   const config = normalizeMonetizationConfig({
-    maxHeroShufflesPerDay: input.maxHeroShufflesPerDay ?? input.config?.maxHeroShufflesPerDay ?? previous?.config?.maxHeroShufflesPerDay ?? DEFAULT_MONETIZATION_CONFIG.maxHeroShufflesPerDay,
-    maxHeroImagesPerDay: input.maxHeroImagesPerDay ?? input.config?.maxHeroImagesPerDay ?? previous?.config?.maxHeroImagesPerDay ?? DEFAULT_MONETIZATION_CONFIG.maxHeroImagesPerDay,
+    maxHeroShufflesPerDay: input.maxRewardedShufflesPerDay ?? input.maxHeroShufflesPerDay ?? input.config?.maxRewardedShufflesPerDay ?? input.config?.maxHeroShufflesPerDay ?? previous?.config?.maxRewardedShufflesPerDay ?? previous?.config?.maxHeroShufflesPerDay ?? DEFAULT_MONETIZATION_CONFIG.maxHeroShufflesPerDay,
+    maxHeroImagesPerDay: input.maxImagesPerDay ?? input.maxHeroImagesPerDay ?? input.config?.maxImagesPerDay ?? input.config?.maxHeroImagesPerDay ?? previous?.config?.maxImagesPerDay ?? previous?.config?.maxHeroImagesPerDay ?? DEFAULT_MONETIZATION_CONFIG.maxHeroImagesPerDay,
   });
 
   const revision = Number(previous?.revision || 0) + 1;
@@ -223,9 +229,13 @@ export function normalizeHeroPool(input = {}, previous = null) {
     images,
     config: {
       maxHeroShufflesPerDay: config.maxHeroShufflesPerDay,
+      maxRewardedShufflesPerDay: config.maxHeroShufflesPerDay,
       maxHeroImagesPerDay: config.maxHeroImagesPerDay,
+      maxImagesPerDay: config.maxHeroImagesPerDay,
     },
     revision,
+    heroShuffleResetNonce: cleanOptionalText(input.heroShuffleResetNonce, previous?.heroShuffleResetNonce || null, 80),
+    heroShuffleResetAt: cleanOptionalText(input.heroShuffleResetAt, previous?.heroShuffleResetAt || null, 80),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -345,6 +355,11 @@ export function assignDailyHeroSet(pool, {
   const seen = new Set();
   const seed = hashToUint(`${installId || 'anon'}|${dateKey}|${servable?.revision || servable?.updatedAt || '0'}`);
   const source = weightedExpandedList(baseImages);
+  const defaultHero = baseImages.find((img) => img.isDefault) || baseImages[0] || null;
+  if (defaultHero && picked.length < count) {
+    seen.add(defaultHero.id);
+    picked.push(defaultHero);
+  }
 
   for (let step = 0; step < source.length && picked.length < count; step++) {
     const idx = ((seed + Math.imul(step + 1, 2654435761)) >>> 0) % source.length;

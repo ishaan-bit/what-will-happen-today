@@ -18,7 +18,7 @@ import {
   cacheHeroAssignment,
   clearCachedHeroAssignment,
 } from '@/services/storageService';
-import { normalizeMonetizationConfig } from '@/services/monetizationConfig';
+import { mergeMonetizationConfig } from '@/services/monetizationConfig';
 
 const POOLS = { love, career, money, mood };
 
@@ -203,7 +203,7 @@ export async function getPredictions() {
       predictions: local,
       heroImage: effectiveHeroImage,
       heroPool: cachedHeroPool,
-      monetizationConfig: normalizeMonetizationConfig(remote?.monetizationConfig || {}),
+      monetizationConfig: mergeMonetizationConfig(remote?.monetizationConfig || {}, cachedHeroPool?.config || null),
       llmGeneratedAt: null,
       engineMode,
     };
@@ -229,7 +229,7 @@ export async function getPredictions() {
     predictions: merged,
     heroImage: effectiveHeroImage,
     heroPool: cachedHeroPool,
-    monetizationConfig: normalizeMonetizationConfig(remote?.monetizationConfig || {}),
+    monetizationConfig: mergeMonetizationConfig(remote?.monetizationConfig || {}, cachedHeroPool?.config || null),
     llmGeneratedAt: remote?.generatedAt || null,
     engineMode,
   };

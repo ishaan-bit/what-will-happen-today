@@ -28,7 +28,7 @@ async function request(url, opts = {}) {
   let body;
   try { body = text ? JSON.parse(text) : {}; } catch { body = { raw: text }; }
   if (!r.ok) {
-    const err = new Error(body.error || body.message || `HTTP ${r.status}`);
+    const err = new Error(body.message || body.error || `HTTP ${r.status}`);
     err.status = r.status;
     err.body = body;
     throw err;
@@ -102,15 +102,29 @@ export const backend = {
       body: JSON.stringify(payload),
     });
   },
+  async saveHeroPoolSettings(payload) {
+    return request('/api/backend/ops/hero-pool', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, action: 'settings' }),
+    });
+  },
+  async resetHeroShuffleUsage(dateKey) {
+    return request('/api/backend/ops/hero-pool', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dateKey, action: 'reset-shuffle-usage' }),
+    });
+  },
   async clearHeroPool(dateKey) {
     const qs = dateKey ? `?date=${encodeURIComponent(dateKey)}` : '';
     return request(`/api/backend/ops/hero-pool${qs}`, { method: 'DELETE' });
   },
-  async uploadHeroBatchImage({ dateKey, fileName, dataUrl }) {
+  async uploadHeroBatchImage({ dateKey, fileName, dataUrl, mediaType }) {
     return request('/api/backend/ops/hero-batch-upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dateKey, fileName, dataUrl }),
+      body: JSON.stringify({ dateKey, fileName, dataUrl, mediaType }),
     });
   },
   async getMonetizationConfig() {

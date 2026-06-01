@@ -304,6 +304,7 @@ function emptyHeroShuffleState() {
   return {
     dateKey: getTodayKey(),
     poolRevision: null,
+    lastResetNonce: null,
     currentHeroId: null,
     seenHeroIds: [],
     rewardedShuffles: 0,
@@ -340,11 +341,7 @@ async function saveHeroShuffleState(next) {
 
 export async function setCurrentHeroForToday(heroId, poolRevision = null) {
   const state = await getHeroShuffleState();
-  if (poolRevision && state.poolRevision && state.poolRevision !== poolRevision) {
-    Object.assign(state, emptyHeroShuffleState(), { poolRevision });
-  } else if (poolRevision) {
-    state.poolRevision = poolRevision;
-  }
+  if (poolRevision) state.poolRevision = poolRevision;
   const id = heroId || null;
   state.currentHeroId = id;
   if (id && !state.seenHeroIds.includes(id)) {
@@ -356,11 +353,7 @@ export async function setCurrentHeroForToday(heroId, poolRevision = null) {
 
 export async function recordHeroShuffle(heroId, source = 'ad', poolRevision = null) {
   const state = await getHeroShuffleState();
-  if (poolRevision && state.poolRevision && state.poolRevision !== poolRevision) {
-    Object.assign(state, emptyHeroShuffleState(), { poolRevision });
-  } else if (poolRevision) {
-    state.poolRevision = poolRevision;
-  }
+  if (poolRevision) state.poolRevision = poolRevision;
   const id = heroId || null;
   state.currentHeroId = id;
   if (id && !state.seenHeroIds.includes(id)) {
@@ -370,6 +363,23 @@ export async function recordHeroShuffle(heroId, source = 'ad', poolRevision = nu
   else state.rewardedShuffles = (state.rewardedShuffles || 0) + 1;
   await saveHeroShuffleState(state);
   return state;
+}
+
+export async function applyHeroShuffleResetNonce(resetNonce, poolRevision = null) {
+  const nonce = String(resetNonce || '').trim();
+  if (!nonce) return { state: await getHeroShuffleState(), applied: false };
+  const state = await getHeroShuffleState();
+  if (state.lastResetNonce === nonce) return { state, applied: false };
+  const next = {
+    ...emptyHeroShuffleState(),
+    lastResetNonce: nonce,
+    poolRevision: poolRevision || state.poolRevision || null,
+  };
+  await saveHeroShuffleState(next);
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.log('[hero-shuffle] applied reset nonce', { resetNonce: nonce, poolRevision: next.poolRevision });
+  }
+  return { state: next, applied: true };
 }
 
 export async function getCachedHeroAssignment(expectedRevision = null) {

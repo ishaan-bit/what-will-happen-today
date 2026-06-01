@@ -14,6 +14,7 @@ import {
   markDay4BannerSeen,
   getDailyRevealState,
   getHeroShuffleState,
+  applyHeroShuffleResetNonce,
   getEntitlementInfo,
 } from '@/services/storageService';
 import { getDailyFreeCategory } from '@/utils/freeCategory';
@@ -47,13 +48,18 @@ export function PredictionsProvider({ children }) {
   const load = useCallback(async ({ silent = false, lifecycle = true } = {}) => {
     if (!silent) setLoading(true);
     try {
+      const preds = await getPredictions();
+      if (preds.heroPool?.heroShuffleResetNonce) {
+        await applyHeroShuffleResetNonce(
+          preds.heroPool.heroShuffleResetNonce,
+          preds.heroPool.revision || preds.heroPool.updatedAt || null,
+        );
+      }
       const [
-        preds,
         entitlementState,
         dailyRevealState,
         dailyHeroShuffleState,
       ] = await Promise.all([
-        getPredictions(),
         getEntitlementInfo(),
         getDailyRevealState(),
         getHeroShuffleState(),
