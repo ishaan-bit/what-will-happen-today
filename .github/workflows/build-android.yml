@@ -103,11 +103,16 @@ jobs:
             echo "ERROR: Forced hero test rewarded unit suffix must resolve to 5224354917" >&2
             exit 1
           fi
-          npx expo config --type public >/tmp/expo-public-config.json
-          if ! grep -q '"version"' /tmp/expo-public-config.json; then
-            echo "ERROR: Expo public config did not resolve during Android build validation" >&2
-            exit 1
-          fi
+          npx expo config --type public --json >/tmp/expo-public-config.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const config = JSON.parse(fs.readFileSync('/tmp/expo-public-config.json', 'utf8').replace(/^\uFEFF/, ''));
+          if (!config.version || !config.android || !config.android.versionCode) {
+            console.error('ERROR: Expo public config did not resolve version/versionCode during Android build validation');
+            process.exit(1);
+          }
+          console.log(`Expo public config resolved: version=${config.version} versionCode=${config.android.versionCode}`);
+          NODE
 
       - name: Build AAB (production)
         env:
