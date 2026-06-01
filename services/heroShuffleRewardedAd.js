@@ -58,7 +58,7 @@ export function getHeroShuffleAdStatus() {
  *   { ok: false, rewarded: false, reason, isLoading, ... } — caller should NOT shuffle, NOT decrement count
  *
  * Reasons:
- *   - 'ad_still_loading': Ad is loading, not yet ready to show. Caller should show "Ad still loading" message.
+ *   - 'ad_loading', 'ad_not_ready': Ad is not ready to show.
  *   - 'load_timeout': Ad took >12 seconds to load
  *   - 'ad_closed_before_reward': User closed ad before earning reward
  *   - 'load_error', 'show_error': SDK or network error
@@ -75,9 +75,12 @@ export async function showHeroShuffleRewardedAd({ metadata } = {}) {
     console.log('[hero-shuffle:show] diagnostic failed', { message: err?.message || null });
   }
 
-  // Use the same helper/lifecycle as locked-signal: call `showRewardedAd` directly
-  // This avoids the early 'ad_still_loading' short-circuit and matches the working flow.
-  const result = await showRewardedAd({ placement: HERO_PLACEMENT, metadata });
+  const result = await showRewardedAd({
+    placement: HERO_PLACEMENT,
+    metadata,
+    preferLoaded: true,
+    requireLoaded: true,
+  });
 
   console.log('[hero-shuffle:show] result', {
     rewarded: result.rewarded,

@@ -28,8 +28,7 @@ function platformRewardedUnitId() {
 }
 
 function localHeroTestOverrideEnabled() {
-  return process.env.EXPO_PUBLIC_ADMOB_FORCE_HERO_TEST === 'true'
-    && (typeof __DEV__ !== 'undefined' && __DEV__);
+  return process.env.EXPO_PUBLIC_ADMOB_FORCE_HERO_TEST === 'true';
 }
 
 function cleanEnvValue(value) {
@@ -45,9 +44,6 @@ export function getRewardedAdUnitId(placement) {
   if (testUnitId) return testUnitId;
 
   if (placement === HERO_PLACEMENT) {
-    // Allow forcing the hero placement to use Google test unit for debugging
-    // in local dev builds only. Set EXPO_PUBLIC_ADMOB_FORCE_HERO_TEST=true
-    // in local .env to enable.
     if (localHeroTestOverrideEnabled()) {
       logHeroAdDebug('force_test_unit_enabled', { usingTestUnit: true });
       return TEST_REWARDED_UNIT_IDS[Platform.OS] || TEST_REWARDED_UNIT_IDS.android;
@@ -216,7 +212,7 @@ function getPlacementState(placement) {
 
 export function getRewardedAdStatus(placement = 'locked_signal') {
   if (mockAdsEnabled()) {
-    return { loaded: true, loading: false, showing: false, phase: 'loaded', state: 'loaded', reason: 'mock' };
+    return { loaded: true, loading: false, showing: false, phase: 'loaded', state: 'loaded', reason: 'mock', unitIdSuffix: 'mock' };
   }
   const state = rewardedPlacements.get(placement);
   const phase = state?.phase || 'idle';
@@ -228,6 +224,7 @@ export function getRewardedAdStatus(placement = 'locked_signal') {
     state: phase,
     error: state?.error || null,
     reason: state?.reason || null,
+    unitIdSuffix: state?.unitId ? adUnitSuffix(state.unitId) : adUnitSuffix(getRewardedAdUnitId(placement)),
   };
 }
 
