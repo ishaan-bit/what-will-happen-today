@@ -1,0 +1,37 @@
+diff --git a/node_modules/react-native-google-mobile-ads/android/src/oldarch/io/invertase/googlemobileads/NativeAppModuleSpec.kt b/node_modules/react-native-google-mobile-ads/android/src/oldarch/io/invertase/googlemobileads/NativeAppModuleSpec.kt
+new file mode 100644
+index 0000000..82b9bae
+--- /dev/null
++++ b/node_modules/react-native-google-mobile-ads/android/src/oldarch/io/invertase/googlemobileads/NativeAppModuleSpec.kt
+@@ -0,0 +1,31 @@
++package io.invertase.googlemobileads
++
++import com.facebook.react.bridge.Promise
++import com.facebook.react.bridge.ReactApplicationContext
++import com.facebook.react.bridge.ReactContextBaseJavaModule
++import com.facebook.react.bridge.ReadableMap
++
++abstract class NativeAppModuleSpec(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
++  companion object {
++    const val NAME = "RNAppModule"
++  }
++
++  override fun getName(): String = NAME
++
++  abstract fun initializeApp(options: ReadableMap, appConfig: ReadableMap, promise: Promise)
++  abstract fun setAutomaticDataCollectionEnabled(appName: String, enabled: Boolean)
++  abstract fun deleteApp(appName: String, promise: Promise)
++  abstract fun eventsNotifyReady(ready: Boolean)
++  abstract fun eventsGetListeners(promise: Promise)
++  abstract fun eventsPing(eventName: String, eventBody: ReadableMap, promise: Promise)
++  abstract fun eventsAddListener(eventName: String)
++  abstract fun eventsRemoveListener(eventName: String, all: Boolean)
++  abstract fun addListener(eventName: String)
++  abstract fun removeListeners(count: Double)
++  abstract fun metaGetAll(promise: Promise)
++  abstract fun jsonGetAll(promise: Promise)
++  abstract fun preferencesSetBool(key: String, value: Boolean, promise: Promise)
++  abstract fun preferencesSetString(key: String, value: String, promise: Promise)
++  abstract fun preferencesGetAll(promise: Promise)
++  abstract fun preferencesClearAll(promise: Promise)
++}

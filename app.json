@@ -32,6 +32,7 @@
             "minSdkVersion": 24,
             "compileSdkVersion": 35,
             "targetSdkVersion": 35,
+            "kotlinVersion": "2.1.20",
             "useLegacyPackaging": false,
             "newArchEnabled": false
           }
