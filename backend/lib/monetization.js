@@ -28,9 +28,17 @@ const BOOLEAN_KEYS = new Set([
 ]);
 
 function clampInt(value, fallback, min, max) {
-  const n = parseInt(value, 10);
+  const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, n));
+  return Math.max(min, Math.min(max, Math.trunc(n)));
+}
+
+export function requirePositiveInteger(value, name) {
+  const raw = String(value ?? '').trim();
+  if (!/^[1-9]\d*$/.test(raw)) {
+    throw new Error(`${name}_must_be_positive_integer`);
+  }
+  return Number(raw);
 }
 
 export function normalizeMonetizationConfig(input = {}) {

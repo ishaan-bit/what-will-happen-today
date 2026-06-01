@@ -156,7 +156,8 @@ export function normalizeHeroImage(input = {}, index = 0, dateKey = getTodayKey(
     return null;
   }
 
-  const id = cleanText(input.id, `hero_${dateKey}_${index + 1}_${hashString(url).slice(0, 6)}`, 80)
+  const uploadedAssetId = cleanText(input.uploadedAssetId || input.assetId, '', 80).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const id = cleanText(input.id || uploadedAssetId, `hero_${dateKey}_${index + 1}_${hashString(url).slice(0, 6)}`, 80)
     .replace(/[^a-zA-Z0-9_-]/g, '_');
 
   const weight = Math.max(0, Math.min(1000, parseInt(input.weight, 10) || 1));
@@ -172,6 +173,7 @@ export function normalizeHeroImage(input = {}, index = 0, dateKey = getTodayKey(
 
   return {
     id,
+    ...(uploadedAssetId ? { uploadedAssetId } : {}),
     url,
     mediaUrl: url,
     mediaType,
@@ -203,6 +205,8 @@ export function normalizeHeroImage(input = {}, index = 0, dateKey = getTodayKey(
 export function normalizeHeroPool(input = {}, previous = null) {
   const dateKey = normalizeDateKey(input.dateKey || input.date || previous?.dateKey);
   const inputImages = Array.isArray(input.images) ? input.images : [];
+  const requestedDefaultId = cleanText(input.defaultHeroAssetId || input.defaultHeroId || previous?.defaultHeroAssetId || previous?.defaultHeroId, '', 80);
+  const headline = cleanText(input.headline ?? previous?.headline, '', 140);
   const normalized = inputImages
     .map((item, index) => normalizeHeroImage(item, index, dateKey))
     .filter(Boolean);
@@ -214,11 +218,15 @@ export function normalizeHeroPool(input = {}, previous = null) {
   });
 
   const images = normalized;
-  const defaultIndex = images.findIndex((img) => img.isDefault);
+  const requestedDefaultIndex = requestedDefaultId
+    ? images.findIndex((img) => img.id === requestedDefaultId || img.uploadedAssetId === requestedDefaultId)
+    : -1;
+  const defaultIndex = requestedDefaultIndex >= 0 ? requestedDefaultIndex : images.findIndex((img) => img.isDefault);
   if (defaultIndex < 0 && images.length > 0) images[0].isDefault = true;
   if (defaultIndex >= 0) {
     images.forEach((img, index) => { img.isDefault = index === defaultIndex; });
   }
+  const defaultHeroAssetId = images.find((img) => img.isDefault)?.id || images[0]?.id || null;
 
   const config = normalizeMonetizationConfig({
     maxHeroShufflesPerDay: input.maxRewardedShufflesPerDay ?? input.maxHeroShufflesPerDay ?? input.config?.maxRewardedShufflesPerDay ?? input.config?.maxHeroShufflesPerDay ?? previous?.config?.maxRewardedShufflesPerDay ?? previous?.config?.maxHeroShufflesPerDay ?? DEFAULT_MONETIZATION_CONFIG.maxHeroShufflesPerDay,
@@ -229,6 +237,9 @@ export function normalizeHeroPool(input = {}, previous = null) {
   return {
     dateKey,
     assignment: cleanText(input.assignment || input.campaign || previous?.assignment, '', 120),
+    headline,
+    defaultHeroAssetId,
+    defaultHeroId: defaultHeroAssetId,
     images,
     config: {
       maxHeroShufflesPerDay: config.maxHeroShufflesPerDay,
@@ -334,6 +345,8 @@ export function getServableHeroPool(pool, { allowData = false } = {}) {
   return {
     ...pool,
     images: filtered,
+    headline: cleanText(pool.headline, '', 140),
+    defaultHeroAssetId: filtered.find((img) => img.isDefault)?.id || filtered[0].id,
     defaultHeroId: filtered.find((img) => img.isDefault)?.id || filtered[0].id,
     revision: pool.revision || pool.updatedAt || null,
   };

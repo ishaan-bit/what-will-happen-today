@@ -16,6 +16,7 @@ import {
   normalizeHeroPool,
   parseStoredJson,
 } from '@/lib/heroPool';
+import { requirePositiveInteger } from '@/lib/monetization';
 
 let _redis = null;
 function getRedis() {
@@ -27,19 +28,13 @@ export const config = {
   api: { bodyParser: { sizeLimit: '1mb' } },
 };
 
-function positiveInteger(value, name) {
-  if (typeof value === 'string' && !/^[1-9]\d*$/.test(value.trim())) {
-    throw new Error(`${name}_must_be_positive_integer`);
-  }
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < 1) throw new Error(`${name}_must_be_positive_integer`);
-  return n;
-}
-
 function emptyPool(dateKey, previous = null) {
   return {
     dateKey,
     assignment: previous?.assignment || '',
+    headline: previous?.headline || '',
+    defaultHeroAssetId: previous?.defaultHeroAssetId || previous?.defaultHeroId || null,
+    defaultHeroId: previous?.defaultHeroId || previous?.defaultHeroAssetId || null,
     images: Array.isArray(previous?.images) ? previous.images : [],
     config: previous?.config || {},
     revision: Number(previous?.revision || 0),
@@ -74,14 +69,25 @@ export default async function handler(req, res) {
         let maxHeroShufflesPerDay;
         let maxHeroImagesPerDay;
         try {
-          maxHeroShufflesPerDay = positiveInteger(req.body?.maxRewardedShufflesPerDay ?? req.body?.maxHeroShufflesPerDay, 'maxRewardedShufflesPerDay');
-          maxHeroImagesPerDay = positiveInteger(req.body?.maxHeroImagesPerDay ?? req.body?.maxImagesPerDay, 'maxHeroImagesPerDay');
+          maxHeroShufflesPerDay = requirePositiveInteger(req.body?.maxRewardedShufflesPerDay ?? req.body?.maxHeroShufflesPerDay, 'maxRewardedShufflesPerDay');
+          maxHeroImagesPerDay = requirePositiveInteger(req.body?.maxHeroImagesPerDay ?? req.body?.maxImagesPerDay, 'maxHeroImagesPerDay');
         } catch (err) {
+          console.warn('[hero-pool] batch settings rejected', { dateKey, message: err.message });
           return res.status(400).json({ error: 'invalid_batch_settings', message: err.message });
         }
         const pool = emptyPool(dateKey, previous);
+        const headline = String(req.body?.headline ?? pool.headline ?? '').trim().slice(0, 140);
+        const defaultHeroAssetId = String(req.body?.defaultHeroAssetId ?? req.body?.defaultHeroId ?? pool.defaultHeroAssetId ?? '').trim().slice(0, 80) || null;
         const next = {
           ...pool,
+          headline,
+          defaultHeroAssetId,
+          defaultHeroId: defaultHeroAssetId,
+          images: pool.images.map((img) => ({
+            ...img,
+            isDefault: defaultHeroAssetId ? img.id === defaultHeroAssetId : img.isDefault,
+            default: defaultHeroAssetId ? img.id === defaultHeroAssetId : img.default,
+          })),
           config: {
             ...(pool.config || {}),
             maxHeroShufflesPerDay,
@@ -93,7 +99,13 @@ export default async function handler(req, res) {
           updatedAt: new Date().toISOString(),
         };
         await redis.set(heroPoolKey(next.dateKey), JSON.stringify(next));
-        console.log('[hero-pool] batch settings saved', { dateKey: next.dateKey, config: next.config, revision: next.revision });
+        console.log('[hero-pool] batch settings saved', {
+          dateKey: next.dateKey,
+          config: next.config,
+          defaultHeroAssetId: next.defaultHeroAssetId,
+          hasHeadline: !!next.headline,
+          revision: next.revision,
+        });
         return res.status(200).json({
           ok: true,
           dateKey: next.dateKey,

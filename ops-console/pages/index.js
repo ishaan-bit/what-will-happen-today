@@ -215,6 +215,8 @@ function Dashboard({ creds, onLogout }) {
     dateKey: getTodayInputValue(),
     maxHeroShufflesPerDay: 4,
     maxHeroImagesPerDay: 5,
+    headline: '',
+    defaultHeroAssetId: '',
     images: [],
   });
   const [heroPoolImageDraft, setHeroPoolImageDraft] = useState(EMPTY_POOL_IMAGE);
@@ -259,6 +261,8 @@ function Dashboard({ creds, onLogout }) {
           dateKey: toDateInputValue(hp.heroPool.dateKey),
           maxHeroShufflesPerDay: String(hp.heroPool.config?.maxRewardedShufflesPerDay ?? hp.heroPool.config?.maxHeroShufflesPerDay ?? 4),
           maxHeroImagesPerDay: String(hp.heroPool.config?.maxImagesPerDay ?? hp.heroPool.config?.maxHeroImagesPerDay ?? 5),
+          headline: hp.heroPool.headline || '',
+          defaultHeroAssetId: hp.heroPool.defaultHeroAssetId || hp.heroPool.defaultHeroId || '',
           images: hp.heroPool.images || [],
         });
       }
@@ -412,6 +416,8 @@ function Dashboard({ creds, onLogout }) {
         dateKey: toDateInputValue(r.heroPool?.dateKey || d.dateKey),
         maxHeroShufflesPerDay: String(r.heroPool?.config?.maxRewardedShufflesPerDay ?? r.heroPool?.config?.maxHeroShufflesPerDay ?? d.maxHeroShufflesPerDay),
         maxHeroImagesPerDay: String(r.heroPool?.config?.maxImagesPerDay ?? r.heroPool?.config?.maxHeroImagesPerDay ?? d.maxHeroImagesPerDay),
+        headline: r.heroPool?.headline ?? d.headline ?? '',
+        defaultHeroAssetId: r.heroPool?.defaultHeroAssetId || r.heroPool?.defaultHeroId || d.defaultHeroAssetId || '',
         images: r.heroPool?.images || [],
       }));
       showToast(r.heroPool ? 'Hero pool loaded.' : 'No hero pool stored for that date.');
@@ -531,6 +537,7 @@ function Dashboard({ creds, onLogout }) {
     setHeroPoolDraft((d) => {
       nextDraft = {
         ...d,
+        defaultHeroAssetId: d.images[index]?.id || d.images[index]?.uploadedAssetId || '',
         images: d.images.map((img, i) => ({ ...img, isDefault: i === index })),
       };
       return nextDraft;
@@ -544,6 +551,8 @@ function Dashboard({ creds, onLogout }) {
         ...d,
         dateKey: toDateInputValue(r.heroPool.dateKey),
         images: r.heroPool.images || nextDraft.images,
+        headline: r.heroPool.headline || d.headline || '',
+        defaultHeroAssetId: r.heroPool.defaultHeroAssetId || r.heroPool.defaultHeroId || nextDraft.defaultHeroAssetId || '',
         maxHeroShufflesPerDay: String(r.heroPool.config?.maxRewardedShufflesPerDay ?? r.heroPool.config?.maxHeroShufflesPerDay ?? d.maxHeroShufflesPerDay),
         maxHeroImagesPerDay: String(r.heroPool.config?.maxImagesPerDay ?? r.heroPool.config?.maxHeroImagesPerDay ?? d.maxHeroImagesPerDay),
       }));
@@ -571,6 +580,8 @@ function Dashboard({ creds, onLogout }) {
         dateKey: heroPoolDraft.dateKey,
         maxRewardedShufflesPerDay: maxHeroShufflesPerDay,
         maxHeroImagesPerDay,
+        headline: heroPoolDraft.headline,
+        defaultHeroAssetId: heroPoolDraft.defaultHeroAssetId,
       });
       setHeroPool(r.heroPool);
       setHeroPoolDraft((d) => ({
@@ -578,6 +589,8 @@ function Dashboard({ creds, onLogout }) {
         dateKey: toDateInputValue(r.heroPool.dateKey),
         maxHeroShufflesPerDay: String(r.heroPool.config?.maxRewardedShufflesPerDay ?? r.heroPool.config?.maxHeroShufflesPerDay ?? maxHeroShufflesPerDay),
         maxHeroImagesPerDay: String(r.heroPool.config?.maxImagesPerDay ?? r.heroPool.config?.maxHeroImagesPerDay ?? maxHeroImagesPerDay),
+        headline: r.heroPool.headline || '',
+        defaultHeroAssetId: r.heroPool.defaultHeroAssetId || r.heroPool.defaultHeroId || '',
         images: r.heroPool.images || d.images,
       }));
       showToast('Batch settings saved.');
@@ -601,6 +614,8 @@ function Dashboard({ creds, onLogout }) {
           images: r.heroPool.images || d.images,
           maxHeroShufflesPerDay: String(r.heroPool.config?.maxRewardedShufflesPerDay ?? r.heroPool.config?.maxHeroShufflesPerDay ?? d.maxHeroShufflesPerDay),
           maxHeroImagesPerDay: String(r.heroPool.config?.maxImagesPerDay ?? r.heroPool.config?.maxHeroImagesPerDay ?? d.maxHeroImagesPerDay),
+          headline: r.heroPool.headline || '',
+          defaultHeroAssetId: r.heroPool.defaultHeroAssetId || r.heroPool.defaultHeroId || '',
         }));
       }
       showToast(`Hero shuffle usage reset nonce updated: ${r.heroShuffleResetNonce || 'saved'}.`);
@@ -633,6 +648,8 @@ function Dashboard({ creds, onLogout }) {
         images: r.heroPool.images || d.images,
         maxHeroShufflesPerDay: String(r.heroPool.config?.maxRewardedShufflesPerDay ?? r.heroPool.config?.maxHeroShufflesPerDay ?? d.maxHeroShufflesPerDay),
         maxHeroImagesPerDay: String(r.heroPool.config?.maxImagesPerDay ?? r.heroPool.config?.maxHeroImagesPerDay ?? d.maxHeroImagesPerDay),
+        headline: r.heroPool.headline || '',
+        defaultHeroAssetId: r.heroPool.defaultHeroAssetId || r.heroPool.defaultHeroId || '',
       }));
       showToast(`Daily hero pool saved (${r.heroPool.images.length} media item${r.heroPool.images.length === 1 ? '' : 's'}).`);
     } catch (err) {
@@ -659,9 +676,26 @@ function Dashboard({ creds, onLogout }) {
 
   async function saveMonetizationConfig() {
     if (!monetizationConfig) return;
+    let nextConfig;
+    try {
+      nextConfig = {
+        ...monetizationConfig,
+        freeSignalsPerDay: requirePositiveInteger(monetizationConfig.freeSignalsPerDay, 'Free signals/day'),
+        lockedSignalsPerDay: requirePositiveInteger(monetizationConfig.lockedSignalsPerDay, 'Locked signals/day'),
+        maxHeroShufflesPerDay: requirePositiveInteger(monetizationConfig.maxHeroShufflesPerDay, 'Max hero shuffles/day'),
+        maxRewardedShufflesPerDay: requirePositiveInteger(
+          monetizationConfig.maxRewardedShufflesPerDay ?? monetizationConfig.maxHeroShufflesPerDay,
+          'Max rewarded hero shuffles/day',
+        ),
+        maxHeroImagesPerDay: requirePositiveInteger(monetizationConfig.maxHeroImagesPerDay, 'Max hero images/day'),
+      };
+    } catch (err) {
+      showToast(err.message, 'error');
+      return;
+    }
     setBusyAction('monetizationConfig');
     try {
-      const r = await backend.setMonetizationConfig(monetizationConfig);
+      const r = await backend.setMonetizationConfig(nextConfig);
       setMonetizationConfig(r.config);
       showToast('Monetization config saved.');
     } catch (err) {
@@ -1162,6 +1196,34 @@ function Dashboard({ creds, onLogout }) {
                 style={{ width: 120 }}
               />
             </label>
+            <label style={{ minWidth: 260, flex: 1 }}>
+              <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Default headline under hero</div>
+              <input
+                value={heroPoolDraft.headline}
+                onChange={(e) => setHeroPoolDraft((d) => ({ ...d, headline: e.target.value }))}
+                placeholder="Fallback headline when selected asset has no headline"
+                style={{ width: '100%' }}
+              />
+            </label>
+            <label style={{ minWidth: 220 }}>
+              <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>Default asset</div>
+              <select
+                value={heroPoolDraft.defaultHeroAssetId}
+                onChange={(e) => setHeroPoolDraft((d) => ({
+                  ...d,
+                  defaultHeroAssetId: e.target.value,
+                  images: d.images.map((img) => ({ ...img, isDefault: img.id === e.target.value })),
+                }))}
+                style={{ width: '100%' }}
+              >
+                <option value="">First active asset</option>
+                {heroPoolDraft.images.map((img, index) => (
+                  <option key={img.id || `${getHeroAssetUrl(img)}-${index}`} value={img.id || img.uploadedAssetId || ''}>
+                    {img.title || img.name || `Hero ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button className="primary" disabled={busyAction === 'heroPoolSettings'} onClick={saveHeroPoolSettings}>
               Save batch settings
             </button>
@@ -1365,15 +1427,15 @@ function Dashboard({ creds, onLogout }) {
         <Card title="Monetization Config">
           <div style={{ display: 'grid', gap: 10 }}>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {['freeSignalsPerDay', 'lockedSignalsPerDay', 'maxHeroShufflesPerDay', 'maxHeroImagesPerDay'].map((key) => (
+              {['freeSignalsPerDay', 'lockedSignalsPerDay', 'maxHeroShufflesPerDay', 'maxRewardedShufflesPerDay', 'maxHeroImagesPerDay'].map((key) => (
                 <label key={key}>
                   <div style={{ marginBottom: 4, color: '#aaa', fontSize: 12 }}>{key}</div>
                   <input
                     type="number"
-                    min={0}
-                    max={24}
+                    min={1}
+                    step={1}
                     value={monetizationConfig[key]}
-                    onChange={(e) => setMonetizationConfig((d) => ({ ...d, [key]: parseInt(e.target.value, 10) || 0 }))}
+                    onChange={(e) => setMonetizationConfig((d) => ({ ...d, [key]: e.target.value }))}
                     style={{ width: 120 }}
                   />
                 </label>

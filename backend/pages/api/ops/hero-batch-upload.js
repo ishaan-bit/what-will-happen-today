@@ -9,7 +9,8 @@ import { put } from '@vercel/blob';
 import { requireOpsAuth } from '@/lib/opsAuth';
 import { hashToUint, normalizeDateKey } from '@/lib/heroPool';
 
-const MAX_DATA_URL_BYTES = parseInt(process.env.HERO_BATCH_UPLOAD_MAX_BYTES || '12000000', 10);
+const MAX_IMAGE_UPLOAD_BYTES = parseInt(process.env.HERO_BATCH_IMAGE_UPLOAD_MAX_BYTES || process.env.HERO_BATCH_UPLOAD_MAX_BYTES || '12000000', 10);
+const MAX_VIDEO_UPLOAD_BYTES = parseInt(process.env.HERO_BATCH_VIDEO_UPLOAD_MAX_BYTES || '52000000', 10);
 const ASSET_PREFIX = 'wwht:heroBatchAsset:';
 
 let _redis = null;
@@ -47,7 +48,7 @@ function getBaseUrl(req) {
 }
 
 export const config = {
-  api: { bodyParser: { sizeLimit: '16mb' } },
+  api: { bodyParser: { sizeLimit: '70mb' } },
 };
 
 export default async function handler(req, res) {
@@ -105,16 +106,17 @@ export default async function handler(req, res) {
   }
 
   const bytes = Math.ceil(parsed.base64.length * 0.75);
-  if (bytes > MAX_DATA_URL_BYTES) {
+  const mediaType = parsed.contentType.startsWith('video/') ? 'video' : 'image';
+  const maxBytes = mediaType === 'video' ? MAX_VIDEO_UPLOAD_BYTES : MAX_IMAGE_UPLOAD_BYTES;
+  if (bytes > maxBytes) {
     return res.status(413).json({
       error: parsed.contentType === 'video/mp4' ? 'video_too_large' : 'image_too_large',
-      message: `${parsed.contentType === 'video/mp4' ? 'Video' : 'Image'} upload is ${bytes} bytes; max is ${MAX_DATA_URL_BYTES} bytes.`,
-      maxBytes: MAX_DATA_URL_BYTES,
+      message: `${parsed.contentType === 'video/mp4' ? 'Video' : 'Image'} upload is ${bytes} bytes; max is ${maxBytes} bytes.`,
+      maxBytes,
       bytes,
     });
   }
 
-  const mediaType = parsed.contentType.startsWith('video/') ? 'video' : 'image';
   const id = `asset_${hashToUint(`${dateKey}|${fileName}|${parsed.base64.slice(0, 64)}`).toString(36)}`;
   if (mediaType === 'video') {
     if (parsed.contentType !== 'video/mp4' || !isMp4FileName(fileName)) {
@@ -135,6 +137,7 @@ export default async function handler(req, res) {
         token: process.env.BLOB_READ_WRITE_TOKEN,
       });
     } catch (err) {
+      console.error('[hero-batch-upload] blob upload failed', { dateKey, id, type: mediaType, bytes, message: err?.message || null });
       return res.status(502).json({
         error: 'blob_upload_failed',
         message: err?.message || 'Vercel Blob upload failed.',

@@ -198,7 +198,7 @@ export default function HomeScreen() {
     return source.map(normalizeHero).filter(Boolean);
   }, [heroPool, heroImage]);
 
-  const defaultHeroId = heroPool?.defaultHeroId || heroImages[0]?.id || null;
+  const defaultHeroId = heroPool?.defaultHeroAssetId || heroPool?.defaultHeroId || heroImages.find((img) => img.isDefault)?.id || heroImages[0]?.id || null;
   const currentHero = useMemo(() => {
     const currentId = heroShuffleState?.currentHeroId || defaultHeroId;
     return heroImages.find((img) => img.id === currentId) || heroImages[0] || heroImage || null;
@@ -589,7 +589,10 @@ export default function HomeScreen() {
       await refreshRevealState();
     }
 
-    if (!preflight.ok) {
+    const canTryFallbackAfterPrimaryFailure = preflight.reason === 'ad_load_error_or_no_fill'
+      && !!preflight.nextHeroId;
+
+    if (!preflight.ok && !canTryFallbackAfterPrimaryFailure) {
       logHeroShuffleDebug('shuffle_blocked', tapDiagnostics);
       if (preflight.reason === 'ad_not_loaded_yet') {
         preloadHeroShuffleRewardedAd({ forceFresh: false }).catch(() => null);
@@ -598,6 +601,9 @@ export default function HomeScreen() {
       }
       Alert.alert(preflight.userMessage || heroShuffleMessageForReason(preflight.reason));
       return;
+    }
+    if (canTryFallbackAfterPrimaryFailure) {
+      logHeroShuffleDebug('primary_failed_trying_fallback', tapDiagnostics);
     }
     heroShuffleAdInFlightRef.current = true;
     setHeroShuffleAdBusy(true);
@@ -696,7 +702,9 @@ export default function HomeScreen() {
   const heroHeadline = isHumanReadableHeroText(currentHero?.headline)
       && !isGenericHeroFallbackHeadline(currentHero?.headline, currentHero?.readerMood)
     ? normalizeHeroCopy(currentHero.headline)
-    : "Your reader has opened today's signal.";
+    : (isHumanReadableHeroText(heroPool?.headline)
+      ? normalizeHeroCopy(heroPool.headline)
+      : "Your reader has opened today's signal.");
   const heroCta = normalizeHeroCopy(currentHero?.cta || currentHero?.CTA) || 'Draw my first signal';
   const activeShuffleCtaText = width < 360 ? 'Shuffle reader' : 'Shuffle reader image';
   const shuffleCtaText = heroShuffleAdBusy

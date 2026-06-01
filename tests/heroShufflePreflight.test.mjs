@@ -159,4 +159,77 @@ assert.deepEqual(runFakeRewardedFlow({ heroCount: 1, attempts: 1 }), {
   reason: 'no_next_hero_available',
 });
 
+function runFakeFallbackRewardedFlow({ primary = 'no_fill', fallback = 'rewarded' } = {}) {
+  let currentHeroId = 'reader-1';
+  let seenHeroIds = ['reader-1'];
+  let count = 0;
+  let primaryAttempts = 0;
+  let fallbackAttempts = 0;
+
+  const result = evaluateHeroShufflePreflight({
+    heroImages: heroes.slice(0, 4),
+    currentHeroId,
+    defaultHeroId: 'reader-1',
+    seenHeroIds,
+    maxRewardedShufflesPerDay: 4,
+    maxHeroImagesPerDay: 4,
+    localHeroShuffleCount: count,
+    rewardedAdStatus: primary === 'loaded'
+      ? { loaded: true, loading: false, phase: 'loaded' }
+      : { loaded: false, loading: false, phase: 'failed', reason: 'load_error' },
+  });
+
+  if (!result.ok && result.reason !== 'ad_load_error_or_no_fill') {
+    return { currentHeroId, count, primaryAttempts, fallbackAttempts, reason: result.reason };
+  }
+
+  primaryAttempts += 1;
+  if (primary === 'loaded') {
+    currentHeroId = result.nextHeroId;
+    seenHeroIds = [...seenHeroIds, currentHeroId];
+    count += 1;
+    return { currentHeroId, count, primaryAttempts, fallbackAttempts, reason: 'primary_rewarded' };
+  }
+
+  fallbackAttempts += 1;
+  if (fallback === 'rewarded') {
+    currentHeroId = result.nextHeroId;
+    seenHeroIds = [...seenHeroIds, currentHeroId];
+    count += 1;
+    return { currentHeroId, count, primaryAttempts, fallbackAttempts, reason: 'fallback_rewarded' };
+  }
+
+  return { currentHeroId, count, primaryAttempts, fallbackAttempts, reason: 'both_no_fill' };
+}
+
+assert.deepEqual(runFakeFallbackRewardedFlow({ primary: 'no_fill', fallback: 'rewarded' }), {
+  currentHeroId: 'reader-2',
+  count: 1,
+  primaryAttempts: 1,
+  fallbackAttempts: 1,
+  reason: 'fallback_rewarded',
+});
+assert.deepEqual(runFakeFallbackRewardedFlow({ primary: 'no_fill', fallback: 'no_fill' }), {
+  currentHeroId: 'reader-1',
+  count: 0,
+  primaryAttempts: 1,
+  fallbackAttempts: 1,
+  reason: 'both_no_fill',
+});
+assert.deepEqual(runFakeFallbackRewardedFlow({ primary: 'loaded' }), {
+  currentHeroId: 'reader-2',
+  count: 1,
+  primaryAttempts: 1,
+  fallbackAttempts: 0,
+  reason: 'primary_rewarded',
+});
+assert.equal(
+  preflight({ rewardedAdStatus: { loaded: false, loading: true, phase: 'loading' } }).userMessage,
+  'Ad is still loading. Try again in a few seconds.',
+);
+assert.equal(
+  preflight({ rewardedAdStatus: { loaded: false, loading: false, phase: 'failed', reason: 'load_error' } }).userMessage,
+  'No ad available right now. Try again soon.',
+);
+
 console.log('hero shuffle preflight tests passed');

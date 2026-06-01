@@ -1,11 +1,43 @@
-import { showRewardedAd, getRewardedAdUnitId, getRewardedAdStatus, preloadRewardedAd } from '@/services/rewardedAdService';
+import {
+  showRewardedAd,
+  getRewardedAdUnitId,
+  getRewardedAdStatus,
+  preloadRewardedAd,
+  isHeroRewardedTestOverrideEnabled,
+} from '@/services/rewardedAdService';
 
 const HERO_PLACEMENT = 'hero_shuffle';
+const HERO_FALLBACK_PLACEMENT = 'hero_shuffle_fallback';
+const RETRY_DELAYS_MS = [15000, 30000];
+let retryTimer = null;
+let retryAttempt = 0;
 
 function adUnitSuffix(unitId) {
   return typeof unitId === 'string' && unitId.trim()
     ? unitId.trim().split('/').pop()
     : '[missing]';
+}
+
+function isLoadFailure(reason) {
+  return [
+    'load_error',
+    'failed_to_load',
+    'load_timeout',
+    'ad_unavailable',
+    'ad_not_ready',
+    'failed',
+  ].includes(reason);
+}
+
+function schedulePrimaryRetry() {
+  if (retryTimer) return;
+  const delay = RETRY_DELAYS_MS[Math.min(retryAttempt, RETRY_DELAYS_MS.length - 1)];
+  retryAttempt += 1;
+  console.log('[hero-shuffle:preload] retry scheduled', { delayMs: delay });
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    preloadHeroShuffleRewardedAd({ forceFresh: true }).catch(() => null);
+  }, delay);
 }
 
 /**
@@ -32,6 +64,16 @@ export async function preloadHeroShuffleRewardedAd(options = {}) {
       error: status.error,
     });
 
+    if (status.loaded) {
+      retryAttempt = 0;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+    } else if (status.phase === 'failed' || status.phase === 'unavailable') {
+      schedulePrimaryRetry();
+    }
+
     return status;
   } catch (err) {
     console.log('[hero-shuffle:preload] error', { message: err?.message || null });
@@ -43,7 +85,14 @@ export async function preloadHeroShuffleRewardedAd(options = {}) {
  * Get the current preload status of the hero shuffle ad.
  */
 export function getHeroShuffleAdStatus() {
-  return getRewardedAdStatus(HERO_PLACEMENT);
+  const primary = getRewardedAdStatus(HERO_PLACEMENT);
+  const fallback = getRewardedAdStatus(HERO_FALLBACK_PLACEMENT);
+  return {
+    ...primary,
+    primary,
+    fallback,
+    fallbackUnitIdSuffix: fallback?.unitIdSuffix || null,
+  };
 }
 
 /**
@@ -65,14 +114,26 @@ export function getHeroShuffleAdStatus() {
  *   - 'missing_ad_unit_id', 'ad_sdk_unavailable': Configuration issue
  */
 export async function showHeroShuffleRewardedAd({ metadata } = {}) {
+  const primaryStatus = getRewardedAdStatus(HERO_PLACEMENT);
   try {
     const unitId = getRewardedAdUnitId(HERO_PLACEMENT) || '';
     console.log('[hero-shuffle:show] requested', {
       placement: HERO_PLACEMENT,
       unitIdSuffix: adUnitSuffix(unitId),
+      phase: primaryStatus?.phase || primaryStatus?.state || null,
     });
   } catch (err) {
     console.log('[hero-shuffle:show] diagnostic failed', { message: err?.message || null });
+  }
+
+  if (primaryStatus?.loading || primaryStatus?.phase === 'loading') {
+    return {
+      ok: false,
+      rewarded: false,
+      reason: 'ad_loading',
+      isLoading: true,
+      placement: HERO_PLACEMENT,
+    };
   }
 
   const result = await showRewardedAd({
@@ -86,7 +147,46 @@ export async function showHeroShuffleRewardedAd({ metadata } = {}) {
     rewarded: result.rewarded,
     reason: result.reason,
     ok: result.ok,
+    unitIdSuffix: adUnitSuffix(result.adUnitId),
   });
+
+  if (!result.rewarded && !isHeroRewardedTestOverrideEnabled() && isLoadFailure(result.reason)) {
+    schedulePrimaryRetry();
+    const fallbackUnitId = getRewardedAdUnitId(HERO_FALLBACK_PLACEMENT) || '';
+    console.log('[hero-shuffle:fallback] requested', {
+      primaryReason: result.reason,
+      primaryUnitSuffix: adUnitSuffix(result.adUnitId || getRewardedAdUnitId(HERO_PLACEMENT)),
+      fallbackUnitSuffix: adUnitSuffix(fallbackUnitId),
+    });
+    const fallbackResult = await showRewardedAd({
+      placement: HERO_FALLBACK_PLACEMENT,
+      metadata: { ...(metadata || {}), primaryReason: result.reason },
+      preferLoaded: true,
+      requireLoaded: false,
+    });
+    console.log('[hero-shuffle:fallback] result', {
+      rewarded: fallbackResult.rewarded,
+      reason: fallbackResult.reason,
+      ok: fallbackResult.ok,
+      fallbackUnitSuffix: adUnitSuffix(fallbackResult.adUnitId || fallbackUnitId),
+    });
+    if (fallbackResult.rewarded) {
+      return {
+        ...fallbackResult,
+        placement: HERO_PLACEMENT,
+        source: 'admob_fallback',
+        primaryReason: result.reason,
+        fallbackPlacement: HERO_FALLBACK_PLACEMENT,
+      };
+    }
+    return {
+      ...fallbackResult,
+      placement: HERO_PLACEMENT,
+      primaryReason: result.reason,
+      fallbackPlacement: HERO_FALLBACK_PLACEMENT,
+      reason: isLoadFailure(fallbackResult.reason) ? 'load_error' : fallbackResult.reason,
+    };
+  }
 
   // After ad completes (success or failure), preload the next one for immediate readiness
   try {

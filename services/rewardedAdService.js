@@ -6,6 +6,7 @@ const LOAD_TIMEOUT_MS = 12000;
 const SHOW_TIMEOUT_MS = 90000;
 const REWARD_CLOSE_GRACE_MS = 750;
 const HERO_PLACEMENT = 'hero_shuffle';
+const HERO_FALLBACK_PLACEMENT = 'hero_shuffle_fallback';
 const TEST_REWARDED_UNIT_IDS = {
   android: 'ca-app-pub-3940256099942544/5224354917',
   ios: 'ca-app-pub-3940256099942544/1712485313',
@@ -29,6 +30,10 @@ function platformRewardedUnitId() {
 
 function localHeroTestOverrideEnabled() {
   return process.env.EXPO_PUBLIC_ADMOB_FORCE_HERO_TEST === 'true';
+}
+
+export function isHeroRewardedTestOverrideEnabled() {
+  return localHeroTestOverrideEnabled();
 }
 
 function cleanEnvValue(value) {
@@ -69,6 +74,12 @@ export function getRewardedAdUnitId(placement) {
     });
 
     return unitId;
+  }
+
+  if (placement === HERO_FALLBACK_PLACEMENT) {
+    return process.env.EXPO_PUBLIC_ADMOB_REWARDED_DEEPER_UNIT_ID
+      || process.env.EXPO_PUBLIC_ADMOB_REWARDED_SIGNAL_UNIT_ID
+      || '';
   }
 
   if (placement === 'deeper_meaning') {

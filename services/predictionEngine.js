@@ -55,10 +55,12 @@ function normalizeHeroPool(pool) {
   if (!pool?.images?.length) return null;
   const images = pool.images.map(normalizeHero).filter(Boolean);
   if (!images.length) return null;
+  const defaultHeroId = pool.defaultHeroAssetId || pool.defaultHeroId || images.find((img) => img.isDefault)?.id || images[0].id || null;
   return {
     ...pool,
-    images,
-    defaultHeroId: pool.defaultHeroId || images[0].id || null,
+    images: images.map((img) => ({ ...img, isDefault: img.id === defaultHeroId || img.isDefault })),
+    defaultHeroAssetId: defaultHeroId,
+    defaultHeroId,
   };
 }
 
