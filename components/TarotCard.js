@@ -15,7 +15,7 @@
  * The reveal is a real 3D flip (Reanimated) on the art area.
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,9 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withDelay,
+  withRepeat,
+  withSequence,
+  cancelAnimation,
   interpolate,
   Easing,
 } from 'react-native-reanimated';
@@ -82,6 +85,12 @@ export function TarotCard({
   // Flip: 0 = card back, 1 = face (media + name plate).
   const flip = useSharedValue(isRevealed ? 1 : 0);
   const enter = useSharedValue(0);
+  const breath = useSharedValue(0);   // slow living-deck breath (back)
+  const ring = useSharedValue(0);     // arcane ring rotation (back)
+  const shimmer = useSharedValue(0);  // gilt light sweep (back)
+  const glow = useSharedValue(0);     // reveal burst when a card turns face-up
+  const press = useSharedValue(0);    // tap feedback on a locked card
+  const prevRevealed = useRef(isRevealed);
 
   useEffect(() => {
     enter.value = withDelay(position * 110, withTiming(1, { duration: 480, easing: Easing.out(Easing.cubic) }));
@@ -91,11 +100,45 @@ export function TarotCard({
     flip.value = withTiming(isRevealed ? 1 : 0, { duration: 660, easing: Easing.inOut(Easing.cubic) });
   }, [isRevealed, flip]);
 
-  const enterStyle = useAnimatedStyle(() => ({
+  // Continuous "living deck" motion — a breath and a slow arcane-ring spin.
+  useEffect(() => {
+    breath.value = withRepeat(withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.sin) }), -1, true);
+    ring.value = withRepeat(withTiming(1, { duration: 30000, easing: Easing.linear }), -1, false);
+    return () => { cancelAnimation(breath); cancelAnimation(ring); };
+  }, [breath, ring]);
+
+  // A gilt light keeps sweeping across the back while it's face-down.
+  useEffect(() => {
+    if (isRevealed) { cancelAnimation(shimmer); shimmer.value = 0; return undefined; }
+    shimmer.value = withDelay(
+      position * 320,
+      withRepeat(withTiming(1, { duration: 3400, easing: Easing.inOut(Easing.cubic) }), -1, false),
+    );
+    return () => cancelAnimation(shimmer);
+  }, [isRevealed, position, shimmer]);
+
+  // A burst of light the moment a card turns face-up.
+  useEffect(() => {
+    if (isRevealed && !prevRevealed.current) {
+      glow.value = 0;
+      glow.value = withSequence(
+        withTiming(1, { duration: 280, easing: Easing.out(Easing.quad) }),
+        withTiming(0, { duration: 1150, easing: Easing.inOut(Easing.quad) }),
+      );
+    }
+    prevRevealed.current = isRevealed;
+  }, [isRevealed, glow]);
+
+  const cardMotionStyle = useAnimatedStyle(() => ({
     opacity: enter.value,
     transform: [
       { translateY: interpolate(enter.value, [0, 1], [26, 0]) },
-      { scale: interpolate(enter.value, [0, 1], [0.96, 1]) },
+      {
+        scale:
+          interpolate(enter.value, [0, 1], [0.96, 1]) *
+          interpolate(flip.value, [0, 0.5, 1], [1, 0.95, 1]) *
+          interpolate(press.value, [0, 1], [1, 0.975]),
+      },
     ],
   }));
 
@@ -109,9 +152,40 @@ export function TarotCard({
     transform: [{ perspective: 1000 }, { rotateY: `${interpolate(flip.value, [0, 1], [180, 360])}deg` }],
   }));
 
+  // Back-of-card living motion ------------------------------------------------
+  const breathGlowStyle = useAnimatedStyle(() => ({
+    opacity: flip.value > 0.5 ? 0 : interpolate(breath.value, [0, 1], [0.16, 0.4]),
+    transform: [{ scale: interpolate(breath.value, [0, 1], [0.9, 1.12]) }],
+  }));
+
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: flip.value > 0.5 ? 0 : 0.5,
+    transform: [{ rotate: `${interpolate(ring.value, [0, 1], [0, 360])}deg` }],
+  }));
+
+  const sigilStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(breath.value, [0, 1], [0.98, 1.06]) }],
+  }));
+
+  const shimmerStyle = useAnimatedStyle(() => ({
+    opacity: flip.value > 0.5 ? 0 : interpolate(shimmer.value, [0, 0.2, 0.5, 0.8, 1], [0, 0.5, 0.95, 0.5, 0]),
+    transform: [
+      { translateX: interpolate(shimmer.value, [0, 1], [-CARD_W * 1.2, CARD_W * 1.2]) },
+      { rotate: '20deg' },
+    ],
+  }));
+
+  // Flip + reveal flourishes --------------------------------------------------
+  const flashStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(flip.value, [0, 0.4, 0.5, 0.6, 1], [0, 0, 0.5, 0, 0]),
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({ opacity: glow.value }));
+
   const handlePress = useCallback(() => {
     if (!isRevealed) {
       tap();
+      press.value = withSequence(withTiming(1, { duration: 90 }), withTiming(0, { duration: 220 }));
       track(Events.LOCKED_CARD_TAP, { category });
       onUnlockPress?.();
       return;
@@ -119,10 +193,10 @@ export function TarotCard({
     expandHaptic();
     track(Events.READING_CATEGORY_VIEW, { category, surface: 'modal' });
     onOpen?.();
-  }, [isRevealed, category, onUnlockPress, onOpen]);
+  }, [isRevealed, category, onUnlockPress, onOpen, press]);
 
   return (
-    <Animated.View style={[styles.card, { borderColor: isRevealed ? meta.glow : palette.giltSoft }, enterStyle]}>
+    <Animated.View style={[styles.card, { borderColor: isRevealed ? meta.glow : palette.giltSoft }, cardMotionStyle]}>
       {/* Outer gilt frame line */}
       <View pointerEvents="none" style={styles.giltInset} />
 
@@ -141,7 +215,12 @@ export function TarotCard({
           />
           <View style={[styles.backFrameOuter, { borderColor: palette.giltSoft }]}>
             <View style={[styles.backFrameInner, { borderColor: `${meta.color}55` }]}>
-              <Text style={[styles.backSigil, { color: meta.color }]}>{meta.icon}</Text>
+              <View style={styles.sigilBox}>
+                <Animated.View pointerEvents="none" style={[styles.glowCircle, { backgroundColor: meta.color }, breathGlowStyle]} />
+                <Animated.View pointerEvents="none" style={[styles.arcaneRing, { borderColor: `${meta.color}66` }, ringStyle]} />
+                <Animated.View pointerEvents="none" style={[styles.arcaneRingInner, { borderColor: `${meta.color}40` }, ringStyle]} />
+                <Animated.Text style={[styles.backSigil, { color: meta.color }, sigilStyle]}>{meta.icon}</Animated.Text>
+              </View>
               <Text style={[styles.backArea, { color: palette.accentBright }]}>{meta.label.toUpperCase()}</Text>
               <View style={[styles.backRule, { backgroundColor: palette.giltSoft }]} />
               <Text style={styles.backHidden}>Face-down</Text>
@@ -152,6 +231,15 @@ export function TarotCard({
           <Text style={[styles.cTR, { color: palette.filigree }]}>✦</Text>
           <Text style={[styles.cBL, { color: palette.filigree }]}>✦</Text>
           <Text style={[styles.cBR, { color: palette.filigree }]}>✦</Text>
+          {/* gilt light sweeping across the closed card */}
+          <Animated.View pointerEvents="none" style={[styles.shimmerStrip, shimmerStyle]}>
+            <LinearGradient
+              colors={['transparent', 'rgba(241,217,164,0.18)', 'transparent']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
         </Animated.View>
 
         {/* Face of card (media art) */}
@@ -181,6 +269,9 @@ export function TarotCard({
             <Text style={styles.cardName} numberOfLines={1}>{cardName}</Text>
           </View>
         </Animated.View>
+
+        {/* White-gold flash at the midpoint of the flip */}
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.flipFlash, flashStyle]} />
       </TouchableOpacity>
 
       {/* ── Body ─────────────────────────────────────────────────────── */}
@@ -219,6 +310,9 @@ export function TarotCard({
           </View>
         </View>
       )}
+
+      {/* Glow that flares around the frame as the card turns face-up */}
+      <Animated.View pointerEvents="none" style={[styles.revealGlow, { borderColor: meta.glow, shadowColor: meta.color }, glowStyle]} />
     </Animated.View>
   );
 }
@@ -259,7 +353,18 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     gap: 8,
   },
+  sigilBox: { width: 112, height: 112, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  glowCircle: { position: 'absolute', top: 16, left: 16, width: 80, height: 80, borderRadius: 40 },
+  arcaneRing: { position: 'absolute', top: 4, left: 4, width: 104, height: 104, borderRadius: 52, borderWidth: 1, borderStyle: 'dashed' },
+  arcaneRingInner: { position: 'absolute', top: 22, left: 22, width: 68, height: 68, borderRadius: 34, borderWidth: 1, borderStyle: 'dotted' },
   backSigil: { fontSize: 56, fontWeight: '300', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 8 },
+  shimmerStrip: { position: 'absolute', top: -ART_H * 0.35, bottom: -ART_H * 0.35, left: 0, width: CARD_W * 0.32 },
+  flipFlash: { backgroundColor: 'rgba(245,232,196,0.92)' },
+  revealGlow: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: radius.lg, borderWidth: 2,
+    shadowOpacity: 0.85, shadowRadius: 16, shadowOffset: { width: 0, height: 0 },
+  },
   backArea: { ...type.kicker, fontSize: 11, letterSpacing: 3 },
   backRule: { width: 36, height: 1 },
   backHidden: { ...type.caption, color: palette.textMuted, fontStyle: 'italic', fontSize: 11, letterSpacing: 1 },

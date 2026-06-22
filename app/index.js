@@ -9,6 +9,7 @@ import {
   Animated,
   Easing,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -22,6 +23,7 @@ import { SignalCard } from '@/components/SignalCard';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { StarsBackground } from '@/components/StarsBackground';
+import { Embers } from '@/components/Embers';
 import { SafeBannerAd } from '@/components/SafeBannerAd';
 import { TodaysSky } from '@/components/TodaysSky';
 import { usePredictions } from '@/hooks/usePredictions';
@@ -38,6 +40,8 @@ import {
 import { palette, spacing, type, radius } from '@/utils/theme';
 import { track, Events } from '@/services/analyticsService';
 import { tap, unlock as unlockHaptic } from '@/utils/haptics';
+
+const SCREEN_W = Dimensions.get('window').width;
 
 function getHeroUrl(hero) {
   return hero?.videoUrl || hero?.mediaUrl || hero?.imageUrl || hero?.url || hero?.uri || hero?.src || null;
@@ -257,10 +261,35 @@ export default function HomeScreen() {
     ? 'Turning the cards…'
     : '✦  Reveal the full spread — watch an ad';
 
+  // Keep the reveal CTA alive: a breathing pulse + a gilt light that sweeps across.
+  const revealPulse = useRef(new Animated.Value(0)).current;
+  const revealSweep = useRef(new Animated.Value(0)).current;
+  const liveReveal = showReveal && canRevealRewarded && !revealing && !purchasing;
+  useEffect(() => {
+    if (!liveReveal) return undefined;
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(revealPulse, { toValue: 1, duration: 1700, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(revealPulse, { toValue: 0, duration: 1700, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
+    const sweep = Animated.loop(
+      Animated.sequence([
+        Animated.timing(revealSweep, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.delay(1500),
+        Animated.timing(revealSweep, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    sweep.start();
+    return () => { pulse.stop(); sweep.stop(); };
+  }, [liveReveal, revealPulse, revealSweep]);
+
   return (
     <ScreenShell>
       <StatusBar style="light" translucent backgroundColor="transparent" />
       <StarsBackground />
+      <Embers count={14} />
 
       <LinearGradient
         colors={['rgba(212,175,110,0.10)', 'rgba(8,7,12,0)']}
@@ -340,21 +369,47 @@ export default function HomeScreen() {
 
             {showReveal && (
               <>
-                <TouchableOpacity
-                  activeOpacity={0.88}
-                  onPress={canRevealRewarded ? handleReveal : () => openPaywall(null, 'reveal_cap')}
-                  disabled={revealing || purchasing}
-                  style={[styles.revealBtn, revealing && styles.revealBtnDisabled]}
+                <Animated.View
+                  style={{ transform: [{ scale: revealPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.025] }) }] }}
                 >
-                  <LinearGradient
-                    colors={['rgba(212,175,110,0.22)', 'rgba(212,175,110,0.07)']}
-                    style={styles.revealGradient}
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    onPress={canRevealRewarded ? handleReveal : () => openPaywall(null, 'reveal_cap')}
+                    disabled={revealing || purchasing}
+                    style={[styles.revealBtn, revealing && styles.revealBtnDisabled]}
                   >
-                    <Text style={styles.revealBtnText}>
-                      {canRevealRewarded ? revealLabel : 'Unlock the rest below'}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                    <LinearGradient
+                      colors={['rgba(212,175,110,0.22)', 'rgba(212,175,110,0.07)']}
+                      style={styles.revealGradient}
+                    >
+                      <Text style={styles.revealBtnText}>
+                        {canRevealRewarded ? revealLabel : 'Unlock the rest below'}
+                      </Text>
+                    </LinearGradient>
+                    {liveReveal ? (
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[
+                          styles.revealSweep,
+                          {
+                            opacity: revealSweep.interpolate({ inputRange: [0, 0.15, 0.5, 0.85, 1], outputRange: [0, 0.7, 1, 0.7, 0] }),
+                            transform: [
+                              { translateX: revealSweep.interpolate({ inputRange: [0, 1], outputRange: [-SCREEN_W, SCREEN_W] }) },
+                              { rotate: '16deg' },
+                            ],
+                          },
+                        ]}
+                      >
+                        <LinearGradient
+                          colors={['transparent', 'rgba(245,232,196,0.5)', 'transparent']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={StyleSheet.absoluteFill}
+                        />
+                      </Animated.View>
+                    ) : null}
+                  </TouchableOpacity>
+                </Animated.View>
                 <Text style={styles.revealHint}>
                   {canRevealRewarded
                     ? `One ad turns all ${lockedCount} hidden cards — or unlock without ads below.`
@@ -493,6 +548,13 @@ const styles = StyleSheet.create({
   },
   revealBtnDisabled: {
     opacity: 0.6,
+  },
+  revealSweep: {
+    position: 'absolute',
+    top: -20,
+    bottom: -20,
+    left: 0,
+    width: 92,
   },
   revealGradient: {
     paddingVertical: spacing.md,

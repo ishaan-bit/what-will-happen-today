@@ -40,6 +40,8 @@ export function StarsBackground() {
 
   const twinkle = useRef(new Animated.Value(0)).current;
   const drift = useRef(new Animated.Value(0)).current;
+  const shootA = useRef(new Animated.Value(0)).current;
+  const shootB = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const t = Animated.loop(
@@ -54,14 +56,36 @@ export function StarsBackground() {
         Animated.timing(drift, { toValue: 0, duration: 16000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
     );
+    // Occasional shooting stars: a quick streak, then a long quiet wait.
+    const shoot = (val, lead, gap) => Animated.loop(
+      Animated.sequence([
+        Animated.delay(lead),
+        Animated.timing(val, { toValue: 1, duration: 1050, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+        Animated.timing(val, { toValue: 0, duration: 0, useNativeDriver: true }),
+        Animated.delay(gap),
+      ])
+    );
+    const sa = shoot(shootA, 3200, 11000);
+    const sb = shoot(shootB, 12500, 15000);
     t.start();
     d.start();
-    return () => { t.stop(); d.stop(); };
-  }, [twinkle, drift]);
+    sa.start();
+    sb.start();
+    return () => { t.stop(); d.stop(); sa.stop(); sb.stop(); };
+  }, [twinkle, drift, shootA, shootB]);
 
   const twinkleOpacity = twinkle.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] });
   const orbAY = drift.interpolate({ inputRange: [0, 1], outputRange: [-18, 18] });
   const orbBY = drift.interpolate({ inputRange: [0, 1], outputRange: [16, -16] });
+
+  const shootStyle = (val) => ({
+    opacity: val.interpolate({ inputRange: [0, 0.08, 0.7, 1], outputRange: [0, 0.9, 0.9, 0] }),
+    transform: [
+      { translateX: val.interpolate({ inputRange: [0, 1], outputRange: [0, 230] }) },
+      { translateY: val.interpolate({ inputRange: [0, 1], outputRange: [0, 150] }) },
+      { rotate: '33deg' },
+    ],
+  });
 
   return (
     <View style={styles.container} pointerEvents="none">
@@ -94,6 +118,26 @@ export function StarsBackground() {
         }
         return <View key={s.key} style={[base, { opacity: s.opacity }]} />;
       })}
+
+      {/* Shooting stars — rare, quick gold streaks across the upper sky */}
+      <Animated.View style={[styles.shootWrap, { top: '11%', left: '6%' }, shootStyle(shootA)]}>
+        <LinearGradient
+          colors={['rgba(241,217,164,0)', 'rgba(241,217,164,0.9)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.shootTail}
+        />
+        <View style={styles.shootHead} />
+      </Animated.View>
+      <Animated.View style={[styles.shootWrap, { top: '5%', left: '34%' }, shootStyle(shootB)]}>
+        <LinearGradient
+          colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.85)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.shootTail}
+        />
+        <View style={styles.shootHead} />
+      </Animated.View>
     </View>
   );
 }
@@ -120,5 +164,26 @@ const styles = StyleSheet.create({
     top: 360,
     right: -80,
     left: undefined,
+  },
+  shootWrap: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  shootTail: {
+    width: 78,
+    height: 1.6,
+    borderRadius: 1,
+  },
+  shootHead: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    marginLeft: -1,
+    backgroundColor: '#fff',
+    shadowColor: '#f1d9a4',
+    shadowOpacity: 0.9,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 0 },
   },
 });
