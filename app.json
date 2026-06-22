@@ -3,7 +3,7 @@
     "name": "What Will Happen Today",
     "slug": "wwht",
     "scheme": "wwht",
-    "version": "1.7.17",
+    "version": "2.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",

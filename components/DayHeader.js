@@ -12,7 +12,7 @@ export function DayHeader({ unlocked = false, streak = 0 }) {
       <View style={styles.row}>
         <Text style={styles.today}>Today</Text>
         {unlocked ? (
-          <Text style={styles.unlockedBadge}>✦ All signals unlocked</Text>
+          <Text style={styles.unlockedBadge}>✦ Full spread unlocked</Text>
         ) : streak > 1 ? (
           <View style={styles.streakBadge}>
             <Text style={styles.streakIcon}>✦</Text>

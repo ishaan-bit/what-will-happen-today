@@ -32,11 +32,27 @@ function getRedis() {
 const CATEGORIES = ['love', 'career', 'money', 'mood'];
 const CONCURRENCY = 1; // sequential — Ollama is single-threaded on local GPU
 
-const SYSTEM_PROMPT = `You generate daily prediction content for a tarot/astrology-style mobile app called "What Will Happen Today".
-Tone: sharp, predictive, slightly uncomfortable, screenshot-worthy. NOT generic motivation.
-Framing: events that WILL happen today. Use "you will…", "someone will…", "you'll notice…".
-Never say "may", "might", "could", "tends to". Predictions are stated, not suggested.
-Never mention stars, planets, Mercury, or zodiac mechanics directly in the prediction body.`;
+// Default tarot reader voice. Overridable live from the ops console via the
+// Redis key `wwht:tarotPrompt` (same key the local worker reads).
+const DEFAULT_SYSTEM_PROMPT = `You are a tarot reader giving a daily reading inside a mobile app called "What Will Happen Today".
+You draw one card per life area and speak its message as something that WILL happen today.
+Voice: a real reader at the table, intimate and certain, a little unsettling, screenshot-worthy. Not horoscope fluff, not therapy-speak, not motivation.
+Cadence: name what you see, then what it means, then what to do about it when it lands.
+Framing: events that WILL happen. Use "you will...", "someone will...", "you'll notice...". Never "may", "might", "could", "tends to".
+Never mention stars, planets, Mercury, zodiac signs, or deck mechanics in the body, speak as if the card already told you.
+Avoid cliches like "the universe", "energy", "vibrations". Keep it human, specific, and a little too accurate.`;
+
+const TAROT_PROMPT_KEY = 'wwht:tarotPrompt';
+
+async function resolveSystemPrompt(redis) {
+  try {
+    const stored = await redis.get(TAROT_PROMPT_KEY);
+    if (typeof stored === 'string' && stored.trim()) return stored;
+  } catch {
+    // fall through to default
+  }
+  return DEFAULT_SYSTEM_PROMPT;
+}
 
 const CATEGORY_CONTEXT = {
   love: 'relationships, attraction, communication, emotional dynamics, connection',
@@ -80,9 +96,9 @@ async function ollamaChat({ messages, temperature = 0.85, maxTokens = 300 }) {
   }
 }
 
-async function generateForCategory(category, dateKey) {
-  const prompt = `Generate today's prediction for the "${category}" category (${CATEGORY_CONTEXT[category]}).
-Date context: ${dateKey}
+async function generateForCategory(category, dateKey, systemPrompt = DEFAULT_SYSTEM_PROMPT) {
+  const prompt = `Draw and read today's card for the "${category}" area of life (${CATEGORY_CONTEXT[category]}).
+Speak the card's message as the reader. Date context: ${dateKey}
 
 Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
 {
@@ -97,7 +113,7 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
 
   const content = await ollamaChat({
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt },
       { role: 'user', content: prompt },
     ],
   });
@@ -114,14 +130,14 @@ function getTodayKey() {
   return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
 }
 
-async function runBatch(dateKey) {
+async function runBatch(dateKey, systemPrompt) {
   const results = {};
   const errors = {};
 
   // Sequential — Ollama runs locally, no point parallelising
   for (const cat of CATEGORIES) {
     try {
-      results[cat] = await generateForCategory(cat, dateKey);
+      results[cat] = await generateForCategory(cat, dateKey, systemPrompt);
       console.log(`[LLM] Generated ${cat}: "${results[cat].teaser}"`);
     } catch (err) {
       console.error(`[LLM] Failed ${cat}:`, err.message);
@@ -145,7 +161,8 @@ export async function generateDailyPredictions() {
   }
 
   console.log(`[LLM] Generating predictions for ${dateKey} via Ollama (${OLLAMA_MODEL})...`);
-  const { results, errors } = await runBatch(dateKey);
+  const systemPrompt = await resolveSystemPrompt(redis);
+  const { results, errors } = await runBatch(dateKey, systemPrompt);
 
   if (Object.keys(results).length === 0) {
     throw new Error('All LLM generations failed: ' + JSON.stringify(errors));

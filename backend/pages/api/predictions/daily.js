@@ -108,11 +108,15 @@ export default async function handler(req, res) {
       });
     }
 
+    // WWHT 2.0: exactly 4 cards, one image each. Pad from the legacy hero when
+    // fewer than 4 batch images are servable; the client repeats images if the
+    // assigned set is still short, so a card always has art.
+    const TARGET_CARD_COUNT = 4;
     const assignedBatchHeroPool = storedHeroPool ? assignDailyHeroSet(storedHeroPool, {
       installId,
       dateKey,
-      count: monetizationConfig.maxHeroImagesPerDay,
-      fallbackHero: null,
+      count: TARGET_CARD_COUNT,
+      fallbackHero: legacyHeroPool,
     }) : null;
     const heroSource = assignedBatchHeroPool ? 'batch' : (legacyHeroPool ? 'legacy' : 'none');
     const fallbackReason = assignedBatchHeroPool

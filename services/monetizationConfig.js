@@ -1,14 +1,18 @@
 export const DEFAULT_MONETIZATION_CONFIG = {
   freeSignalsPerDay: 1,
   lockedSignalsPerDay: 3,
-  maxHeroShufflesPerDay: 4,
-  maxRewardedShufflesPerDay: 4,
-  maxHeroImagesPerDay: 5,
+  maxHeroShufflesPerDay: 3,
+  maxRewardedShufflesPerDay: 3,
+  maxHeroImagesPerDay: 4,
   deeperMeaningEnabled: true,
   rewardedAdsEnabled: true,
   todayUnlockEnabled: true,
   thirtyDayUnlockEnabled: true,
   fallbackHeroEnabled: true,
+  // WWHT 2.0 — 4-card tarot model
+  cardBasedModel: true,   // false = ops kill-switch back to the legacy signal list
+  bannerAdEnabled: true,  // banner is the only ad we keep
+  freeCardRotates: true,  // the free card's life-area rotates daily
 };
 
 const NUMBER_KEYS = [
@@ -25,6 +29,9 @@ const BOOLEAN_KEYS = [
   'todayUnlockEnabled',
   'thirtyDayUnlockEnabled',
   'fallbackHeroEnabled',
+  'cardBasedModel',
+  'bannerAdEnabled',
+  'freeCardRotates',
 ];
 
 function clampInt(value, fallback, min, max) {

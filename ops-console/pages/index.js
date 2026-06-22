@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   backend, worker,
   loadCreds, saveCreds, clearCreds,
@@ -225,6 +225,9 @@ function Dashboard({ creds, onLogout }) {
   const [push, setPush] = useState(null);
   const [pushDraft, setPushDraft] = useState({ hour: 8, minute: 0, enabled: true, title: '', body: '' });
   const [pushTestDraft, setPushTestDraft] = useState({ title: '', body: '' });
+  const [tarotPromptDraft, setTarotPromptDraft] = useState('');
+  const [tarotPromptIsDefault, setTarotPromptIsDefault] = useState(true);
+  const tarotPromptLoadedRef = useRef(false);
 
   const showToast = useCallback((msg, kind = 'info') => {
     setToast({ msg, kind });
@@ -233,7 +236,7 @@ function Dashboard({ creds, onLogout }) {
 
   const refreshBackend = useCallback(async () => {
     try {
-      const [s, t, r, rb, h, hp, mc, p, em, u, pd] = await Promise.all([
+      const [s, t, r, rb, h, hp, mc, p, em, u, pd, tp] = await Promise.all([
         backend.status(),
         backend.getToday().catch(() => null),
         backend.getRuns(5).catch(() => null),
@@ -245,6 +248,7 @@ function Dashboard({ creds, onLogout }) {
         backend.getEngineMode().catch(() => null),
         backend.getUsers().catch(() => null),
         backend.getPushDebug().catch(() => null),
+        backend.getTarotPrompt().catch(() => null),
       ]);
       setBackendStatus({ ok: true, data: s });
       setToday(t);
@@ -267,6 +271,14 @@ function Dashboard({ creds, onLogout }) {
         });
       }
       if (mc?.config) setMonetizationConfig(mc.config);
+      if (tp?.ok) {
+        setTarotPromptIsDefault(!!tp.isDefault);
+        // Only seed the editor once so the 8s refresh never clobbers edits.
+        if (!tarotPromptLoadedRef.current) {
+          setTarotPromptDraft(tp.prompt || '');
+          tarotPromptLoadedRef.current = true;
+        }
+      }
       if (p?.ok) {
         setPush(p);
         setPushDraft({
@@ -356,6 +368,20 @@ function Dashboard({ creds, onLogout }) {
       showToast(`Engine mode set to ${r.engineMode.toUpperCase()}. Clients will switch on next refresh.`);
     } catch (err) {
       showToast(`Mode change failed: ${err.message}`, 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function saveTarotPrompt(reset = false) {
+    setBusyAction('tarotPrompt');
+    try {
+      const r = await backend.setTarotPrompt(reset ? '' : tarotPromptDraft);
+      setTarotPromptDraft(r.prompt || '');
+      setTarotPromptIsDefault(!!r.isDefault);
+      showToast(reset ? 'Tarot reader prompt reset to default.' : 'Tarot reader prompt saved. Regenerate to apply.');
+    } catch (err) {
+      showToast(`Tarot prompt save failed: ${err.message}`, 'error');
     } finally {
       setBusyAction(null);
     }
@@ -1048,6 +1074,49 @@ function Dashboard({ creds, onLogout }) {
       </Card>
 
       <Card
+        title="Tarot Reading (LLM voice)"
+        action={
+          <span style={{ fontSize: 11, color: '#888' }}>
+            prompt: <strong style={{ color: tarotPromptIsDefault ? '#7bb6ff' : '#7be07b' }}>
+              {tarotPromptIsDefault ? 'DEFAULT' : 'CUSTOM'}
+            </strong>
+          </span>
+        }
+      >
+        <div style={{ fontSize: 13, color: '#ccc', marginBottom: 10, lineHeight: 1.5 }}>
+          The reader's system prompt. Governs the voice of every generated reading (both the worker and the nightly job read it).
+          Each card already carries a real drawn tarot card (name, orientation, meaning) on the device — this controls the spoken reading underneath.
+          Leave blank + Reset to restore the built-in default. Click <strong>Force regenerate</strong> above after saving to apply to today.
+        </div>
+        <textarea
+          value={tarotPromptDraft}
+          onChange={(e) => setTarotPromptDraft(e.target.value)}
+          rows={9}
+          placeholder="You are a tarot reader giving a daily reading…"
+          style={{
+            width: '100%', boxSizing: 'border-box', resize: 'vertical',
+            background: '#0f0f17', color: '#e8e8f0', border: '1px solid #2a2a35',
+            borderRadius: 8, padding: 12, fontSize: 13, lineHeight: 1.5, fontFamily: 'inherit',
+          }}
+        />
+        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+          <button
+            className="primary"
+            disabled={busyAction === 'tarotPrompt' || !tarotPromptDraft.trim()}
+            onClick={() => saveTarotPrompt(false)}
+          >
+            {busyAction === 'tarotPrompt' ? 'Saving…' : 'Save prompt'}
+          </button>
+          <button
+            disabled={busyAction === 'tarotPrompt' || tarotPromptIsDefault}
+            onClick={() => saveTarotPrompt(true)}
+          >
+            Reset to default
+          </button>
+        </div>
+      </Card>
+
+      <Card
         title="Rule-Based Engine"
         action={
           <span style={{ fontSize: 11, color: '#888' }}>
@@ -1442,16 +1511,19 @@ function Dashboard({ creds, onLogout }) {
               ))}
             </div>
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-              {['deeperMeaningEnabled', 'rewardedAdsEnabled', 'todayUnlockEnabled', 'thirtyDayUnlockEnabled', 'fallbackHeroEnabled'].map((key) => (
+              {['cardBasedModel', 'bannerAdEnabled', 'freeCardRotates', 'deeperMeaningEnabled', 'rewardedAdsEnabled', 'todayUnlockEnabled', 'thirtyDayUnlockEnabled', 'fallbackHeroEnabled'].map((key) => (
                 <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <input
                     type="checkbox"
                     checked={monetizationConfig[key] !== false}
                     onChange={(e) => setMonetizationConfig((d) => ({ ...d, [key]: e.target.checked }))}
                   />
-                  <span style={{ fontSize: 12, color: '#ccc' }}>{key}</span>
+                  <span style={{ fontSize: 12, color: key === 'cardBasedModel' ? '#7be07b' : '#ccc' }}>{key}</span>
                 </label>
               ))}
+            </div>
+            <div style={{ fontSize: 11, color: '#888', lineHeight: 1.5 }}>
+              <strong style={{ color: '#7be07b' }}>cardBasedModel</strong>: the 2.0 four-card tarot UI. Uncheck + save to instantly revert all clients to the legacy signal list (kill-switch, no app update needed).
             </div>
             <button className="primary" disabled={busyAction === 'monetizationConfig'} onClick={saveMonetizationConfig}>
               Save monetization config

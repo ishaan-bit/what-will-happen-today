@@ -27,11 +27,27 @@ const CATEGORY_CONTEXT = {
   mood: 'mental state, energy, emotional weather, resilience, inner clarity',
 };
 
-const SYSTEM_PROMPT = `You generate daily prediction content for a tarot/astrology-style mobile app called "What Will Happen Today".
-Tone: sharp, predictive, slightly uncomfortable, screenshot-worthy. NOT generic motivation.
-Framing: events that WILL happen today. Use "you will…", "someone will…", "you'll notice…".
-Never say "may", "might", "could", "tends to". Predictions are stated, not suggested.
-Never mention stars, planets, Mercury, or zodiac mechanics directly in the prediction body.`;
+// Default tarot reader voice. Can be overridden live from the ops console
+// (Redis key `wwht:tarotPrompt`) without redeploying this worker.
+const DEFAULT_SYSTEM_PROMPT = `You are a tarot reader giving a daily reading inside a mobile app called "What Will Happen Today".
+You draw one card per life area and speak its message as something that WILL happen today.
+Voice: a real reader at the table, intimate and certain, a little unsettling, screenshot-worthy. Not horoscope fluff, not therapy-speak, not motivation.
+Cadence: name what you see, then what it means, then what to do about it when it lands.
+Framing: events that WILL happen. Use "you will...", "someone will...", "you'll notice...". Never "may", "might", "could", "tends to".
+Never mention stars, planets, Mercury, zodiac signs, or deck mechanics in the body, speak as if the card already told you.
+Avoid cliches like "the universe", "energy", "vibrations". Keep it human, specific, and a little too accurate.`;
+
+const TAROT_PROMPT_KEY = 'wwht:tarotPrompt';
+
+async function resolveSystemPrompt(redis) {
+  try {
+    const stored = await redis.get(TAROT_PROMPT_KEY);
+    if (typeof stored === 'string' && stored.trim()) return stored;
+  } catch {
+    // fall through to default
+  }
+  return DEFAULT_SYSTEM_PROMPT;
+}
 
 let _redis = null;
 function getRedis() {
@@ -81,10 +97,10 @@ async function ollamaChat({ messages, model, temperature = 0.85, maxTokens = 800
   }
 }
 
-async function generateForCategory(category, dateKey, model, variantIndex = 0) {
-  const variantNonce = variantIndex > 0 ? `\nVariant token: v${variantIndex + 1}-${Math.random().toString(36).slice(2, 8)}. Make this prediction substantively different from any prior variants for this category and date.` : '';
-  const prompt = `Generate today's prediction for the "${category}" category (${CATEGORY_CONTEXT[category]}).
-Date context: ${dateKey}${variantNonce}
+async function generateForCategory(category, dateKey, model, variantIndex = 0, systemPrompt = DEFAULT_SYSTEM_PROMPT) {
+  const variantNonce = variantIndex > 0 ? `\nVariant token: v${variantIndex + 1}-${Math.random().toString(36).slice(2, 8)}. Make this reading substantively different from any prior variants for this card and date.` : '';
+  const prompt = `Draw and read today's card for the "${category}" area of life (${CATEGORY_CONTEXT[category]}).
+Speak the card's message as the reader. Date context: ${dateKey}${variantNonce}
 
 Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
 {
@@ -99,7 +115,7 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
 
   const content = await ollamaChat({
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt },
       { role: 'user', content: prompt },
     ],
     model,
@@ -194,6 +210,7 @@ export async function generateAll({ force = false, model, variantCount = 1 } = {
   const dateKey = getTodayKey();
   const cacheKey = `wwht:predictions:${dateKey}`;
   const variants = Math.max(1, Math.min(8, parseInt(variantCount, 10) || 1));
+  const systemPrompt = await resolveSystemPrompt(redis);
 
   if (!force) {
     const existing = await redis.get(cacheKey);
@@ -221,7 +238,7 @@ export async function generateAll({ force = false, model, variantCount = 1 } = {
       if (JOB_STATE.cancelRequested) break;
       const t0 = Date.now();
       try {
-        const out = await generateForCategory(cat, dateKey, model, v);
+        const out = await generateForCategory(cat, dateKey, model, v, systemPrompt);
         // Force per-variant id uniqueness so the app can distinguish them.
         if (variants > 1) out.id = `${out.id || cat}_v${v + 1}`;
         variantList.push(out);

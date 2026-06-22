@@ -72,6 +72,16 @@ export const backend = {
       body: JSON.stringify({ mode }),
     });
   },
+  async getTarotPrompt() {
+    return request('/api/backend/ops/tarot-prompt');
+  },
+  async setTarotPrompt(prompt) {
+    return request('/api/backend/ops/tarot-prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    });
+  },
   async getUsers() {
     return request('/api/backend/ops/users');
   },

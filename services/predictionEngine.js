@@ -19,6 +19,7 @@ import {
   clearCachedHeroAssignment,
 } from '@/services/storageService';
 import { mergeMonetizationConfig } from '@/services/monetizationConfig';
+import { drawDailySpreadByCategory, tarotBlockFromDraw } from '@/utils/tarotDraw';
 
 const POOLS = { love, career, money, mood };
 
@@ -200,11 +201,27 @@ export async function getPredictions() {
   const bucket = ruleBucket != null ? String(ruleBucket) : lastBucket;
   const dateKey = remote?.dateKey || getTodayKey();
 
+  // Deterministic tarot spread for the day — the shared substrate for BOTH
+  // engines. Same draw is attached to rule picks and LLM picks so the cards
+  // always read like a real tarot reading (online or offline).
+  const spreadByCategory = drawDailySpreadByCategory({ installSalt, dateKey, bucket });
+  const attachTarot = (preds) => {
+    const out = {};
+    for (const cat of CATEGORIES) {
+      const pred = preds?.[cat];
+      if (!pred) { out[cat] = pred; continue; }
+      out[cat] = pred.tarot
+        ? pred
+        : { ...pred, tarot: tarotBlockFromDraw(spreadByCategory[cat]) };
+    }
+    return out;
+  };
+
   // Rule mode: ignore LLM payload entirely, return rule picks (already
   // varied per-user via installSalt|bucket inside getTodaysPredictions).
   if (engineMode === 'rule') {
     return {
-      predictions: local,
+      predictions: attachTarot(local),
       heroImage: effectiveHeroImage,
       heroPool: cachedHeroPool,
       monetizationConfig: mergeMonetizationConfig(remote?.monetizationConfig || {}, cachedHeroPool?.config || null),
@@ -230,7 +247,7 @@ export async function getPredictions() {
   }
 
   return {
-    predictions: merged,
+    predictions: attachTarot(merged),
     heroImage: effectiveHeroImage,
     heroPool: cachedHeroPool,
     monetizationConfig: mergeMonetizationConfig(remote?.monetizationConfig || {}, cachedHeroPool?.config || null),
