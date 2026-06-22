@@ -93,7 +93,7 @@ export function SignalCard({
       <View style={[styles.card, styles.shellCard]}>
         <View style={styles.shellHeader}>
           <View style={[styles.glyphBadge, { borderColor: `${meta.color}33` }]}>
-            <Text style={[styles.glyphText, { color: meta.color }]}>{sigil.glyph}</Text>
+            <Text style={[styles.glyphText, { color: meta.color }]}>{meta.icon}</Text>
           </View>
           <View style={styles.shellTextWrap}>
             <Text style={[styles.categoryLabel, { color: meta.color }]}>
@@ -208,7 +208,7 @@ export function SignalCard({
         <View style={styles.headerLeft}>
           {/* Big sigil badge — gives the tarot feel */}
           <View style={[styles.glyphBadge, { borderColor: `${meta.color}55`, backgroundColor: `${meta.color}11` }]}>
-            <Text style={[styles.glyphText, { color: meta.color }]}>{sigil.glyph}</Text>
+            <Text style={[styles.glyphText, { color: meta.color }]}>{meta.icon}</Text>
           </View>
 
           <View style={styles.headerText}>

@@ -220,6 +220,12 @@ function emptyRevealState() {
     revealedSignals: {},
     deeperMeanings: {},
     freeSignalUsed: false,
+    // WWHT 2.1 — a single "reveal all of today's cards" flag. Set by the
+    // rewarded ad OR the ₹29 daily unlock. NEVER re-draws the spread; today's
+    // deterministic draw is preserved, only its visibility changes.
+    revealedAll: false,
+    revealedAllSource: null,
+    adRevealCount: 0,
   };
 }
 
@@ -290,6 +296,19 @@ export async function grantDeeperMeaning(category, source = 'ad') {
 export async function getRevealedSignalCategories() {
   const state = await getDailyRevealState();
   return Object.keys(state.revealedSignals || {});
+}
+
+/**
+ * Reveal ALL of today's cards without re-drawing. Called after a rewarded ad
+ * ('ad') or the ₹29 daily unlock ('paid'). Idempotent within the day.
+ */
+export async function grantRevealAllToday(source = 'ad') {
+  const state = await getDailyRevealState();
+  state.revealedAll = true;
+  state.revealedAllSource = state.revealedAllSource || source;
+  if (source === 'ad') state.adRevealCount = (state.adRevealCount || 0) + 1;
+  await saveDailyRevealState(state);
+  return state;
 }
 
 export async function resetDailyRevealStateForToday() {

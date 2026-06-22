@@ -28,6 +28,7 @@ const PredictionsContext = createContext(null);
 export function PredictionsProvider({ children }) {
   const [predictions, setPredictions] = useState(null);
   const [heroImage, setHeroImage] = useState(null);
+  const [backupHero, setBackupHero] = useState(null);
   const [heroPool, setHeroPool] = useState(null);
   const [monetizationConfig, setMonetizationConfig] = useState(normalizeMonetizationConfig());
   const [revealState, setRevealState] = useState(null);
@@ -72,6 +73,7 @@ export function PredictionsProvider({ children }) {
 
       setPredictions(preds.predictions || null);
       setHeroImage(preds.heroImage || null);
+      setBackupHero(preds.backupHero || null);
       setHeroPool(preds.heroPool || null);
       setMonetizationConfig(normalizeMonetizationConfig(preds.monetizationConfig || {}));
       setRevealState(dailyRevealState);
@@ -199,6 +201,7 @@ export function PredictionsProvider({ children }) {
       value={{
         predictions,
         heroImage,
+        backupHero,
         heroPool,
         monetizationConfig,
         revealState,
@@ -209,7 +212,10 @@ export function PredictionsProvider({ children }) {
         loading,
         refreshUnlock,
         refreshRevealState,
-        refresh: () => load({ silent: true, lifecycle: false }),
+        // On focus refreshes, recompute lifecycle (day number / free window)
+        // only when the local day has rolled over — cheap, and prevents a
+        // stale free-window across a midnight crossover in an open session.
+        refresh: () => load({ silent: true, lifecycle: lastDateKeyRef.current !== getTodayKey() }),
         freeCategory,
         isFirstEver,
         dismissFirstEver,
