@@ -38,12 +38,25 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       const body = req.body || {};
-      const url = (body.url || '').toString().trim();
+      const url = (body.videoUrl || body.url || '').toString().trim();
       if (!url) return res.status(400).json({ error: 'url_required' });
-      // Allow http(s) or data: URLs (small base64 OK, large should be hosted)
-      if (!/^(https?:|data:image\/)/i.test(url)) {
+
+      // Determine media type: explicit flag, .mp4 URL, or data:video.
+      const requestedType = String(body.mediaType || body.type || '').toLowerCase();
+      const looksVideo = /^data:video\//i.test(url) || /\.mp4(\?.*)?$/i.test(url);
+      const mediaType = requestedType === 'video' || looksVideo ? 'video' : 'image';
+
+      // Video backups must be hosted (http/s, e.g. a Vercel Blob URL) — the
+      // read path (legacyHeroAsPool) can't serve inline data:video, so reject
+      // it at write time to keep the two ends in agreement. Images may inline.
+      const validUrl = mediaType === 'video'
+        ? /^https?:/i.test(url)
+        : /^(https?:|data:image\/)/i.test(url);
+      if (!validUrl) {
         return res.status(400).json({ error: 'invalid_url' });
       }
+
+      const posterUrl = (body.posterUrl || body.poster || '').toString().trim();
       const raw = await redis.get(KEY);
       let previous = null;
       if (raw) {
@@ -53,6 +66,11 @@ export default async function handler(req, res) {
       const revision = Number(previous?.revision || 0) + 1;
       const value = {
         url,
+        mediaUrl: url,
+        mediaType,
+        type: mediaType,
+        ...(mediaType === 'video' ? { videoUrl: url } : { imageUrl: url }),
+        ...(posterUrl ? { posterUrl } : {}),
         alt: (body.alt || 'Tarot reader').toString().slice(0, 120),
         enabled: body.enabled !== false,
         revision,

@@ -208,7 +208,7 @@ function Dashboard({ creds, onLogout }) {
   const [pushDebug, setPushDebug] = useState(null);
   const [variantCount, setVariantCount] = useState(3);
   const [hero, setHero] = useState(null);
-  const [heroDraft, setHeroDraft] = useState({ url: '' });
+  const [heroDraft, setHeroDraft] = useState({ url: '', mediaType: 'image', posterUrl: '' });
   const [heroUploading, setHeroUploading] = useState(false);
   const [heroPool, setHeroPool] = useState(null);
   const [heroPoolDraft, setHeroPoolDraft] = useState({
@@ -258,7 +258,11 @@ function Dashboard({ creds, onLogout }) {
       setUsers(u?.ok ? u : null);
       setPushDebug(pd?.ok ? pd.log : null);
       setHero(h?.heroImage || null);
-      if (h?.heroImage) setHeroDraft({ url: h.heroImage.url });
+      if (h?.heroImage) setHeroDraft({
+        url: getHeroAssetUrl(h.heroImage) || h.heroImage.url,
+        mediaType: getHeroAssetType(h.heroImage),
+        posterUrl: h.heroImage.posterUrl || '',
+      });
       setHeroPool(hp?.heroPool || null);
       if (hp?.heroPool) {
         setHeroPoolDraft({
@@ -388,29 +392,34 @@ function Dashboard({ creds, onLogout }) {
   }
 
   async function saveHero() {
-    if (!heroDraft.url) { showToast('Pick an image first', 'error'); return; }
+    if (!heroDraft.url) { showToast('Pick an image or video first', 'error'); return; }
     setBusyAction('hero');
     try {
-      const r = await backend.setHero({ url: heroDraft.url, enabled: true });
+      const r = await backend.setHero({
+        url: heroDraft.url,
+        enabled: true,
+        mediaType: heroDraft.mediaType || 'image',
+        posterUrl: heroDraft.posterUrl || '',
+      });
       setHero(r.heroImage);
-      showToast('Hero image updated.');
+      showToast('Backdrop updated.');
     } catch (err) {
-      showToast(`Hero save failed: ${err.message}`, 'error');
+      showToast(`Backdrop save failed: ${err.message}`, 'error');
     } finally {
       setBusyAction(null);
     }
   }
 
   async function removeHero() {
-    if (!confirm('Remove hero image from the app?')) return;
+    if (!confirm('Remove the backdrop from the app?')) return;
     setBusyAction('hero');
     try {
       await backend.clearHero();
       setHero(null);
-      setHeroDraft({ url: '' });
-      showToast('Hero image removed.');
+      setHeroDraft({ url: '', mediaType: 'image', posterUrl: '' });
+      showToast('Backdrop removed.');
     } catch (err) {
-      showToast(`Hero remove failed: ${err.message}`, 'error');
+      showToast(`Backdrop remove failed: ${err.message}`, 'error');
     } finally {
       setBusyAction(null);
     }
@@ -418,15 +427,32 @@ function Dashboard({ creds, onLogout }) {
 
   async function onHeroFilePicked(file) {
     if (!file) return;
-    if (!file.type.startsWith('image/')) { showToast('Pick an image file', 'error'); return; }
+    const isVideo = file.type === 'video/mp4' || /\.mp4$/i.test(file.name || '');
+    const isImage = file.type.startsWith('image/');
+    if (!isVideo && !isImage) { showToast('Pick an image or MP4 file', 'error'); return; }
     setHeroUploading(true);
     try {
-      const dataUrl = await resizeImageToDataUrl(file, 1024, 0.85);
-      setHeroDraft({ url: dataUrl });
-      const sizeKB = Math.round((dataUrl.length * 0.75) / 1024);
-      showToast(`Image ready (~${sizeKB} KB). Click Publish to push live.`);
+      if (isVideo) {
+        // MP4 backups upload to Vercel Blob (audio rides inside the mp4) and we
+        // store the returned public URL — same path as the daily pool.
+        const dataUrl = await fileToDataUrl(file);
+        const r = await backend.uploadHeroBatchImage({
+          dateKey: getTodayInputValue(),
+          fileName: file.name,
+          mediaType: 'video',
+          dataUrl,
+        });
+        const assetUrl = r.videoUrl || r.url;
+        setHeroDraft({ url: assetUrl, mediaType: 'video', posterUrl: '' });
+        showToast('Video ready. Click Publish to make it the live backdrop.');
+      } else {
+        const dataUrl = await resizeImageToDataUrl(file, 1024, 0.85);
+        setHeroDraft({ url: dataUrl, mediaType: 'image', posterUrl: '' });
+        const sizeKB = Math.round((dataUrl.length * 0.75) / 1024);
+        showToast(`Image ready (~${sizeKB} KB). Click Publish to push live.`);
+      }
     } catch (err) {
-      showToast(`Image processing failed: ${err.message}`, 'error');
+      showToast(`Media processing failed: ${err.message}`, 'error');
     } finally {
       setHeroUploading(false);
     }
@@ -1157,10 +1183,11 @@ function Dashboard({ creds, onLogout }) {
         </div>
       </Card>
 
-      <Card title="Hero Image (top of UI)">
+      <Card title="Backdrop image / video (behind Today's Sky)">
         <div style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
-          Optional. Pick an image from your device. It will be resized to a 4:5 portrait
-          (max 1024px wide, JPEG ~85% quality) and pushed live. Leave empty to hide the section.
+          Optional. Pick an image OR an MP4 (with audio) from your device. It plays as the living
+          backdrop behind the "Today's Sky" panel in the app. Images resize to ~1024px JPEG; MP4s
+          upload to Vercel Blob and loop muted (tap-for-sound in the app). Leave empty to hide it.
         </div>
         <div style={{ display: 'grid', gap: 10 }}>
           <label
@@ -1170,10 +1197,10 @@ function Dashboard({ creds, onLogout }) {
               background: '#0f0f17', textAlign: 'center',
             }}
           >
-            {heroUploading ? 'Processing image…' : (heroDraft.url ? 'Pick a different image' : 'Choose image from device')}
+            {heroUploading ? 'Processing media…' : (heroDraft.url ? 'Pick a different image / MP4' : 'Choose image or MP4 from device')}
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,video/mp4"
               style={{ display: 'none' }}
               onChange={(e) => onHeroFilePicked(e.target.files?.[0])}
             />
@@ -1183,15 +1210,25 @@ function Dashboard({ creds, onLogout }) {
               padding: 10, background: '#0f0f17',
               border: '1px solid #1f1f2a', borderRadius: 8,
             }}>
-              <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>Preview</div>
-              <img
-                src={heroDraft.url}
-                alt=""
-                style={{
-                  width: '100%', maxHeight: 400, objectFit: 'cover',
-                  borderRadius: 6, border: '1px solid #2a2a35',
-                }}
-              />
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>Preview {heroDraft.mediaType === 'video' ? '· video' : ''}</div>
+              {heroDraft.mediaType === 'video' ? (
+                <video
+                  src={heroDraft.url}
+                  controls
+                  muted
+                  playsInline
+                  style={{ width: '100%', maxHeight: 400, objectFit: 'cover', borderRadius: 6, border: '1px solid #2a2a35', background: '#06060c' }}
+                />
+              ) : (
+                <img
+                  src={heroDraft.url}
+                  alt=""
+                  style={{
+                    width: '100%', maxHeight: 400, objectFit: 'cover',
+                    borderRadius: 6, border: '1px solid #2a2a35',
+                  }}
+                />
+              )}
             </div>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
@@ -1204,20 +1241,30 @@ function Dashboard({ creds, onLogout }) {
               </button>
             )}
           </div>
-          {hero && hero.url !== heroDraft.url && (
+          {hero && getHeroAssetUrl(hero) !== heroDraft.url && (
             <div style={{
               marginTop: 8, padding: 10, background: '#0f0f17',
               border: '1px solid #1f1f2a', borderRadius: 8,
             }}>
-              <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>Currently live</div>
-              <img
-                src={hero.url}
-                alt=""
-                style={{
-                  width: '100%', maxHeight: 400, objectFit: 'cover',
-                  borderRadius: 6, border: '1px solid #2a2a35',
-                }}
-              />
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>Currently live {getHeroAssetType(hero) === 'video' ? '· video' : ''}</div>
+              {getHeroAssetType(hero) === 'video' ? (
+                <video
+                  src={getHeroAssetUrl(hero)}
+                  controls
+                  muted
+                  playsInline
+                  style={{ width: '100%', maxHeight: 400, objectFit: 'cover', borderRadius: 6, border: '1px solid #2a2a35', background: '#06060c' }}
+                />
+              ) : (
+                <img
+                  src={getHeroAssetUrl(hero)}
+                  alt=""
+                  style={{
+                    width: '100%', maxHeight: 400, objectFit: 'cover',
+                    borderRadius: 6, border: '1px solid #2a2a35',
+                  }}
+                />
+              )}
               <div style={{ fontSize: 11, color: '#666', marginTop: 6 }}>
                 Updated: {hero.updatedAt ? new Date(hero.updatedAt).toLocaleString() : 'unknown'}
               </div>

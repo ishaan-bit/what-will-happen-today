@@ -164,6 +164,10 @@ export async function getPredictions() {
   const effectiveHeroImage = normalizeHero(cachedHeroPool?.images?.[0])
     || normalizeHero(remote?.heroImage)
     || null;
+  // The ops "backup image" specifically (the single legacy hero), kept
+  // separate from card art so it can serve as the Today's-Sky backdrop even
+  // when a full daily pool exists. Supports image OR mp4 (with audio).
+  const backupHero = normalizeHero(remote?.heroImage) || null;
   logHeroDebug('payload', {
     requestedDateKey: remote?.dateKey || getTodayKey(),
     heroSource: remoteHeroPool
@@ -223,6 +227,7 @@ export async function getPredictions() {
     return {
       predictions: attachTarot(local),
       heroImage: effectiveHeroImage,
+      backupHero,
       heroPool: cachedHeroPool,
       monetizationConfig: mergeMonetizationConfig(remote?.monetizationConfig || {}, cachedHeroPool?.config || null),
       llmGeneratedAt: null,
@@ -249,6 +254,7 @@ export async function getPredictions() {
   return {
     predictions: attachTarot(merged),
     heroImage: effectiveHeroImage,
+    backupHero,
     heroPool: cachedHeroPool,
     monetizationConfig: mergeMonetizationConfig(remote?.monetizationConfig || {}, cachedHeroPool?.config || null),
     llmGeneratedAt: remote?.generatedAt || null,

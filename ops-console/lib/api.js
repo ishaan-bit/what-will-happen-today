@@ -91,11 +91,11 @@ export const backend = {
   async getHero() {
     return request('/api/backend/ops/hero-image');
   },
-  async setHero({ url, enabled }) {
+  async setHero({ url, enabled, mediaType, posterUrl }) {
     return request('/api/backend/ops/hero-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, enabled }),
+      body: JSON.stringify({ url, enabled, mediaType, posterUrl }),
     });
   },
   async clearHero() {

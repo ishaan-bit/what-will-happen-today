@@ -90,4 +90,6 @@ export default async function handler(req, res) {
   }
 }
 
-export const config = { api: { bodyParser: { sizeLimit: '16mb' } } };
+// Must be >= the backend's 70mb cap so the proxy never 413s an mp4 the
+// backend would accept (52MB raw video ≈ 71MB base64-encoded).
+export const config = { api: { bodyParser: { sizeLimit: '72mb' } } };
