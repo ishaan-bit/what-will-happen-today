@@ -14,6 +14,7 @@ import {
   markDay4BannerSeen,
   getDailyRevealState,
   getHeroShuffleState,
+  getCardShuffleState,
   applyHeroShuffleResetNonce,
   getEntitlementInfo,
 } from '@/services/storageService';
@@ -31,6 +32,7 @@ export function PredictionsProvider({ children }) {
   const [monetizationConfig, setMonetizationConfig] = useState(normalizeMonetizationConfig());
   const [revealState, setRevealState] = useState(null);
   const [heroShuffleState, setHeroShuffleState] = useState(null);
+  const [cardShuffleState, setCardShuffleState] = useState(null);
   const [entitlement, setEntitlement] = useState({ active: false, today: false, thirtyDay: false });
   const [unlocked, setUnlocked] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -60,10 +62,12 @@ export function PredictionsProvider({ children }) {
         entitlementState,
         dailyRevealState,
         dailyHeroShuffleState,
+        dailyCardShuffleState,
       ] = await Promise.all([
         getEntitlementInfo(),
         getDailyRevealState(),
         getHeroShuffleState(),
+        getCardShuffleState(),
       ]);
 
       setPredictions(preds.predictions || null);
@@ -72,6 +76,7 @@ export function PredictionsProvider({ children }) {
       setMonetizationConfig(normalizeMonetizationConfig(preds.monetizationConfig || {}));
       setRevealState(dailyRevealState);
       setHeroShuffleState(dailyHeroShuffleState);
+      setCardShuffleState(dailyCardShuffleState);
       setEntitlement(entitlementState);
       setUnlocked(entitlementState.active);
       lastDateKeyRef.current = getTodayKey();
@@ -166,13 +171,15 @@ export function PredictionsProvider({ children }) {
   }, []);
 
   const refreshRevealState = useCallback(async () => {
-    const [dailyRevealState, dailyHeroShuffleState] = await Promise.all([
+    const [dailyRevealState, dailyHeroShuffleState, dailyCardShuffleState] = await Promise.all([
       getDailyRevealState(),
       getHeroShuffleState(),
+      getCardShuffleState(),
     ]);
     setRevealState(dailyRevealState);
     setHeroShuffleState(dailyHeroShuffleState);
-    return { revealState: dailyRevealState, heroShuffleState: dailyHeroShuffleState };
+    setCardShuffleState(dailyCardShuffleState);
+    return { revealState: dailyRevealState, heroShuffleState: dailyHeroShuffleState, cardShuffleState: dailyCardShuffleState };
   }, []);
 
   /** Called after the first-time user finishes their full preview. */
@@ -196,6 +203,7 @@ export function PredictionsProvider({ children }) {
         monetizationConfig,
         revealState,
         heroShuffleState,
+        cardShuffleState,
         entitlement,
         unlocked,
         loading,

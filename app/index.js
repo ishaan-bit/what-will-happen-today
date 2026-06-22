@@ -24,14 +24,16 @@ import { TodaysSky } from '@/components/TodaysSky';
 import { usePredictions } from '@/hooks/usePredictions';
 import { useBilling } from '@/hooks/useBilling';
 import { PRODUCT_DAILY, PRODUCT_FULL } from '@/services/billingService';
-import { grantSignalReveal } from '@/services/storageService';
+import { getInstallSalt, recordCardShuffle } from '@/services/storageService';
 import { showHeroShuffleRewardedAd, preloadHeroShuffleRewardedAd } from '@/services/heroShuffleRewardedAd';
+import { drawDailySpreadByCategory, tarotBlockFromDraw } from '@/utils/tarotDraw';
 import {
   getCategoryOrder,
   getDailyVibe,
   getDailyMoment,
   getDailyWatchFor,
 } from '@/utils/freeCategory';
+import { getTodayKey } from '@/utils/dateUtils';
 import { palette, spacing, type, radius } from '@/utils/theme';
 import { track, Events } from '@/services/analyticsService';
 import { tap, unlock as unlockHaptic } from '@/utils/haptics';
@@ -54,6 +56,7 @@ export default function HomeScreen() {
     heroImage,
     monetizationConfig,
     revealState,
+    cardShuffleState,
     entitlement,
     unlocked,
     loading,
@@ -69,7 +72,8 @@ export default function HomeScreen() {
   const { getPrice, buyDaily, buyFull, purchasing } = useBilling();
   const [paywall, setPaywall] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [revealingCategory, setRevealingCategory] = useState(null);
+  const [shuffling, setShuffling] = useState(false);
+  const [installSalt, setInstallSalt] = useState('anon');
   const adInFlightRef = useRef(false);
   const lastFocusRefreshAt = useRef(0);
   const hasFocusedOnce = useRef(false);
@@ -77,6 +81,10 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!loading) SplashScreen.hideAsync().catch(() => null);
   }, [loading]);
+
+  useEffect(() => {
+    getInstallSalt().then((s) => s && setInstallSalt(s)).catch(() => null);
+  }, []);
 
   const dailyPrice = getPrice(PRODUCT_DAILY);
   const fullPrice = getPrice(PRODUCT_FULL);
@@ -89,18 +97,24 @@ export default function HomeScreen() {
 
   const isPaidEntitled = unlocked || entitlement?.active;
   const isThirtyDay = !!entitlement?.thirtyDay;
-  // Rewarded "flip a card" ad is the free path; never shown to 30-day holders.
-  const rewardedAdsEnabled = monetizationConfig.rewardedAdsEnabled !== false && !isThirtyDay;
-  const fullReveal = isPaidEntitled || inFreeWindow;
+
+  // Shuffle = re-draw the spread + reveal all four of that draw.
+  //   Free   -> rewarded ad, capped per day.
+  //   30-day -> unlimited, ad-free.
+  //   Daily  -> already sees today's full spread, no shuffle.
+  const shuffleSeed = cardShuffleState?.seed || 0;
+  const shuffleCount = cardShuffleState?.count || 0;
+  const shuffleRevealed = !!cardShuffleState?.revealed;
+  const fullReveal = isPaidEntitled || inFreeWindow || shuffleRevealed;
+
+  const rewardedAdsEnabled = monetizationConfig.rewardedAdsEnabled !== false;
+  const maxShuffles = monetizationConfig.maxRewardedShufflesPerDay ?? 3;
+  const freeShufflesLeft = Math.max(0, maxShuffles - shuffleCount);
+  const canShuffleUnlimited = isThirtyDay;
+  const canShuffleRewarded = !isPaidEntitled && rewardedAdsEnabled && freeShufflesLeft > 0;
+  const showShuffle = canShuffleUnlimited || (!isPaidEntitled && rewardedAdsEnabled);
 
   const revealMap = revealState?.revealedSignals || {};
-  const maxReveals = monetizationConfig.maxRewardedShufflesPerDay ?? 3;
-  const adRevealsUsed = useMemo(
-    () => Object.values(revealMap).filter((r) => r?.source === 'ad').length,
-    [revealMap],
-  );
-  const canRevealMore = adRevealsUsed < maxReveals;
-
   const categoryOrder = useMemo(() => getCategoryOrder(freeCategory), [freeCategory]);
 
   const heroImages = useMemo(() => {
@@ -109,12 +123,24 @@ export default function HomeScreen() {
     return source.map(normalizeHero).filter(Boolean);
   }, [heroPool, heroImage]);
 
+  // A fresh deterministic draw for each shuffle. seed 0 keeps the server-attached
+  // daily draw (no client recompute, no flicker on first paint).
+  const shuffledSpread = useMemo(() => {
+    if (!shuffleSeed) return null;
+    return drawDailySpreadByCategory({ installSalt, dateKey: getTodayKey(), bucket: String(shuffleSeed) });
+  }, [installSalt, shuffleSeed]);
+
   const cards = useMemo(() => categoryOrder.map((cat, i) => {
     const isFreeCard = cat === freeCategory;
     const revealed = fullReveal || isFreeCard || !!revealMap[cat];
-    const hero = heroImages.length ? heroImages[i % heroImages.length] : null;
-    return { category: cat, prediction: predictions?.[cat], hero, isFree: isFreeCard, revealed, position: i };
-  }), [categoryOrder, freeCategory, fullReveal, revealMap, heroImages, predictions]);
+    const len = heroImages.length;
+    const hero = len ? heroImages[(i + shuffleSeed) % len] : null;
+    const base = predictions?.[cat];
+    const prediction = (shuffledSpread && base)
+      ? { ...base, tarot: tarotBlockFromDraw(shuffledSpread[cat]) }
+      : base;
+    return { category: cat, prediction, hero, isFree: isFreeCard, revealed, position: i };
+  }), [categoryOrder, freeCategory, fullReveal, revealMap, heroImages, predictions, shuffleSeed, shuffledSpread]);
 
   const lockedCount = cards.filter((c) => !c.revealed).length;
 
@@ -139,12 +165,12 @@ export default function HomeScreen() {
     }, [refresh, refreshRevealState, refreshUnlock])
   );
 
-  // Preload the rewarded "flip" ad while there are locked cards to reveal.
+  // Preload the rewarded shuffle ad while a free user still has shuffles left.
   useFocusEffect(
     useCallback(() => {
-      if (!rewardedAdsEnabled || !canRevealMore || lockedCount === 0) return;
+      if (!canShuffleRewarded) return;
       preloadHeroShuffleRewardedAd({ forceFresh: false }).catch(() => null);
-    }, [rewardedAdsEnabled, canRevealMore, lockedCount])
+    }, [canShuffleRewarded])
   );
 
   const handleSettings = useCallback(() => {
@@ -153,9 +179,9 @@ export default function HomeScreen() {
   }, []);
 
   const openPaywall = useCallback((category, entryPoint = 'home_locked_card') => {
-    setPaywall({ category, entryPoint });
+    setPaywall({ category: category || null, entryPoint });
     track(Events.PAYWALL_VIEWED, {
-      entry_category: category,
+      entry_category: category || null,
       paywall_entry_point: entryPoint,
       user_day_number: dayNumber,
       is_paid_entitled: isPaidEntitled,
@@ -174,49 +200,77 @@ export default function HomeScreen() {
     refreshUnlock();
   }, [buyFull, refreshUnlock]);
 
-  const revealWithAd = useCallback(async (category) => {
-    if (!category) return;
-    if (!rewardedAdsEnabled) { openPaywall(category, 'reveal_ad_disabled'); return; }
-    if (!canRevealMore) {
-      Alert.alert('No more free flips today', `Unlock everything with ${dailyPrice} today or ${fullPrice} for 30 days.`);
+  const handleShuffle = useCallback(async () => {
+    if (adInFlightRef.current || shuffling) return;
+    tap();
+
+    // 30-day holders: unlimited, ad-free re-draw.
+    if (canShuffleUnlimited) {
+      setShuffling(true);
+      try {
+        const next = await recordCardShuffle('paid');
+        await refreshRevealState();
+        unlockHaptic();
+        track(Events.HERO_IMAGE_CHANGED, { placement: 'card_shuffle', tier: 'thirty_day', seed: next.seed });
+      } finally {
+        setShuffling(false);
+      }
       return;
     }
-    if (adInFlightRef.current) return;
+
+    // Free users: rewarded, capped.
+    if (!canShuffleRewarded) {
+      openPaywall(null, 'shuffle_cap');
+      return;
+    }
     adInFlightRef.current = true;
-    setRevealingCategory(category);
+    setShuffling(true);
     try {
-      track(Events.HERO_SHUFFLE_AD_STARTED, { category, placement: 'card_reveal', user_day_number: dayNumber });
-      const result = await showHeroShuffleRewardedAd({ metadata: { category, placement: 'card_reveal' } });
+      track(Events.HERO_SHUFFLE_AD_STARTED, { placement: 'card_shuffle', user_day_number: dayNumber });
+      const result = await showHeroShuffleRewardedAd({ metadata: { placement: 'card_shuffle' } });
       if (!result.rewarded) {
-        track(Events.HERO_SHUFFLE_AD_FAILED, { category, reason: result.reason || 'not_rewarded' });
+        track(Events.HERO_SHUFFLE_AD_FAILED, { reason: result.reason || 'not_rewarded' });
         preloadHeroShuffleRewardedAd({ forceFresh: true }).catch(() => null);
-        Alert.alert('The card stayed face-down', 'The ad was not ready. Try again in a moment.');
+        Alert.alert("The deck didn't shuffle", "The ad wasn't ready. Try again in a moment.");
         return;
       }
-      await grantSignalReveal(category, 'ad');
+      const next = await recordCardShuffle('ad');
       await refreshRevealState();
       unlockHaptic();
-      track(Events.HERO_SHUFFLE_AD_COMPLETED, { category, placement: 'card_reveal', user_day_number: dayNumber });
+      track(Events.HERO_SHUFFLE_AD_COMPLETED, { placement: 'card_shuffle', seed: next.seed, user_day_number: dayNumber });
     } catch (err) {
-      Alert.alert('Something went wrong', 'The card stayed face-down. Try again in a moment.');
+      Alert.alert('Something went wrong', "The deck didn't shuffle. Try again in a moment.");
     } finally {
       adInFlightRef.current = false;
-      setRevealingCategory(null);
+      setShuffling(false);
     }
-  }, [rewardedAdsEnabled, canRevealMore, dailyPrice, fullPrice, dayNumber, openPaywall, refreshRevealState]);
+  }, [canShuffleUnlimited, canShuffleRewarded, shuffling, dayNumber, openPaywall, refreshRevealState]);
 
   const vibe = getDailyVibe();
   const moment = getDailyMoment();
   const watchFor = getDailyWatchFor();
   const hideBannerAd = paywall !== null || isPaidEntitled || !bannerEnabled;
 
-  const spreadSubtitle = isPaidEntitled
-    ? 'All four cards are face-up for you.'
-    : inFreeWindow
-      ? 'Your first days are open — every card is face-up.'
-      : lockedCount > 0
-        ? `One card is face-up. ${lockedCount} more wait face-down.`
-        : 'Your full spread is open today.';
+  const spreadSubtitle = isThirtyDay
+    ? 'All four cards are face-up. Shuffle the deck anytime for a fresh draw.'
+    : isPaidEntitled
+      ? 'All four cards are face-up for you today.'
+      : inFreeWindow
+        ? 'Your first days are open — every card is face-up.'
+        : shuffleRevealed
+          ? 'Your shuffled spread is open.'
+          : lockedCount > 0
+            ? `One card is face-up. ${lockedCount} more wait face-down.`
+            : 'Your spread is open today.';
+
+  const shuffleLabel = shuffling
+    ? 'Shuffling the deck…'
+    : canShuffleUnlimited
+      ? '⇄  Shuffle the deck · unlimited'
+      : canShuffleRewarded
+        ? `⇄  Shuffle the deck — watch an ad · ${freeShufflesLeft} left`
+        : 'No more shuffles today';
+  const shuffleDisabled = shuffling || (!canShuffleUnlimited && !canShuffleRewarded);
 
   return (
     <ScreenShell>
@@ -268,28 +322,48 @@ export default function HomeScreen() {
             {[0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)}
           </>
         ) : cardBasedModel ? (
-          cards.map((card) => (
-            <TarotCard
-              key={card.category}
-              category={card.category}
-              prediction={card.prediction}
-              hero={card.hero}
-              position={card.position}
-              isFree={card.isFree}
-              isRevealed={card.revealed}
-              isPaidEntitled={isPaidEntitled}
-              deeperEnabled={deeperEnabled}
-              canRevealWithAd={rewardedAdsEnabled && canRevealMore && revealingCategory !== card.category}
-              todayUnlockEnabled={todayUnlockEnabled}
-              thirtyDayUnlockEnabled={thirtyDayUnlockEnabled}
-              dailyPrice={dailyPrice}
-              fullPrice={fullPrice}
-              onRevealWithAd={() => revealWithAd(card.category)}
-              onUnlockPress={() => openPaywall(card.category, 'locked_card')}
-              onBuyDailyPress={handleBuyDaily}
-              onBuyFullPress={handleBuyFull}
-            />
-          ))
+          <>
+            {cards.map((card) => (
+              <TarotCard
+                key={card.category}
+                category={card.category}
+                prediction={card.prediction}
+                hero={card.hero}
+                position={card.position}
+                isFree={card.isFree}
+                isRevealed={card.revealed}
+                isPaidEntitled={isPaidEntitled}
+                deeperEnabled={deeperEnabled}
+                todayUnlockEnabled={todayUnlockEnabled}
+                thirtyDayUnlockEnabled={thirtyDayUnlockEnabled}
+                dailyPrice={dailyPrice}
+                fullPrice={fullPrice}
+                onUnlockPress={() => openPaywall(card.category, 'locked_card')}
+                onBuyDailyPress={handleBuyDaily}
+                onBuyFullPress={handleBuyFull}
+              />
+            ))}
+
+            {showShuffle && (
+              <>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleShuffle}
+                  disabled={shuffleDisabled || purchasing}
+                  style={[styles.shuffleBtn, shuffleDisabled && styles.shuffleBtnDisabled]}
+                >
+                  <Text style={[styles.shuffleBtnText, shuffleDisabled && styles.shuffleBtnTextDisabled]}>
+                    {shuffleLabel}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={styles.shuffleHint}>
+                  {canShuffleUnlimited
+                    ? 'Draw a brand-new spread as often as you like.'
+                    : 'Each shuffle deals a fresh spread and opens all four cards.'}
+                </Text>
+              </>
+            )}
+          </>
         ) : (
           // Kill-switch fallback: the legacy signal list (no per-card ads).
           cards.map((card) => (
@@ -335,17 +409,13 @@ export default function HomeScreen() {
         entryCategory={paywall?.category}
         entryPoint={paywall?.entryPoint}
         onRewardPress={
-          rewardedAdsEnabled && canRevealMore && paywall?.category
-            ? () => {
-                const cat = paywall.category;
-                setPaywall(null);
-                revealWithAd(cat);
-              }
+          canShuffleRewarded
+            ? () => { setPaywall(null); handleShuffle(); }
             : null
         }
-        rewardLabel="Or flip one card with an ad"
+        rewardLabel="Or shuffle the deck with an ad"
         heading={"One card found you.\nThe rest are still face-down."}
-        subheading="Turn the whole spread and the meanings beneath each card."
+        subheading="Turn the whole spread and the meanings beneath each card — or shuffle for a fresh draw."
         todayUnlockEnabled={todayUnlockEnabled}
         thirtyDayUnlockEnabled={thirtyDayUnlockEnabled}
       />
@@ -407,6 +477,35 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     textAlign: 'center',
     letterSpacing: 3,
+  },
+  shuffleBtn: {
+    marginTop: spacing.xs,
+    paddingVertical: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,110,0.45)',
+    backgroundColor: 'rgba(201,169,110,0.08)',
+    alignItems: 'center',
+  },
+  shuffleBtnDisabled: {
+    borderColor: palette.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  shuffleBtnText: {
+    ...type.bodyMed,
+    color: palette.accent,
+    fontWeight: '700',
+  },
+  shuffleBtnTextDisabled: {
+    color: palette.textMuted,
+  },
+  shuffleHint: {
+    ...type.caption,
+    color: palette.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    fontStyle: 'italic',
   },
   footerBlock: {
     alignItems: 'center',

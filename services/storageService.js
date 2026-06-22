@@ -29,6 +29,8 @@ const KEYS = {
   DAILY_REVEAL_STATE: 'wwht:dailyRevealState',
   HERO_SHUFFLE_STATE: 'wwht:heroShuffleState',
   HERO_ASSIGNMENT_CACHE: 'wwht:heroAssignmentCache',
+  // WWHT 2.0 — card spread shuffle (re-draw) state, scoped by local date
+  CARD_SHUFFLE_STATE: 'wwht:cardShuffleState',
 };
 
 // 30-day full-unlock window (₹49)
@@ -423,6 +425,52 @@ export async function clearCachedHeroAssignment() {
   } catch {
     // Non-critical
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Card spread shuffle (re-draw) — WWHT 2.0
+// `seed` drives a fresh deterministic draw; `count` caps free rewarded
+// shuffles per day; `revealed` means the current shuffled spread shows all 4.
+// ─────────────────────────────────────────────────────────────
+
+function emptyCardShuffleState() {
+  return { dateKey: getTodayKey(), seed: 0, count: 0, revealed: false };
+}
+
+export async function getCardShuffleState() {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.CARD_SHUFFLE_STATE);
+    if (!raw) return emptyCardShuffleState();
+    const parsed = JSON.parse(raw);
+    if (parsed.dateKey !== getTodayKey()) return emptyCardShuffleState();
+    return { ...emptyCardShuffleState(), ...parsed };
+  } catch {
+    return emptyCardShuffleState();
+  }
+}
+
+async function saveCardShuffleState(next) {
+  try {
+    await AsyncStorage.setItem(KEYS.CARD_SHUFFLE_STATE, JSON.stringify({
+      ...next,
+      dateKey: getTodayKey(),
+    }));
+  } catch {
+    // Non-critical
+  }
+}
+
+/**
+ * Record a shuffle (re-draw). `source` 'ad' counts toward the free daily cap;
+ * 'paid' (30-day unlimited) does not. Always reveals the new spread.
+ */
+export async function recordCardShuffle(source = 'ad') {
+  const state = await getCardShuffleState();
+  state.seed = (state.seed || 0) + 1;
+  if (source === 'ad') state.count = (state.count || 0) + 1;
+  state.revealed = true;
+  await saveCardShuffleState(state);
+  return state;
 }
 
 // ─────────────────────────────────────────────────────────────
