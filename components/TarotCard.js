@@ -42,6 +42,7 @@ import { CATEGORY_SIGILS } from '@/utils/cosmic';
 import { tap, expand as expandHaptic } from '@/utils/haptics';
 import { track, Events } from '@/services/analyticsService';
 import { HeroMedia } from '@/components/HeroMedia';
+import { motionLite } from '@/utils/deviceTier';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -90,6 +91,7 @@ export function TarotCard({
   const shimmer = useSharedValue(0);  // gilt light sweep (back)
   const glow = useSharedValue(0);     // reveal burst when a card turns face-up
   const press = useSharedValue(0);    // tap feedback on a locked card
+  const kb = useSharedValue(0);       // slow Ken Burns on the revealed art
   const prevRevealed = useRef(isRevealed);
 
   useEffect(() => {
@@ -100,22 +102,38 @@ export function TarotCard({
     flip.value = withTiming(isRevealed ? 1 : 0, { duration: 660, easing: Easing.inOut(Easing.cubic) });
   }, [isRevealed, flip]);
 
-  // Continuous "living deck" motion — a breath and a slow arcane-ring spin.
+  // Continuous "living deck" motion — a breath always; the slow arcane-ring spin
+  // only on capable devices (4 cards spinning at once is the heaviest back FX).
   useEffect(() => {
     breath.value = withRepeat(withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.sin) }), -1, true);
-    ring.value = withRepeat(withTiming(1, { duration: 30000, easing: Easing.linear }), -1, false);
+    if (!motionLite) {
+      ring.value = withRepeat(withTiming(1, { duration: 30000, easing: Easing.linear }), -1, false);
+    }
     return () => { cancelAnimation(breath); cancelAnimation(ring); };
   }, [breath, ring]);
 
-  // A gilt light keeps sweeping across the back while it's face-down.
+  // A gilt light keeps sweeping across the back while it's face-down (skipped on
+  // low-end devices to keep the four-card spread smooth).
   useEffect(() => {
-    if (isRevealed) { cancelAnimation(shimmer); shimmer.value = 0; return undefined; }
+    if (isRevealed || motionLite) { cancelAnimation(shimmer); shimmer.value = 0; return undefined; }
     shimmer.value = withDelay(
       position * 320,
       withRepeat(withTiming(1, { duration: 3400, easing: Easing.inOut(Easing.cubic) }), -1, false),
     );
     return () => cancelAnimation(shimmer);
   }, [isRevealed, position, shimmer]);
+
+  // A slow Ken Burns on the card art once it is face-up, so a revealed card
+  // breathes instead of sitting static. Native/UI-thread (transform only).
+  useEffect(() => {
+    if (isRevealed && !motionLite) {
+      kb.value = withRepeat(withTiming(1, { duration: 9000, easing: Easing.inOut(Easing.sin) }), -1, true);
+    } else {
+      cancelAnimation(kb);
+      kb.value = 0;
+    }
+    return () => cancelAnimation(kb);
+  }, [isRevealed, kb]);
 
   // A burst of light the moment a card turns face-up.
   useEffect(() => {
@@ -182,6 +200,15 @@ export function TarotCard({
 
   const glowStyle = useAnimatedStyle(() => ({ opacity: glow.value }));
 
+  // Ken Burns drift on the revealed art.
+  const artKbStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: interpolate(kb.value, [0, 1], [1.04, 1.12]) },
+      { translateX: interpolate(kb.value, [0, 1], [-6, 6]) },
+      { translateY: interpolate(kb.value, [0, 1], [4, -4]) },
+    ],
+  }));
+
   const handlePress = useCallback(() => {
     if (!isRevealed) {
       tap();
@@ -244,13 +271,15 @@ export function TarotCard({
 
         {/* Face of card (media art) */}
         <Animated.View style={[styles.artFace, faceStyle]}>
-          <HeroMedia media={hero} style={StyleSheet.absoluteFill} audio="off" active={isRevealed} play={isRevealed} fallbackColor="#0c0810">
-            <LinearGradient
-              colors={[`${meta.color}1f`, '#0a0710']}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-          </HeroMedia>
+          <Animated.View style={[StyleSheet.absoluteFill, artKbStyle]}>
+            <HeroMedia media={hero} style={StyleSheet.absoluteFill} audio="off" active={isRevealed} play={isRevealed} fallbackColor="#0c0810">
+              <LinearGradient
+                colors={[`${meta.color}1f`, '#0a0710']}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
+            </HeroMedia>
+          </Animated.View>
           <LinearGradient colors={gradients.artScrim} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
           {/* Name plate */}

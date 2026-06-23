@@ -9,6 +9,7 @@ import {
   PRODUCT_DAILY,
   PRODUCT_FULL,
 } from '@/services/billingService';
+import { fallbackPrice } from '@/services/productCatalog';
 import { track, Events } from '@/services/analyticsService';
 
 const BillingContext = createContext(null);
@@ -46,7 +47,9 @@ export function BillingProvider({ children, onPurchaseComplete }) {
   const getPrice = useCallback(
     (productId) => {
       const product = products.find((p) => p.productId === productId);
-      return product?.localizedPrice ?? (productId === PRODUCT_DAILY ? '₹29' : '₹49');
+      // Fallback prices come from the canonical catalog, never hardcoded here,
+      // so ₹29 (daily) / ₹49 (30-day) can never be transposed.
+      return product?.localizedPrice ?? fallbackPrice(productId);
     },
     [products]
   );

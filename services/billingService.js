@@ -19,10 +19,11 @@ import {
   purchaseUpdatedListener,
 } from 'react-native-iap';
 import { setUnlockToday, setUnlockAll, getInstallSalt } from '@/services/storageService';
+import { PRODUCT_DAILY, PRODUCT_FULL, ALL_SKUS } from '@/services/productCatalog';
 
-export const PRODUCT_DAILY = 'daily_unlock_v1';
-export const PRODUCT_FULL = 'full_unlock_v1';
-export const ALL_SKUS = [PRODUCT_DAILY, PRODUCT_FULL];
+// Re-export from the single source of truth (services/productCatalog.js) so the
+// ₹29-today / ₹49-30-day mapping has exactly one definition and can never drift.
+export { PRODUCT_DAILY, PRODUCT_FULL, ALL_SKUS };
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1500;

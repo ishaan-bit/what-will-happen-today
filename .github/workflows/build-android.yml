@@ -36,6 +36,9 @@ jobs:
       - name: Run hero shuffle tests
         run: npm run test:hero-shuffle
 
+      - name: Run pricing guardrail test (₹29 daily / ₹49 30-day)
+        run: npm run test:pricing
+
       - name: Setup EAS CLI
         run: npm install -g eas-cli@latest
 

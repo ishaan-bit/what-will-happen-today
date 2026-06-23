@@ -20,6 +20,8 @@ import {
 } from '@/services/storageService';
 import { mergeMonetizationConfig } from '@/services/monetizationConfig';
 import { drawDailySpreadByCategory, tarotBlockFromDraw } from '@/utils/tarotDraw';
+import { composePunch, composeDeeper, composeReading } from '@/utils/tarotReading';
+import { getCardById, cardMeaning } from '@/content/tarotDeck';
 
 const POOLS = { love, career, money, mood };
 
@@ -96,14 +98,18 @@ async function pickForCategory(category, saltSeed) {
   return { ...prediction, source: 'rule' };
 }
 
-export async function getTodaysPredictions(remoteRuleBucket = null) {
+export async function getTodaysPredictions(remoteRuleBucket = null, dateKey = getTodayKey()) {
   const [installSalt, lastBucket] = await Promise.all([
     getInstallSalt(),
     getLastRuleBucket(),
   ]);
 
   const bucket = remoteRuleBucket != null ? String(remoteRuleBucket) : lastBucket;
-  const saltSeed = hashString(`${installSalt}|${bucket}`);
+  // Fold the date into the salt so the rule "bucket" rotates DAILY on its own,
+  // independent of the server bucket (which only changes on an ops re-pick) and
+  // of getDailySeed. Result: picks are stable within a day, fresh every day,
+  // varied per install and per ops bump. See [[monetization-model]] sibling note.
+  const saltSeed = hashString(`${installSalt}|${bucket}|${dateKey}`);
 
   if (remoteRuleBucket != null && String(remoteRuleBucket) !== lastBucket) {
     await clearCachedPredictions();
@@ -164,10 +170,16 @@ export async function getPredictions() {
   const effectiveHeroImage = normalizeHero(cachedHeroPool?.images?.[0])
     || normalizeHero(remote?.heroImage)
     || null;
-  // The ops "backup image" specifically (the single legacy hero), kept
-  // separate from card art so it can serve as the Today's-Sky backdrop even
-  // when a full daily pool exists. Supports image OR mp4 (with audio).
-  const backupHero = normalizeHero(remote?.heroImage) || null;
+  // The Today's-Sky backdrop, kept separate from card art so it can play behind
+  // the Today's Sky panel even when a full daily pool exists. Supports image OR
+  // mp4 (with audio). Resolution order: the backend-resolved `backdropHero`
+  // (ops backup image, else a spare pool image), then the legacy hero, then the
+  // first cached pool image — so the backdrop ALWAYS renders when any media
+  // exists, not only when a dedicated backup image was uploaded.
+  const backupHero = normalizeHero(remote?.backdropHero)
+    || normalizeHero(remote?.heroImage)
+    || normalizeHero(cachedHeroPool?.images?.[0])
+    || null;
   logHeroDebug('payload', {
     requestedDateKey: remote?.dateKey || getTodayKey(),
     heroSource: remoteHeroPool
@@ -196,7 +208,7 @@ export async function getPredictions() {
     await setLastEngineMode(engineMode);
   }
 
-  const local = await getTodaysPredictions(ruleBucket);
+  const local = await getTodaysPredictions(ruleBucket, remote?.dateKey || getTodayKey());
 
   const [installSalt, lastBucket] = await Promise.all([
     getInstallSalt(),
@@ -208,15 +220,48 @@ export async function getPredictions() {
   // Deterministic tarot spread for the day — the shared substrate for BOTH
   // engines. Same draw is attached to rule picks and LLM picks so the cards
   // always read like a real tarot reading (online or offline).
+  // Install-scoped daily spread — used by RULE / offline mode so each user sees
+  // a personally varied card (stable per day, rotates daily).
   const spreadByCategory = drawDailySpreadByCategory({ installSalt, dateKey, bucket });
-  const attachTarot = (preds) => {
+
+  // The per-day "house" spread the LLM actually wrote its reading against
+  // (date-only, shared by every install — see backend/lib/tarot.js). In LLM
+  // mode we display THIS card so the card name, its composed deeper meaning, and
+  // the LLM prose all reference the SAME card. Falls back to the install-scoped
+  // spread if the backend didn't send one (older backend / any missing card).
+  const houseSpreadByCategory = (() => {
+    const hs = remote?.houseSpread;
+    if (!hs) return null;
     const out = {};
     for (const cat of CATEGORIES) {
-      const pred = preds?.[cat];
-      if (!pred) { out[cat] = pred; continue; }
-      out[cat] = pred.tarot
-        ? pred
-        : { ...pred, tarot: tarotBlockFromDraw(spreadByCategory[cat]) };
+      const entry = hs[cat];
+      const card = entry && getCardById(entry.cardId);
+      if (!card) return null;
+      const orientation = entry.orientation === 'reversed' ? 'reversed' : 'upright';
+      out[cat] = { category: cat, card, orientation, meaning: cardMeaning(card, orientation) };
+    }
+    return out;
+  })();
+
+  // Rule-based reading layer: every prediction is made faithful to its drawn
+  // card. Picks that lack a `punch` (the static rule pools have none) get a
+  // card-grounded one; the tarot block's `meaning.deeper` is composed from the
+  // card; and an area with no content at all gets a complete composed reading.
+  // Schema is unchanged. See docs/tarot-reading-guide.md + utils/tarotReading.js.
+  const readingSeed = `${installSalt}|${bucket}|${dateKey}`;
+  const attachTarot = (preds, spread = spreadByCategory) => {
+    const out = {};
+    for (const cat of CATEGORIES) {
+      const draw = spread[cat];
+      let pred = preds?.[cat];
+      if (!pred) {
+        pred = composeReading(draw, cat, readingSeed);
+        if (!pred) { out[cat] = preds?.[cat]; continue; }
+      }
+      const withPunch = pred.punch ? pred : { ...pred, punch: composePunch(draw, cat, readingSeed) || pred.punch };
+      out[cat] = withPunch.tarot
+        ? withPunch
+        : { ...withPunch, tarot: tarotBlockFromDraw(draw, composeDeeper(draw, cat, readingSeed)) };
     }
     return out;
   };
@@ -252,7 +297,9 @@ export async function getPredictions() {
   }
 
   return {
-    predictions: attachTarot(merged),
+    // LLM mode: show the house card the LLM wrote against (coherent name + prose
+    // + deeper). If the backend sent no house spread, fall back to install-scoped.
+    predictions: attachTarot(merged, houseSpreadByCategory || spreadByCategory),
     heroImage: effectiveHeroImage,
     backupHero,
     heroPool: cachedHeroPool,

@@ -82,6 +82,12 @@ export default function HomeScreen() {
   const adInFlightRef = useRef(false);
   const lastFocusRefreshAt = useRef(0);
   const hasFocusedOnce = useRef(false);
+  // Drives scroll-parallax depth: stars + Today's-Sky backdrop drift behind the
+  // content as you scroll. Native-driver only.
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const onScroll = useRef(
+    Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })
+  ).current;
 
   // Cinematic mount: the sky + intro breathe in before the cards deal.
   const introAnim = useRef(new Animated.Value(0)).current;
@@ -288,7 +294,7 @@ export default function HomeScreen() {
   return (
     <ScreenShell>
       <StatusBar style="light" translucent backgroundColor="transparent" />
-      <StarsBackground />
+      <StarsBackground scrollY={scrollY} />
       <Embers count={14} />
 
       <LinearGradient
@@ -306,10 +312,12 @@ export default function HomeScreen() {
         <Text style={styles.settingsIcon}>⚙</Text>
       </TouchableOpacity>
 
-      <ScrollView
+      <Animated.ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={onScroll}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -332,7 +340,7 @@ export default function HomeScreen() {
             <Text style={styles.spreadSub}>{spreadSubtitle}</Text>
           </View>
 
-          <TodaysSky vibe={vibe} moment={moment} watchFor={watchFor} backdrop={backdrop} />
+          <TodaysSky vibe={vibe} moment={moment} watchFor={watchFor} backdrop={backdrop} scrollParallax={scrollY} />
         </Animated.View>
 
         <SafeBannerAd hidden={hideBannerAd} />
@@ -455,7 +463,7 @@ export default function HomeScreen() {
         )}
 
         <View style={styles.bottomSpace} />
-      </ScrollView>
+      </Animated.ScrollView>
 
       <CardModal
         visible={!!openCard}

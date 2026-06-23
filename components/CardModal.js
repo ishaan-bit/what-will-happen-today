@@ -33,6 +33,7 @@ import { tap, unlock as unlockHaptic } from '@/utils/haptics';
 import { track, Events } from '@/services/analyticsService';
 import { HeroMedia } from '@/components/HeroMedia';
 import { Embers } from '@/components/Embers';
+import { fxOn, fxCount } from '@/utils/deviceTier';
 
 const SCREEN_W = Dimensions.get('window').width;
 const SCREEN_H = Dimensions.get('window').height;
@@ -79,8 +80,10 @@ export function CardModal({ visible, card, onClose, deeperEnabled = true }) {
   const reveal = useRef(new Animated.Value(0)).current;  // staggered content in
   const sweep = useRef(new Animated.Value(0)).current;   // one-shot gilt light sweep
   const kb = useRef(new Animated.Value(0)).current;      // slow Ken Burns loop
+  const glyphSpin = useRef(new Animated.Value(0)).current; // sigil watermark spin
   const atTopRef = useRef(true);
   const kbLoopRef = useRef(null);
+  const glyphLoopRef = useRef(null);
 
   useEffect(() => {
     if (visible) {
@@ -102,12 +105,19 @@ export function CardModal({ visible, card, onClose, deeperEnabled = true }) {
         ])
       );
       kbLoopRef.current.start();
-      return () => kbLoopRef.current?.stop?.();
+
+      glyphSpin.setValue(0);
+      glyphLoopRef.current = Animated.loop(
+        Animated.timing(glyphSpin, { toValue: 1, duration: 64000, easing: Easing.linear, useNativeDriver: true })
+      );
+      if (fxOn()) glyphLoopRef.current.start();
+      return () => { kbLoopRef.current?.stop?.(); glyphLoopRef.current?.stop?.(); };
     }
     anim.setValue(0);
     kbLoopRef.current?.stop?.();
+    glyphLoopRef.current?.stop?.();
     return undefined;
-  }, [visible, anim, drag, scrollY, reveal, sweep, kb]);
+  }, [visible, anim, drag, scrollY, reveal, sweep, kb, glyphSpin]);
 
   const close = () => {
     tap();
@@ -179,6 +189,7 @@ export function CardModal({ visible, card, onClose, deeperEnabled = true }) {
   const scrimDeepen = scrollY.interpolate({ inputRange: [0, MEDIA_H * 0.7], outputRange: [0, 0.5], extrapolate: 'clamp' });
   const sweepX = sweep.interpolate({ inputRange: [0, 1], outputRange: [-SCREEN_W * 1.2, SCREEN_W * 1.2] });
   const plateRise = reveal.interpolate({ inputRange: [0, 0.6], outputRange: [18, 0], extrapolate: 'clamp' });
+  const glyphRotate = glyphSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   return (
     <Modal transparent visible={visible} animationType="fade" statusBarTranslucent onRequestClose={close}>
@@ -214,7 +225,7 @@ export function CardModal({ visible, card, onClose, deeperEnabled = true }) {
             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: '#06050a', opacity: scrimDeepen }]} />
 
             {/* embers rising over the card art */}
-            <Embers count={9} width={SCREEN_W} height={MEDIA_H} seed={3} />
+            <Embers count={fxCount(9)} width={SCREEN_W} height={MEDIA_H} seed={3} />
 
             {/* one-shot gilt light sweep on open */}
             <Animated.View pointerEvents="none" style={[styles.sweep, { transform: [{ translateX: sweepX }, { rotate: '18deg' }] }]}>
@@ -248,6 +259,15 @@ export function CardModal({ visible, card, onClose, deeperEnabled = true }) {
 
           {/* ── Reading (rises over the media) ────────────────── */}
           <View style={styles.bodyWrap}>
+            {/* slow-turning sigil watermark behind the reading */}
+            {fxOn() ? (
+              <Animated.Text
+                pointerEvents="none"
+                style={[styles.watermark, { color: meta.color, transform: [{ rotate: glyphRotate }] }]}
+              >
+                {sigil.glyph}
+              </Animated.Text>
+            ) : null}
             <View style={styles.bodyHandle} />
 
             <Section reveal={reveal} index={0}>
@@ -257,11 +277,21 @@ export function CardModal({ visible, card, onClose, deeperEnabled = true }) {
 
             {keywords.length ? (
               <Section reveal={reveal} index={1} style={styles.keywordRow}>
-                {keywords.slice(0, 4).map((k) => (
-                  <View key={k} style={[styles.keywordChip, { borderColor: `${meta.color}55` }]}>
-                    <Text style={[styles.keywordText, { color: meta.color }]}>{k}</Text>
-                  </View>
-                ))}
+                {keywords.slice(0, 4).map((k, i) => {
+                  const t = reveal.interpolate({
+                    inputRange: [Math.min(0.18 + i * 0.08, 0.7), Math.min(0.46 + i * 0.08, 1)],
+                    outputRange: [0, 1],
+                    extrapolate: 'clamp',
+                  });
+                  return (
+                    <Animated.View
+                      key={k}
+                      style={[styles.keywordChip, { borderColor: `${meta.color}55`, opacity: t, transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [0.78, 1] }) }] }]}
+                    >
+                      <Text style={[styles.keywordText, { color: meta.color }]}>{k}</Text>
+                    </Animated.View>
+                  );
+                })}
               </Section>
             ) : null}
 
@@ -375,6 +405,7 @@ const styles = StyleSheet.create({
     minHeight: SCREEN_H * 0.6,
   },
   bodyHandle: { alignSelf: 'center', width: 40, height: 3, borderRadius: 999, backgroundColor: palette.giltSoft, marginBottom: spacing.md },
+  watermark: { position: 'absolute', top: 36, left: 0, right: 0, textAlign: 'center', fontSize: 240, opacity: 0.05, fontWeight: '300' },
   meaning: { ...type.body, fontStyle: 'italic', marginBottom: spacing.sm, lineHeight: 21 },
   teaser: { ...type.serifBody, color: palette.text, fontSize: 19, lineHeight: 29, marginBottom: spacing.md },
   keywordRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: spacing.md },

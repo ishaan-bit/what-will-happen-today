@@ -18,7 +18,7 @@ function rand(seed) {
   return x - Math.floor(x);
 }
 
-export function StarsBackground() {
+export function StarsBackground({ scrollY }) {
   const stars = useMemo(() => {
     const list = [];
     for (let i = 0; i < STAR_COUNT; i++) {
@@ -75,8 +75,13 @@ export function StarsBackground() {
   }, [twinkle, drift, shootA, shootB]);
 
   const twinkleOpacity = twinkle.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] });
-  const orbAY = drift.interpolate({ inputRange: [0, 1], outputRange: [-18, 18] });
-  const orbBY = drift.interpolate({ inputRange: [0, 1], outputRange: [16, -16] });
+  // Nebula orbs drift on their own loop AND parallax with the page scroll (they
+  // are large + soft, so translating them never exposes a hard edge). Stars stay
+  // fixed so no empty band appears at the bottom of the field.
+  const scrollAY = scrollY ? scrollY.interpolate({ inputRange: [0, 600], outputRange: [0, -60], extrapolate: 'clamp' }) : 0;
+  const scrollBY = scrollY ? scrollY.interpolate({ inputRange: [0, 600], outputRange: [0, -28], extrapolate: 'clamp' }) : 0;
+  const orbAY = Animated.add(drift.interpolate({ inputRange: [0, 1], outputRange: [-18, 18] }), scrollAY);
+  const orbBY = Animated.add(drift.interpolate({ inputRange: [0, 1], outputRange: [16, -16] }), scrollBY);
 
   const shootStyle = (val) => ({
     opacity: val.interpolate({ inputRange: [0, 0.08, 0.7, 1], outputRange: [0, 0.9, 0.9, 0] }),

@@ -9,6 +9,8 @@
     "build:aab": "eas build -p android --profile production",
     "build:preview": "eas build -p android --profile preview",
     "test:hero-shuffle": "node tests/heroShufflePreflight.test.mjs",
+    "test:pricing": "node tests/pricing.test.mjs",
+    "test": "node tests/heroShufflePreflight.test.mjs && node tests/pricing.test.mjs",
     "postinstall": "patch-package"
   },
   "dependencies": {

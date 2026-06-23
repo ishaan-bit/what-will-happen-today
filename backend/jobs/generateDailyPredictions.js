@@ -16,6 +16,7 @@
  */
 
 import { Redis } from '@upstash/redis';
+import { drawHouseSpread, cardContext } from '@/lib/tarot';
 
 const OLLAMA_API_URL = process.env.OLLAMA_API_URL || 'http://localhost:11434/v1';
 const OLLAMA_MODEL   = process.env.OLLAMA_MODEL   || 'phi3';
@@ -32,15 +33,26 @@ function getRedis() {
 const CATEGORIES = ['love', 'career', 'money', 'mood'];
 const CONCURRENCY = 1; // sequential — Ollama is single-threaded on local GPU
 
-// Default tarot reader voice. Overridable live from the ops console via the
-// Redis key `wwht:tarotPrompt` (same key the local worker reads).
-const DEFAULT_SYSTEM_PROMPT = `You are a tarot reader giving a daily reading inside a mobile app called "What Will Happen Today".
-You draw one card per life area and speak its message as something that WILL happen today.
-Voice: a real reader at the table, intimate and certain, a little unsettling, screenshot-worthy. Not horoscope fluff, not therapy-speak, not motivation.
-Cadence: name what you see, then what it means, then what to do about it when it lands.
-Framing: events that WILL happen. Use "you will...", "someone will...", "you'll notice...". Never "may", "might", "could", "tends to".
-Never mention stars, planets, Mercury, zodiac signs, or deck mechanics in the body, speak as if the card already told you.
-Avoid cliches like "the universe", "energy", "vibrations". Keep it human, specific, and a little too accurate.`;
+// Default tarot reader voice — CARD-AWARE (the job draws the day's house spread
+// and passes the drawn card into the prompt). Overridable live from the ops
+// console via the Redis key `wwht:tarotPrompt` (same key the local worker reads).
+// Keep in sync with local-worker/generate.js + pages/api/ops/tarot-prompt.js.
+const DEFAULT_SYSTEM_PROMPT = `You are the tarot reader inside the app "What Will Happen Today". A card has ALREADY been drawn for one life area. Read THAT exact card faithfully; never invent or substitute another.
+
+You are given the card name, orientation, suit, element, canonical keywords, canonical meaning, and area (love/career/money/mood). Speak its message as an event that WILL happen today. You already know what happens; you are telling, not guessing.
+
+Faithfulness:
+- Stay true to the given card, its keywords/meaning, and its area.
+- UPRIGHT = the event arrives, lands, or is offered (outward; keep the lift).
+- REVERSED = the SAME card blocked, withheld, internal, late, or about to break (inward; keep the sting). Never the opposite or bad luck.
+- Suit texture: Cups=feeling/bonds, Pentacles=money/work, Swords=words/truth/decisions, Wands=drive/momentum, Major=a larger turn.
+
+Voice: intimate, certain, a little unsettling, warm but unflinching; the discomfort is accuracy, not cruelty. Short declaratives; one clean image beats three adjectives. Second person, present/near-future. Open predictions with You will / You'll / You'll notice / Someone will / A [thing] will, and state them as facts.
+
+Never hedge: may, might, could, tends to, perhaps. No mysticism: the universe, energy, vibrations, manifest, aura, planets, Mercury, zodiac, sign, cosmos, stars. No deck mechanics: card, spread, reversed, upright, drawn, deck, shuffle. Never print the card name. No emojis, hashtags, exclamation marks, em/en dashes, or the app name.
+
+Return ONLY valid JSON, no markdown/fences, exactly these keys, nothing else:
+{"id":"<keep the id given>","teaser":"<predicted event; opens You will/Someone will/A [noun] will; <=16 words>","full":"<2-3 short \\n-separated thought-lines; concrete>","punch":"<one sharp uncomfortable true line; <=14 words>","action":"<imperative for the moment it lands; <=18 words>","timing":"<a felt moment, not a clock; <=12 words>","shareSnippet":"<self-contained retelling of teaser; no app name; <=18 words>"}`;
 
 const TAROT_PROMPT_KEY = 'wwht:tarotPrompt';
 
@@ -96,20 +108,13 @@ async function ollamaChat({ messages, temperature = 0.85, maxTokens = 300 }) {
   }
 }
 
-async function generateForCategory(category, dateKey, systemPrompt = DEFAULT_SYSTEM_PROMPT) {
-  const prompt = `Draw and read today's card for the "${category}" area of life (${CATEGORY_CONTEXT[category]}).
-Speak the card's message as the reader. Date context: ${dateKey}
+async function generateForCategory(category, dateKey, systemPrompt = DEFAULT_SYSTEM_PROMPT, cardCtx = null) {
+  const id = `${category.charAt(0).toUpperCase()}_llm_${dateKey}`;
+  const cardLine = cardCtx ? `${cardCtx.line}\n` : '';
+  const prompt = `Area: "${category}" (${CATEGORY_CONTEXT[category]}).
+${cardLine}Read THIS card for this area as an event that WILL happen today. Date context: ${dateKey}.
 
-Return ONLY valid JSON (no markdown, no code fences) with this exact shape:
-{
-  "id": "${category.charAt(0).toUpperCase()}_llm_${dateKey}",
-  "teaser": "<predictive headline. Start with 'You will' or 'Someone will' or 'You'll notice'. Max 16 words. Present/future tense.>",
-  "full": "<2-3 short thought-like lines (use \\n between lines). Internal, real, specific. NOT essay tone.>",
-  "punch": "<one emotionally sharp screenshot-worthy line. Slightly uncomfortable truth. Max 14 words.>",
-  "action": "<sharp instruction for when it happens. Direct, not advisory. Max 18 words.>",
-  "timing": "<experiential time anchor. e.g. 'You'll feel this shift later tonight.' Max 12 words.>",
-  "shareSnippet": "<one-line shareable version of the teaser, no app name. Max 18 words.>"
-}`;
+Use exactly this id: "${id}". Return ONLY the JSON object described in your instructions (keys: id, teaser, full, punch, action, timing, shareSnippet). Do not name the card or mention its orientation in the text.`;
 
   const content = await ollamaChat({
     messages: [
@@ -134,10 +139,15 @@ async function runBatch(dateKey, systemPrompt) {
   const results = {};
   const errors = {};
 
+  // Deterministic per-day house spread — the model reads these exact cards so
+  // each reading is faithful to a real draw. Rotates daily (date-seeded).
+  const spread = drawHouseSpread(dateKey);
+  console.log(`[LLM] House spread: ${CATEGORIES.map((c) => `${c}=${spread[c].card.name}${spread[c].orientation === 'reversed' ? '(R)' : ''}`).join(', ')}`);
+
   // Sequential — Ollama runs locally, no point parallelising
   for (const cat of CATEGORIES) {
     try {
-      results[cat] = await generateForCategory(cat, dateKey, systemPrompt);
+      results[cat] = await generateForCategory(cat, dateKey, systemPrompt, cardContext(spread[cat]));
       console.log(`[LLM] Generated ${cat}: "${results[cat].teaser}"`);
     } catch (err) {
       console.error(`[LLM] Failed ${cat}:`, err.message);
